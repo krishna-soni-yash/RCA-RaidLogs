@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "root-cause-analysis-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/rootCauseAnalysis/RootCauseAnalysisWebPart.js",
+          "manifest": "./src/webparts/rootCauseAnalysis/RootCauseAnalysisWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "RootCauseAnalysisWebPartStrings": "lib/webparts/rootCauseAnalysis/loc/{locale}.js"
+  }
+}
