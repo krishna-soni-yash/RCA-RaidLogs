@@ -1,0 +1,138 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.raidLogs {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin: 20px 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e0e0e0;
+
+  h1 {
+    font-size: 24px;
+    color: #333;
+    margin: 0;
+  }
+}
+
+.addButton {
+  background: #0078d4;
+  border: none;
+  
+  &:hover {
+    background: #106ebe;
+  }
+}
+
+.tabs {
+  margin-bottom: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.pivot {
+  :global(.ms-Pivot-link) {
+    color: #666;
+    font-size: 14px;
+    
+    &:hover {
+      color: #0078d4;
+    }
+    
+    &.is-selected {
+      color: #0078d4;
+      border-bottom-color: #0078d4;
+      font-weight: 500;
+    }
+  }
+}
+
+// Type Selection Modal Styles
+.modalContainer {
+  :global(.ms-Modal) {
+    background: rgba(0,0,0,0.5);
+  }
+}
+
+.modalContent {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h2 {
+    font-size: 18px;
+    color: #333;
+    margin: 0;
+  }
+}
+
+.closeButton {
+  color: #666;
+  
+  &:hover {
+    color: #333;
+    background: #f3f2f1;
+  }
+}
+
+.modalBody {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.typeSelector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.typeCard {
+  padding: 20px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+
+  &:hover {
+    border-color: #0078d4;
+    background: #f0f8ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,120,212,0.15);
+  }
+
+  h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #333;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+  }
+}

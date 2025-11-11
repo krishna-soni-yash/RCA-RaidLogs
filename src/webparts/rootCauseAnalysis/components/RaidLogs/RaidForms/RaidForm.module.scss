@@ -1,0 +1,226 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.modalContainer {
+  :global(.ms-Modal) {
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+}
+
+.modalContent {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  width: 100%;
+  max-width: 600px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.modalHeader {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+
+  h2 {
+    font-size: 18px;
+    color: #333;
+    margin: 0;
+  }
+}
+
+.closeButton {
+  color: #666;
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #333;
+    background: #f3f2f1;
+  }
+}
+
+.modalBody {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+
+  > div > * {
+    margin-bottom: 16px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.modalFooter {
+  padding: 15px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.calculatedField {
+  margin-bottom: 16px;
+
+  > span {
+    display: block;
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+    margin-bottom: 5px;
+  }
+}
+
+.calculatedValue {
+  background: #e9ecef;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+  border: 1px solid #ced4da;
+}
+
+.actionsSection {
+  margin-bottom: 16px;
+
+  > span {
+    display: block;
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+}
+
+.actionsContainer {
+  margin-bottom: 15px;
+}
+
+.actionRow {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #f8f9fa;
+
+  > * {
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.actionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+
+  > span {
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+.removeActionButton {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #c82333;
+  }
+}
+
+.addActionButton {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #218838;
+  }
+}
+
+.actionTypeSelection {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.actionTabs {
+  margin-top: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: white;
+
+  :global(.ms-Pivot) {
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  :global(.ms-Pivot-link) {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  :global(.ms-Pivot-link:hover) {
+    background-color: #f3f2f1;
+  }
+
+  :global(.ms-Pivot-link.is-selected) {
+    color: #0078d4;
+    border-bottom-color: #0078d4;
+  }
+}
+
+.actionTabContent {
+  padding: 16px;
+  background: #fefefe;
+}
+
+// Form field styling
+:global(.ms-TextField-field) {
+  font-size: 14px;
+  font-family: inherit;
+}
+
+:global(.ms-TextField-field:focus) {
+  border-color: #0078d4;
+}
+
+:global(.ms-Dropdown-container) {
+  font-size: 14px;
+}
+
+:global(.ms-DatePicker) {
+  font-size: 14px;
+}

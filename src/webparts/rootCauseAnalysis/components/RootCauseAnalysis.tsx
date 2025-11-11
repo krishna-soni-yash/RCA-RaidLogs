@@ -4,8 +4,24 @@ import type { IRootCauseAnalysisProps } from './IRootCauseAnalysisProps';
 //import { escape } from '@microsoft/sp-lodash-subset';
 import RCATable from './RootCauseAnalysisTables/RCATable';
 import Header from './Header/Header';
+import RaidLogs from './RaidLogs/RaidLogs';
 
-export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysisProps> {
+export interface IRootCauseAnalysisState {
+  activeTab: string;
+}
+
+export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysisProps, IRootCauseAnalysisState> {
+  constructor(props: IRootCauseAnalysisProps) {
+    super(props);
+    this.state = {
+      activeTab: 'rootCauseAnalysis'
+    };
+  }
+
+  private handleTabChange = (tabKey: string): void => {
+    this.setState({ activeTab: tabKey });
+  };
+
   public render(): React.ReactElement<IRootCauseAnalysisProps> {
     const {
      // description,
@@ -57,10 +73,24 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
       }
     ];
 
+    const renderContent = (): React.ReactElement => {
+      switch (this.state.activeTab) {
+        case 'rootCauseAnalysis':
+          return <RCATable items={items} />;
+        case 'raidLogs':
+          return <RaidLogs context={this.props.context} />;
+        default:
+          return <RCATable items={items} />;
+      }
+    };
+
     return (
       <section className={`${styles.rootCauseAnalysis} ${hasTeamsContext ? styles.teams : ''}`}>
-        <Header />
-        <RCATable items={items} />
+        <Header 
+          activeTab={this.state.activeTab}
+          onTabChange={this.handleTabChange}
+        />
+        {renderContent()}
       </section>
     );
   }

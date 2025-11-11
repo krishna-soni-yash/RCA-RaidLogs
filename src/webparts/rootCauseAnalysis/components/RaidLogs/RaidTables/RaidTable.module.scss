@@ -1,0 +1,99 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: white;
+}
+
+.detailsList {
+  :global(.ms-DetailsHeader) {
+    background: #f8f9fa;
+  }
+
+  :global(.ms-DetailsHeader-cell) {
+    font-weight: 600;
+    color: #333;
+    padding: 12px;
+    border-right: 1px solid #e0e0e0;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  :global(.ms-DetailsRow) {
+    &:hover {
+      background: #f8f9fa;
+    }
+  }
+
+  :global(.ms-DetailsRow-cell) {
+    padding: 12px;
+    border-right: 1px solid #e0e0e0;
+    font-size: 14px;
+    color: #333;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  :global(.ms-DetailsRow-cellMeasurer) {
+    border-bottom: 1px solid #e0e0e0;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.actionButton {
+  color: #666;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #0078d4;
+    background: #f3f2f1;
+  }
+
+  &.deleteButton:hover {
+    color: #dc3545;
+    background: #fdf2f3;
+  }
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.emptyStateContent {
+  text-align: center;
+  color: #999;
+}
+
+.emptyStateTitle {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #666;
+}
+
+.emptyStateSubtext {
+  font-size: 14px;
+  margin: 0;
+}
