@@ -7,7 +7,7 @@ import { sp } from '@pnp/sp/presets/all';
 export interface ISharePointListItem {
   Id?: number;
   Title?: string;
-  [key: string]: any; // Allow any additional properties
+  [key: string]: any;
 }
 
 /**
@@ -37,7 +37,7 @@ export interface ISharePointServiceResponse<T = any> {
  */
 export interface IListInfo {
   listName: string;
-  siteUrl?: string; // Optional, defaults to current site
+  siteUrl?: string;
 }
 
 /**
@@ -55,24 +55,17 @@ export interface IBatchOperation {
  * Provides CRUD operations for any SharePoint list
  */
 export class SharePointService {
-  // Context is used for PnP SP initialization
   private context: WebPartContext;
 
   constructor(context: WebPartContext) {
     this.context = context;
     
-    // Initialize PnP SP with the context
     sp.setup({
       spfxContext: this.context as any
     });
   }
 
-  /**
-   * Get PnP list reference
-   */
   private getList(listInfo: IListInfo) {
-    // For now, only support current site lists
-    // TODO: Add cross-site support when needed
     return sp.web.lists.getByTitle(listInfo.listName);
   }
 
@@ -106,7 +99,6 @@ export class SharePointService {
     item: Omit<T, 'Id'>
   ): Promise<ISharePointServiceResponse<T>> {
     return await this.handlePnPResponse(async () => {
-      // Log the item data for debugging
       console.log('Creating SharePoint item with data:', JSON.stringify(item, null, 2));
       
       const list = this.getList(listInfo);
@@ -134,7 +126,6 @@ export class SharePointService {
           query = query.filter(options.filter);
         }
         if (options.orderBy) {
-          // Parse orderBy to handle both "Field" and "Field desc" formats
           const orderParts = options.orderBy.split(' ');
           const fieldName = orderParts[0];
           const isDescending = orderParts.length > 1 && orderParts[1].toLowerCase() === 'desc';
@@ -188,7 +179,6 @@ export class SharePointService {
     return await this.handlePnPResponse(async () => {
       const list = this.getList(listInfo);
       await list.items.getById(itemId).update(updates);
-      // Return the updated item by fetching it again
       const updatedItem = await list.items.getById(itemId)();
       return updatedItem as T;
     });
@@ -244,15 +234,10 @@ export class SharePointService {
     operations: IBatchOperation[]
   ): Promise<ISharePointServiceResponse<any[]>> {
     return await this.handlePnPResponse(async () => {
-      // PnP JS handles batching internally for optimal performance
-      // For now, execute operations sequentially
-      // TODO: Implement proper PnP batch when complex batching is needed
       const results: any[] = [];
       
       for (const operation of operations) {
         try {
-          // This is a simplified implementation
-          // In a real scenario, you'd parse the operation and call appropriate methods
           console.warn('Batch operation executed sequentially:', operation);
           results.push({ success: true, operation });
         } catch (error) {

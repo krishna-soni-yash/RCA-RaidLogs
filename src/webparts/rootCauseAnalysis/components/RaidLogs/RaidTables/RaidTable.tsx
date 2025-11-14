@@ -8,7 +8,7 @@ export interface IRaidTableProps {
   items: IExtendedRaidItem[];
   currentTab: RaidType | 'all';
   onEdit: (item: IExtendedRaidItem) => void;
-  onDelete: (id: number) => Promise<void>;
+  onDelete: (item: IExtendedRaidItem) => Promise<void>;
 }
 
 const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDelete }) => {
@@ -25,12 +25,10 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
   const formatUserArray = (users: IPersonPickerUser[] | string | undefined): string => {
     if (!users) return '-';
     
-    // Handle backward compatibility with string values
     if (typeof users === 'string') {
       return users;
     }
     
-    // Handle array of users
     if (Array.isArray(users) && users.length > 0) {
       return users.map(user => user.displayName).join(', ');
     }
@@ -97,14 +95,14 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
               <IconButton
                 iconProps={{ iconName: 'Delete' }}
                 title="Delete"
-                onClick={async () => await onDelete(item.id)}
+                onClick={async () => await onDelete(item)}
                 className={`${styles.actionButton} ${styles.deleteButton}`}
               />
             </div>
           )
         }
       ];
-    } else if (currentTab === 'Issue' || currentTab === 'Assumption' || currentTab === 'Dependency') {
+    } else if (currentTab === 'Issue' || currentTab === 'Assumption' || currentTab === 'Dependency' || currentTab === 'Constraints') {
       return [
         {
           key: 'details',
@@ -186,7 +184,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
               <IconButton
                 iconProps={{ iconName: 'Delete' }}
                 title="Delete"
-                onClick={() => onDelete(item.id)}
+                onClick={() => onDelete(item)}
                 className={`${styles.actionButton} ${styles.deleteButton}`}
               />
             </div>
@@ -257,7 +255,22 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'potentialCost',
           minWidth: 100,
           maxWidth: 120,
-          onRender: (item: IRaidItem) => item.potentialCost?.toString() || '-'
+          onRender: (item: IRaidItem) => {
+            if (!item.potentialCost) return '-';
+            const costLabels: { [key: number]: string } = {
+              1: '1 - No Cost',
+              2: '2 - Very Low Cost',
+              3: '3 - Low Cost',
+              4: '4 - Medium Cost',
+              5: '5 - Moderate Cost',
+              6: '6 - Medium Cost',
+              7: '7 - High Cost',
+              8: '8 - Above High Cost',
+              9: '9 - Very High Cost',
+              10: '10 - Extreme High Cost'
+            };
+            return costLabels[item.potentialCost] || item.potentialCost.toString();
+          }
         },
         {
           key: 'potentialBenefit',
@@ -265,7 +278,22 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'potentialBenefit',
           minWidth: 120,
           maxWidth: 140,
-          onRender: (item: IRaidItem) => item.potentialBenefit?.toString() || '-'
+          onRender: (item: IRaidItem) => {
+            if (!item.potentialBenefit) return '-';
+            const benefitLabels: { [key: number]: string } = {
+              1: '1 - No Benefits',
+              2: '2 - Low Benefits',
+              3: '3 - Moderate Benefits',
+              4: '4 - Medium Benefits',
+              5: '5 - Above Moderate Benefits',
+              6: '6 - Moderate Benefits',
+              7: '7 - Medium Benefits',
+              8: '8 - Above High Benefits',
+              9: '9 - High Benefits',
+              10: '10 - Significant Benefits'
+            };
+            return benefitLabels[item.potentialBenefit] || item.potentialBenefit.toString();
+          }
         },
         {
           key: 'opportunityValue',
@@ -274,14 +302,6 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           minWidth: 120,
           maxWidth: 140,
           onRender: (item: IRaidItem) => item.opportunityValue?.toString() || '-'
-        },
-        {
-          key: 'typeOfAction',
-          name: 'Type of Action',
-          fieldName: 'typeOfAction',
-          minWidth: 120,
-          maxWidth: 150,
-          onRender: (item: IRaidItem) => item.typeOfAction || '-'
         },
         {
           key: 'responsibility',
@@ -331,7 +351,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
               <IconButton
                 iconProps={{ iconName: 'Delete' }}
                 title="Delete"
-                onClick={() => onDelete(item.id)}
+                onClick={() => onDelete(item)}
                 className={`${styles.actionButton} ${styles.deleteButton}`}
               />
             </div>
@@ -421,14 +441,6 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           onRender: (item: IRaidItem) => item.riskExposure?.toString() || '-'
         },
         {
-          key: 'actionsCount',
-          name: 'Actions Count',
-          fieldName: 'actionsCount',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IRaidItem) => item.actions ? item.actions.length.toString() : '0'
-        },
-        {
           key: 'status',
           name: 'Status',
           fieldName: 'status',
@@ -457,7 +469,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
               <IconButton
                 iconProps={{ iconName: 'Delete' }}
                 title="Delete"
-                onClick={() => onDelete(item.id)}
+                onClick={() => onDelete(item)}
                 className={`${styles.actionButton} ${styles.deleteButton}`}
               />
             </div>

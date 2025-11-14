@@ -14,7 +14,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
   constructor(props: IRootCauseAnalysisProps) {
     super(props);
     this.state = {
-      activeTab: 'rootCauseAnalysis'
+      activeTab: 'raidLogs'
     };
   }
 

@@ -59,6 +59,23 @@
   :global(.ms-Modal) {
     background: rgba(0,0,0,0.5);
   }
+
+  :global {
+    .ms-Modal-scrollableContent {
+      width: 600px !important;
+      max-width: 95vw !important;
+
+      :global(div[class*="scrollableContent-"]) {
+        width: 600px !important;
+        max-width: 95vw !important;
+      }
+    }
+
+    .ms-Dialog-main {
+      width: 600px !important;
+      max-width: 95vw !important;
+    }
+  }
 }
 
 .modalContent {
@@ -76,7 +93,7 @@
   padding: 20px;
   border-bottom: 1px solid #e0e0e0;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
 
   h2 {
