@@ -1,9 +1,4 @@
 /**
- * Application Constants
- * Contains all constant values used across the application
- */
-
-/**
  * SharePoint List Names
  */
 export const LIST_NAMES = {
@@ -50,9 +45,6 @@ export const RAID_PRIORITY = {
 export const ACTION_TYPES = {
   MITIGATION: 'Mitigation',
   CONTINGENCY: 'Contingency',
-  ACCEPTANCE: 'Acceptance',
-  TRANSFER: 'Transfer',
-  AVOIDANCE: 'Avoidance'
 } as const;
 
 /**

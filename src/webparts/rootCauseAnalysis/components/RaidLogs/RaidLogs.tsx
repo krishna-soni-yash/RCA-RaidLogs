@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner, MessageBar, MessageBarType } from '@fluentui/react';
+import { PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner } from '@fluentui/react';
 import styles from './RaidLogs.module.scss';
 import { IRaidLogsProps, IRaidItem, RaidType } from './IRaidItem';
 import RaidTable from './RaidTables';
@@ -7,6 +7,7 @@ import RaidForm from './RaidForms';
 import { RaidServiceFactory } from '../../services/RaidListService';
 import { IExtendedRaidItem } from '../../interfaces/IRaidService';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../constants/Constants';
+import { MessageModal, MessageType } from '../Common';
 
 const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [items, setItems] = React.useState<IExtendedRaidItem[]>([]);
@@ -18,41 +19,37 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [selectedType, setSelectedType] = React.useState<RaidType | null>(null);
   const [loading, setLoading] = React.useState<boolean>(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState<string | null>(null);
+  
+  // Message modal state
+  const [showMessageModal, setShowMessageModal] = React.useState<boolean>(false);
+  const [messageText, setMessageText] = React.useState<string>('');
+  const [messageType, setMessageType] = React.useState<MessageType>('info');
   
   const raidService = React.useMemo(() => RaidServiceFactory.getInstance(context), [context]);
 
-  React.useEffect(() => {
-    let timeoutId: number;
-    if (success) {
-      timeoutId = window.setTimeout(() => setSuccess(null), 5000);
-    }
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [success]);
+  const showMessage = (message: string, type: MessageType): void => {
+    setMessageText(message);
+    setMessageType(type);
+    setShowMessageModal(true);
+  };
 
-  React.useEffect(() => {
-    let timeoutId: number;
-    if (error) {
-      timeoutId = window.setTimeout(() => setError(null), 10000);
-    }
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [error]);
+  const handleDismissMessage = (): void => {
+    setShowMessageModal(false);
+  };
+
+  const handleValidationError = (message: string): void => {
+    showMessage(message, 'warning');
+  };
 
   const loadRaidItems = React.useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      setError(null);
       
       const allItems = await raidService.getAllRaidItems();
       setItems(allItems);
     } catch (err) {
       console.error('Error loading RAID items:', err);
-      setError(ERROR_MESSAGES.NETWORK_ERROR);
+      showMessage(ERROR_MESSAGES.NETWORK_ERROR, 'error');
     } finally {
       setLoading(false);
     }
@@ -187,7 +184,7 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
         setLoading(false);
       } catch (err) {
         console.error('Error loading Risk item for edit:', err);
-        setError('Failed to load Risk item for editing');
+        showMessage('Failed to load Risk item for editing', 'error');
         setLoading(false);
       }
     } else {
@@ -202,7 +199,6 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
     if (confirm('Are you sure you want to delete this item?')) {
       try {
         setLoading(true);
-        setError(null);
         
         let success = false;
         
@@ -214,14 +210,14 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
         }
         
         if (success) {
-          setSuccess('Item deleted successfully');
+          showMessage('Item deleted successfully', 'success');
           await loadRaidItems();
         } else {
-          setError(ERROR_MESSAGES.DELETE_FAILED);
+          showMessage(ERROR_MESSAGES.DELETE_FAILED, 'error');
         }
       } catch (err) {
         console.error('Error deleting item:', err);
-        setError(ERROR_MESSAGES.DELETE_FAILED);
+        showMessage(ERROR_MESSAGES.DELETE_FAILED, 'error');
       } finally {
         setLoading(false);
       }
@@ -231,7 +227,6 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const saveItem = async (item: IRaidItem): Promise<void> => {
     try {
       setLoading(true);
-      setError(null);
       
       // Special handling for Risk type items
       if (item.type === 'Risk') {
@@ -251,10 +246,10 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
           );
           
           if (success) {
-            setSuccess(SUCCESS_MESSAGES.ITEM_UPDATED);
+            showMessage(SUCCESS_MESSAGES.ITEM_UPDATED, 'success');
             await loadRaidItems();
           } else {
-            setError(ERROR_MESSAGES.UPDATE_FAILED);
+            showMessage(ERROR_MESSAGES.UPDATE_FAILED, 'error');
           }
         } else {
           console.log('Creating new Risk items with RaidID:', item.raidId);
@@ -268,10 +263,10 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
           );
           
           if (createdItems && createdItems.length > 0) {
-            setSuccess(SUCCESS_MESSAGES.ITEM_CREATED);
+            showMessage(SUCCESS_MESSAGES.ITEM_CREATED, 'success');
             await loadRaidItems();
           } else {
-            setError(ERROR_MESSAGES.CREATE_FAILED);
+            showMessage(ERROR_MESSAGES.CREATE_FAILED, 'error');
           }
         }
       } else {
@@ -279,19 +274,19 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
           const updatedItem = await raidService.updateRaidItem(editingId, item);
           
           if (updatedItem) {
-            setSuccess(SUCCESS_MESSAGES.ITEM_UPDATED);
+            showMessage(SUCCESS_MESSAGES.ITEM_UPDATED, 'success');
             await loadRaidItems();
           } else {
-            setError(ERROR_MESSAGES.UPDATE_FAILED);
+            showMessage(ERROR_MESSAGES.UPDATE_FAILED, 'error');
           }
         } else {
           const newItem = await raidService.createRaidItem(item);
           
           if (newItem) {
-            setSuccess(SUCCESS_MESSAGES.ITEM_CREATED);
+            showMessage(SUCCESS_MESSAGES.ITEM_CREATED, 'success');
             await loadRaidItems();
           } else {
-            setError(ERROR_MESSAGES.CREATE_FAILED);
+            showMessage(ERROR_MESSAGES.CREATE_FAILED, 'error');
           }
         }
       }
@@ -299,7 +294,7 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
       closeModal();
     } catch (err) {
       console.error('Error saving item:', err);
-      setError(editingId ? ERROR_MESSAGES.UPDATE_FAILED : ERROR_MESSAGES.CREATE_FAILED);
+      showMessage(editingId ? ERROR_MESSAGES.UPDATE_FAILED : ERROR_MESSAGES.CREATE_FAILED, 'error');
     } finally {
       setLoading(false);
     }
@@ -368,29 +363,13 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
         </div>
       )}
       
-      {/* Success message */}
-      {success && (
-        <MessageBar
-          messageBarType={MessageBarType.success}
-          isMultiline={false}
-          onDismiss={() => setSuccess(null)}
-          dismissButtonAriaLabel="Close"
-        >
-          {success}
-        </MessageBar>
-      )}
-      
-      {/* Error message */}
-      {error && (
-        <MessageBar
-          messageBarType={MessageBarType.error}
-          isMultiline={false}
-          onDismiss={() => setError(null)}
-          dismissButtonAriaLabel="Close"
-        >
-          {error}
-        </MessageBar>
-      )}
+      {/* Message Modal */}
+      <MessageModal
+        isOpen={showMessageModal}
+        message={messageText}
+        type={messageType}
+        onDismiss={handleDismissMessage}
+      />
 
       <div className={styles.tabs}>
         <Pivot
@@ -424,6 +403,7 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
           onSave={saveItem}
           onCancel={closeModal}
           context={context}
+          onValidationError={handleValidationError}
         />
       )}
     </div>

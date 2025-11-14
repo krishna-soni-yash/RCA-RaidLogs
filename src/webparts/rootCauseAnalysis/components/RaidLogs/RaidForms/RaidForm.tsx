@@ -26,9 +26,10 @@ export interface IRaidFormProps {
   onSave: (item: IRaidItem) => Promise<void>;
   onCancel: () => void;
   context: WebPartContext;
+  onValidationError?: (message: string) => void;
 }
 
-const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCancel, context }) => {
+const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCancel, context, onValidationError }) => {
   const [formData, setFormData] = React.useState<Partial<IRaidItem>>(item ? { ...item } : { type });
   const [selectedActionTypes, setSelectedActionTypes] = React.useState<string[]>([]);
   const [mitigationAction, setMitigationAction] = React.useState<IRaidAction | null>(null);
@@ -222,14 +223,18 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     // Validate mandatory fields
     if (type === 'Issue' || type === 'Assumption' || type === 'Dependency' || type === 'Constraints') {
       if (!formData.details || formData.details.trim() === '') {
-        alert('Details field is mandatory. Please fill in the details before saving.');
+        if (onValidationError) {
+          onValidationError('Details field is mandatory. Please fill in the details before saving.');
+        }
         return;
       }
     }
     
     if (type === 'Opportunity' || type === 'Risk') {
       if (!formData.description || formData.description.trim() === '') {
-        alert('Description field is mandatory. Please fill in the description before saving.');
+        if (onValidationError) {
+          onValidationError('Description field is mandatory. Please fill in the description before saving.');
+        }
         return;
       }
     }
@@ -242,7 +247,9 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
 
     if (type === 'Risk') {
       if (selectedActionTypes.length === 0) {
-        alert('Please select at least one Type of Action (Mitigation or Contingency) for Risk items.');
+        if (onValidationError) {
+          onValidationError('Please select at least one Type of Action (Mitigation or Contingency) for Risk items.');
+        }
         return;
       }
 

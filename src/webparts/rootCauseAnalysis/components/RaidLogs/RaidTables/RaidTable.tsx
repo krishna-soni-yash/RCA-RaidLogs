@@ -3,6 +3,7 @@ import { DetailsList, IColumn, SelectionMode, IconButton } from '@fluentui/react
 import styles from './RaidTable.module.scss';
 import { IRaidItem, RaidType, IPersonPickerUser } from '../IRaidItem';
 import { IExtendedRaidItem } from '../../../interfaces/IRaidService';
+import { formatDateShort } from '../../../constants/DateUtils';
 
 export interface IRaidTableProps {
   items: IExtendedRaidItem[];
@@ -59,9 +60,9 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           key: 'date',
           name: 'Date',
           fieldName: 'date',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IExtendedRaidItem) => item.date || item.identificationDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IExtendedRaidItem) => formatDateShort(item.date || item.identificationDate)
         },
         {
           key: 'status',
@@ -116,9 +117,9 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           key: 'date',
           name: 'Date',
           fieldName: 'date',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IExtendedRaidItem) => item.date || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IExtendedRaidItem) => formatDateShort(item.date)
         },
         {
           key: 'byWhom',
@@ -148,17 +149,17 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           key: 'plannedClosureDate',
           name: 'Planned Closure Date',
           fieldName: 'plannedClosureDate',
-          minWidth: 140,
-          maxWidth: 160,
-          onRender: (item: IExtendedRaidItem) => item.plannedClosureDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IExtendedRaidItem) => formatDateShort(item.plannedClosureDate)
         },
         {
           key: 'actualClosureDate',
           name: 'Actual Closure Date',
           fieldName: 'actualClosureDate',
-          minWidth: 140,
-          maxWidth: 160,
-          onRender: (item: IExtendedRaidItem) => item.actualClosureDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IExtendedRaidItem) => formatDateShort(item.actualClosureDate)
         },
         {
           key: 'remarks',
@@ -197,9 +198,9 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           key: 'identificationDate',
           name: 'ID Date',
           fieldName: 'identificationDate',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IRaidItem) => item.identificationDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IRaidItem) => formatDateShort(item.identificationDate)
         },
         {
           key: 'description',
@@ -315,17 +316,17 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           key: 'targetDate',
           name: 'Target Date',
           fieldName: 'targetDate',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IRaidItem) => item.targetDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IRaidItem) => formatDateShort(item.targetDate)
         },
         {
           key: 'actualDate',
           name: 'Actual Date',
           fieldName: 'actualDate',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IRaidItem) => item.actualDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IRaidItem) => formatDateShort(item.actualDate)
         },
         {
           key: 'status',
@@ -364,9 +365,9 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           key: 'identificationDate',
           name: 'ID Date',
           fieldName: 'identificationDate',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IRaidItem) => item.identificationDate || '-'
+          minWidth: 150,
+          maxWidth: 180,
+          onRender: (item: IRaidItem) => formatDateShort(item.identificationDate)
         },
         {
           key: 'description',
