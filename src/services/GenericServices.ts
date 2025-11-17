@@ -73,7 +73,33 @@ export class GenericService implements IGenericService {
     }
     throw lastError;
   };
+  public async ensureuser(context: WebPartContext, loginName: string): Promise<any> {
+    if (!context) throw new Error(ErrorMessages.CONTEXT_REQUIRED_FOR_SITE);
+    if (!loginName) throw new Error('loginName is required for ensureuser');
+    const siteUrl = context.pageContext.web.absoluteUrl;
+    const spInstance =await this.getSpInstanceForSite(siteUrl, context);
 
+    try {
+      // if loginName looks like an email, try siteUsers.getByEmail first (avoids needing claim format)
+      const isEmail = /\S+@\S+\.\S+/.test(loginName);
+      if (isEmail) {
+        try {
+          const userByEmail = await spInstance.web.siteUsers.getByEmail(loginName)();
+          if (userByEmail) return userByEmail;
+        } catch (e) {
+          // not found by email — fall through to ensureUser
+          // (ensureUser can accept email or claim depending on tenant)
+        }
+      }
+
+      // fallback to ensureUser (accepts login name or email in many tenants)
+      const ensured = await spInstance.web.ensureUser(loginName)();
+      return ensured;
+    } catch (err) {
+      console.warn('GenericService.ensureuser: failed to resolve user', loginName, err);
+      throw err;
+    }
+  }
   
 
   public async fetchAllItems<T = any>(options: IFetchOptions): Promise<T[]> {

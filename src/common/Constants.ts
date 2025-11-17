@@ -43,7 +43,7 @@ export const RCACOLUMNS: (IColumnConfig)[] = [
   { key: 'priority', name: 'Priority', fieldName: 'RCAPriority', minWidth: 80, maxWidth: 120, isResizable: true },
   { key: 'relatedMetric', name: 'Related Metric (if any)', fieldName: 'RelatedMetric', minWidth: 140, maxWidth: 250, isResizable: true },
   { key: 'causes', name: 'Cause(s)', fieldName: 'Cause', minWidth: 150, maxWidth: 300, isResizable: true },
-  { key: 'rootCauses', name: 'Root Cause(s)', fieldName: 'c', minWidth: 150, maxWidth: 300, isResizable: true },
+  { key: 'rootCauses', name: 'Root Cause(s)', fieldName: 'RootCause', minWidth: 150, maxWidth: 300, isResizable: true },
   { key: 'analysisTechnique', name: 'Root Cause Analysis Technique Used and Reference (if any)', fieldName: 'RCATechniqueUsedAndReference', minWidth: 180, maxWidth: 350, isResizable: true },
   { key: 'actionType', name: 'Type of Action', fieldName: 'RCATypeOfAction', minWidth: 120, maxWidth: 200, isResizable: true },
   
@@ -68,7 +68,6 @@ export const RCACOLUMNS: (IColumnConfig)[] = [
   { key: 'quantitativeEffectiveness', name: 'Quantitative / Statistical effectiveness', fieldName: 'QuantitativeOrStatisticalEffecti', minWidth: 180, maxWidth: 260, isResizable: true },
   { key: 'remarks', name: 'Remarks', fieldName: 'Remarks', minWidth: 120, maxWidth: 300, isResizable: true }
 ];
-
 export const selectedFields = [
   'Id',
   'LinkTitle',
@@ -109,8 +108,7 @@ export const selectedFields = [
   'QuantitativeOrStatisticalEffecti',
   'Remarks'
 ];
-
-export const expanFields = [
+export const expandFields = [
   'ResponsibilityCorrection',
   'ResponsibilityCorrective',
   'ResponsibilityPreventive'

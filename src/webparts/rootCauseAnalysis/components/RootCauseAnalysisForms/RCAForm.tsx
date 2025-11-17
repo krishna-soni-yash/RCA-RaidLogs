@@ -8,15 +8,20 @@ import {
   DefaultButton,
   PrimaryButton,
   Pivot,
-  PivotItem
+  PivotItem,
+  NormalPeoplePicker,
+  IPersonaProps,
+  IBasePickerSuggestionsProps
 } from '@fluentui/react';
-
+import { saveRCAItem, updateRCAItem } from '../../../../repositories/repositoriesInterface/RCARepository';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 interface RCAFormProps {
   onSubmit?: (data: any) => void;
   initialData?: any;
+  context?: WebPartContext;
 }
 
-export default function RCAForm({ onSubmit, initialData }: RCAFormProps) {
+export default function RCAForm({ onSubmit, initialData,context }: RCAFormProps) {
   const [form, setForm] = useState<any>({
     problemStatement: initialData?.problemStatement || '',
     causeCategory: initialData?.causeCategory || '',
@@ -118,7 +123,35 @@ export default function RCAForm({ onSubmit, initialData }: RCAFormProps) {
     }));
   };
 
-  const onSave = () => {
+  // --- people picker helpers ---
+  const suggestionProps: IBasePickerSuggestionsProps = {
+    suggestionsHeaderText: 'Suggested people',
+    mostRecentlyUsedHeaderText: 'Recent',
+    noResultsFoundText: 'No results found',
+    showRemoveButtons: false
+  };
+
+  // simple resolver - allow freeform entry; set secondaryText when input looks like an email
+  const onResolveSuggestions = (filter: string, _selected?: IPersonaProps[] | undefined): IPersonaProps[] => {
+    if (!filter || filter.trim().length === 0) return [];
+    const trimmed = filter.trim();
+    const isEmail = /\S+@\S+\.\S+/.test(trimmed);
+    return [{
+      key: trimmed,
+      primaryText: trimmed,
+      text: trimmed,
+      secondaryText: isEmail ? trimmed : undefined
+    }];
+  };
+
+  // store responsibility as array of strings (emails or names) so repository can accept string[] or string
+  const handlePeoplePickerChange = (actionKey: string) => (items?: IPersonaProps[] | undefined) => {
+    const values = (items || []).map(p => (p.secondaryText || p.text || p.primaryText)).filter(Boolean);
+    updateActionDetail(actionKey, 'responsibility', values);
+  };
+  // --- end people picker helpers ---
+
+  const onSave = async () => {
     // keep top-level fields in sync with first selected action type for compatibility
     const firstKey = (form.actionType && form.actionType.length) ? form.actionType[0] : undefined;
     const payload = {
@@ -131,8 +164,79 @@ export default function RCAForm({ onSubmit, initialData }: RCAFormProps) {
       payload.plannedClosureDate = actionDetails[firstKey].plannedClosureDate;
       payload.actualClosureDate = actionDetails[firstKey].actualClosureDate;
     }
-    if (onSubmit) onSubmit(payload);
-    else console.log('RCA Form submit', payload);
+    console.log('Prepared payload', payload);
+    //setPayloadState(payload);
+
+    // build item matching IRCAList fields expected by saveRCAItem
+    const formatDate = (d: any) => {
+      if (!d) return undefined;
+      if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString();
+      return d;
+    };
+
+    const item: any = {};
+    // title / problem statement
+    item.LinkTitle = form.problemStatement || '';
+    //item.ProblemStatement = form.problemStatement || '';
+
+    // top-level mappings
+    item.CauseCategory = form.causeCategory || '';
+    item.RCASource = form.source || '';
+    item.RCAPriority = form.priority || '';
+    item.RelatedMetric = form.relatedMetric || '';
+    item.Cause = form.causes || '';
+    item.RootCause = form.rootCauses || '';
+    item.RCATechniqueUsedAndReference = form.analysisTechnique || '';
+    // join action types into a single string similar to existing list storage
+    item.RCATypeOfAction = (form.actionType && form.actionType.length) ? (form.actionType as string[]).join(', ') : '';
+
+    // map per-action-type details to repository fields using suffix mapping
+    Object.keys(actionDetails || {}).forEach((actKey) => {
+      const details = actionDetails[actKey] || {};
+      // determine suffix used in repository field names
+      let suffix = '';
+      if (actKey.toLowerCase().indexOf('correction') !== -1) suffix = 'Correction';
+      else if (actKey.toLowerCase().indexOf('corrective') !== -1) suffix = 'Corrective';
+      else if (actKey.toLowerCase().indexOf('preventive') !== -1) suffix = 'Preventive';
+      else {
+        // fallback: sanitize actKey to use as suffix (remove spaces)
+        suffix = actKey.replace(/\s+/g, '');
+      }
+
+      if (details.actionPlan !== undefined) item[`ActionPlan${suffix}`] = details.actionPlan;
+      if (details.responsibility !== undefined) item[`Responsibility${suffix}`] = details.responsibility;
+      if (details.plannedClosureDate !== undefined) item[`PlannedClosureDate${suffix}`] = formatDate(details.plannedClosureDate);
+      if (details.actualClosureDate !== undefined) item[`ActualClosureDate${suffix}`] = formatDate(details.actualClosureDate);
+    });
+
+    if (form.performanceBefore !== undefined) item.PerformanceBeforeActionPlan = form.performanceBefore;
+    if (form.performanceAfter !== undefined) item.PerformanceAfterActionPlan = form.performanceAfter;
+    if (form.quantitativeEffectiveness !== undefined) item.QuantitativeOrStatisticalEffecti = form.quantitativeEffectiveness;
+    if (form.remarks !== undefined) item.Remarks = form.remarks;
+
+    // determine repository id from initialData when editing
+    const repoId = initialData ? (initialData.__repoId ?? initialData.__id ?? initialData.id ?? initialData.ID) : undefined;
+    const numericRepoId = repoId ? Number(repoId) : undefined;
+
+    // call repository save/update
+    try {
+      if (context) {
+        if (numericRepoId && numericRepoId > 0) {
+          await updateRCAItem(numericRepoId, item, context);
+          console.log('RCA updated', numericRepoId);
+        } else {
+          const result = await saveRCAItem(item, context);
+          console.log('RCA saved', result);
+        }
+      } else {
+        console.warn('No WebPart context provided to save/update RCA item - skipping backend call.');
+      }
+
+      if (onSubmit) onSubmit(payload);
+      else console.log('RCA Form submit', payload);
+    } catch (err) {
+      console.error('Failed to save/update RCA item', err);
+    }
   };
 
   const onReset = () => {
@@ -162,7 +266,7 @@ export default function RCAForm({ onSubmit, initialData }: RCAFormProps) {
     // ensure dropdown is enabled after reset
     setActionTypeDisabled(false);
   };
-
+  
   // when Cause Category is "Special", pre-populate and disable Type of Action
   useEffect(() => {
     if (form.causeCategory === 'Special') {
@@ -273,11 +377,30 @@ export default function RCAForm({ onSubmit, initialData }: RCAFormProps) {
                   rows={4}
                 />
 
-                <TextField
-                  label="Responsibility"
-                  value={actionDetails[act]?.responsibility || ''}
-                  onChange={(_, v) => updateActionDetail(act, 'responsibility', v)}
-                />
+                {/* Responsibility converted to People Picker */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, color: '#605e5c', fontSize: 12 }}>Responsibility</label>
+                  <NormalPeoplePicker
+                    onResolveSuggestions={onResolveSuggestions}
+                    onChange={handlePeoplePickerChange(act)}
+                    pickerSuggestionsProps={suggestionProps}
+                    selectedItems={
+                      // support both stored array or semicolon-separated string from older saves
+                      (() => {
+                        const raw = actionDetails[act]?.responsibility;
+                        const values: string[] = Array.isArray(raw)
+                          ? raw
+                          : (typeof raw === 'string' && raw.length ? raw.split(/; ?/).map((s: string) => s.trim()).filter(Boolean) : []);
+                        return values.map((s: string) => {
+                          const isEmail = /\S+@\S+\.\S+/.test(s);
+                          return { key: s, primaryText: s, text: s, secondaryText: isEmail ? s : undefined };
+                        });
+                      })()
+                    }
+                    resolveDelay={300}
+                    inputProps={{ 'aria-label': 'Responsibility' }}
+                  />
+                </div>
 
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ flex: 1 }}>
