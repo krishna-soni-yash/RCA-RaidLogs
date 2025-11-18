@@ -43,32 +43,14 @@ export const RCACOLUMNS: (IColumnConfig)[] = [
   { key: 'priority', name: 'Priority', fieldName: 'RCAPriority', minWidth: 80, maxWidth: 120, isResizable: true },
   { key: 'relatedMetric', name: 'Related Metric (if any)', fieldName: 'RelatedMetric', minWidth: 140, maxWidth: 250, isResizable: true },
   { key: 'causes', name: 'Cause(s)', fieldName: 'Cause', minWidth: 150, maxWidth: 300, isResizable: true },
-  { key: 'rootCauses', name: 'Root Cause(s)', fieldName: 'c', minWidth: 150, maxWidth: 300, isResizable: true },
+  { key: 'rootCauses', name: 'Root Cause(s)', fieldName: 'RootCause', minWidth: 150, maxWidth: 300, isResizable: true },
   { key: 'analysisTechnique', name: 'Root Cause Analysis Technique Used and Reference (if any)', fieldName: 'RCATechniqueUsedAndReference', minWidth: 180, maxWidth: 350, isResizable: true },
   { key: 'actionType', name: 'Type of Action', fieldName: 'RCATypeOfAction', minWidth: 120, maxWidth: 200, isResizable: true },
-  
-  { key: 'actionPlanCorrection', name: 'Action Plan', fieldName: 'ActionPlanCorrection', minWidth: 150, maxWidth: 350, isResizable: true },
-  { key: 'responsibilityCorrection', name: 'Responsibility', fieldName: 'ResponsibilityCorrection', minWidth: 120, maxWidth: 200, isResizable: true },
-  { key: 'plannedClosureDateCorrection', name: 'Planned Closure Date', fieldName: 'PlannedClosureDateCorrection', minWidth: 120, maxWidth: 150, isResizable: true },
-  { key: 'ActualClosureDateCorrection', name: 'Actual Closure Date', fieldName: 'ActualClosureDateCorrection', minWidth: 120, maxWidth: 150, isResizable: true },
-
-   { key: 'actionPlanCorrective', name: 'Action Plan', fieldName: 'ActionPlanCorrective', minWidth: 150, maxWidth: 350, isResizable: true },
-  { key: 'responsibilityCorrective', name: 'Responsibility', fieldName: 'ResponsibilityCorrective', minWidth: 120, maxWidth: 200, isResizable: true },
-  { key: 'plannedClosureDateCorrective', name: 'Planned Closure Date', fieldName: 'PlannedClosureDateCorrective', minWidth: 120, maxWidth: 150, isResizable: true },
-  { key: 'ActualClosureDateCorrective', name: 'Actual Closure Date', fieldName: 'ActualClosureDateCorrective', minWidth: 120, maxWidth: 150, isResizable: true },
-
-   { key: 'actionPlanPreventive', name: 'Action Plan', fieldName: 'ActionPlanPreventive', minWidth: 150, maxWidth: 350, isResizable: true },
-  { key: 'responsibilityPreventive', name: 'Responsibility', fieldName: 'ResponsibilityPreventive', minWidth: 120, maxWidth: 200, isResizable: true },
-  { key: 'plannedClosureDatePreventive', name: 'Planned Closure Date', fieldName: 'PlannedClosureDatePreventive', minWidth: 120, maxWidth: 150, isResizable: true },
-  { key: 'ActualClosureDatePreventive', name: 'Actual Closure Date', fieldName: 'ActualClosureDatePreventive', minWidth: 120, maxWidth: 150, isResizable: true },
-
-
   { key: 'performanceBefore', name: 'Performance before action plan', fieldName: 'PerformanceBeforeActionPlan', minWidth: 150, maxWidth: 220, isResizable: true },
   { key: 'performanceAfter', name: 'Performance after action plan', fieldName: 'PerformanceAfterActionPlan', minWidth: 150, maxWidth: 220, isResizable: true },
   { key: 'quantitativeEffectiveness', name: 'Quantitative / Statistical effectiveness', fieldName: 'QuantitativeOrStatisticalEffecti', minWidth: 180, maxWidth: 260, isResizable: true },
   { key: 'remarks', name: 'Remarks', fieldName: 'Remarks', minWidth: 120, maxWidth: 300, isResizable: true }
 ];
-
 export const selectedFields = [
   'Id',
   'LinkTitle',
@@ -109,8 +91,7 @@ export const selectedFields = [
   'QuantitativeOrStatisticalEffecti',
   'Remarks'
 ];
-
-export const expanFields = [
+export const expandFields = [
   'ResponsibilityCorrection',
   'ResponsibilityCorrective',
   'ResponsibilityPreventive'

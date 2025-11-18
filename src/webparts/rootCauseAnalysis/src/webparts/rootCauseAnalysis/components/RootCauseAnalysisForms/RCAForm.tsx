@@ -11,12 +11,32 @@ import {
   PivotItem
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
-import { saveRCAItem, updateRCAItem } from '../../../../repositories/repositoriesInterface/RCARepository';
+import { NormalPeoplePicker, IPersonaProps } from '@fluentui/react';
+import { saveRCAItem, updateRCAItem } from '../../../../../../../repositories/repositoriesInterface/RCARepository';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 interface RCAFormProps {
   onSubmit?: (data: any) => void;
   initialData?: any;
   context?: WebPartContext;
+}
+
+// small ErrorBoundary to catch PeoplePicker runtime errors (e.g. PeopleSearchService failures)
+class PeoplePickerErrorBoundary extends React.Component<{ onError?: () => void }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any, info: any) {
+    console.error('PeoplePicker render error caught by boundary', error, info);
+    if (this.props.onError) this.props.onError();
+  }
+  render() {
+    if (this.state.hasError) return null; // parent component will show fallback
+    return this.props.children;
+  }
 }
 
 export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps) {
@@ -121,40 +141,19 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
     }));
   };
 
-  // store responsibility as array of objects { id, email, title }
-  const handlePeoplePickerChange = (actionKey: string) => (items: any[] = []) => {
+
+
+
+
+  // store responsibility as array of strings (email/login/name) so repository can accept string[] or string
+  const handlePeoplePickerChange = (actionKey: string) => (items: any[]) => {
     const list = Array.isArray(items) ? items : [];
-    const values = list.map((p: any) => ({
-      id: p?.id ?? p?.loginName ?? p?.key ?? '',
-      email: p?.secondaryText ?? p?.mail ?? p?.loginName ?? '',
-      title: p?.text ?? p?.primaryText ?? ''
-    }));
+    const values = list
+      .map((p: any) => p?.secondaryText || p?.loginName || p?.text || p?.id)
+      .filter((v: any): v is string => typeof v === 'string' && v.length > 0);
     updateActionDetail(actionKey, 'responsibility', values);
   };
-
-  const getDefaultResponsibilityUsers = (actionKey: string): string[] => {
-    const raw = actionDetails[actionKey]?.responsibility;
-    if (!raw) return [];
-    // new shape: array of objects {id,email,title}
-    if (Array.isArray(raw) && raw.length && typeof raw[0] === 'object') {
-      return raw.map((r: any) => r.email).filter(Boolean);
-    }
-    // old shape: array of strings or semicolon string; also support "id|email" format
-    if (Array.isArray(raw)) {
-      return raw.map((r: any) => (typeof r === 'string' ? r : '')).filter(Boolean);
-    }
-    if (typeof raw === 'string') {
-      return raw
-        .split(/; ?/)
-        .map((s: string) => {
-          const parts = s.split('|');
-          return parts.length > 1 ? parts[1] : s;
-        })
-        .map((s: string) => s.trim())
-        .filter(Boolean);
-    }
-    return [];
-  };
+  // --- end people picker helpers ---
 
   const onSave = async () => {
     // keep top-level fields in sync with first selected action type for compatibility
@@ -209,19 +208,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
       }
 
       if (details.actionPlan !== undefined) item[`ActionPlan${suffix}`] = details.actionPlan;
-      if (details.responsibility !== undefined) {
-        // serialize responsibility so repository receives both id and email.
-        // New shape: array of {id,email,...} -> store as "id|email; id|email"
-        if (Array.isArray(details.responsibility) && details.responsibility.length && typeof details.responsibility[0] === 'object') {
-          item[`Responsibility${suffix}`] = (details.responsibility as any[])
-            .map((r: any) => `${r.id ?? ''}|${r.email ?? ''}`)
-            .join('; ');
-        } else {
-          // preserve existing string/array-of-strings behavior
-          item[`Responsibility${suffix}`] = details.responsibility;
-        }
-      }
-
+      if (details.responsibility !== undefined) item[`Responsibility${suffix}`] = details.responsibility;
       if (details.plannedClosureDate !== undefined) item[`PlannedClosureDate${suffix}`] = formatDate(details.plannedClosureDate);
       if (details.actualClosureDate !== undefined) item[`ActualClosureDate${suffix}`] = formatDate(details.actualClosureDate);
     });
@@ -293,6 +280,28 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
       setActionTypeDisabled(false);
     }
   }, [form.causeCategory]);
+
+  // track if PeoplePicker failed so we can fall back
+  const [peoplePickerFailed, setPeoplePickerFailed] = useState<boolean>(false);
+
+  // debug helper - log context & environment
+  useEffect(() => {
+    if (context) {
+      try {
+        // small sanity logs to help debugging PeopleSearchService failures
+        // check if running in workbench (suggests suggestions won't work)
+        const isWorkbench = (context as any)?.pageContext === undefined || window.location.hostname.indexOf('localhost') !== -1;
+        console.info('RCAForm PeoplePicker context:', {
+          webAbsoluteUrl: (context as any)?.pageContext?.web?.absoluteUrl,
+          isWorkbench
+        });
+      } catch (e) {
+        console.warn('Unable to inspect context for PeoplePicker debug info', e);
+      }
+    } else {
+      console.info('RCAForm: no WebPart context passed; PeoplePicker will be unavailable.');
+    }
+  }, [context]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -397,23 +406,87 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
                 {/* Responsibility converted to People Picker */}
                 <div>
                   <label style={{ display: 'block', marginBottom: 6, color: '#605e5c', fontSize: 12 }}>Responsibility</label>
-                  {context ? (
-                    <PeoplePicker
-                      context={context as any}
-                      titleText=""
-                      personSelectionLimit={5}
-                      showtooltip
-                      ensureUser
-                      resolveDelay={300}
-                      placeholder="Type a name or email..."
-                      principalTypes={[PrincipalType.User]}
-                      webAbsoluteUrl={context.pageContext.web.absoluteUrl}
-                      allowUnvalidated
-                      defaultSelectedUsers={getDefaultResponsibilityUsers(act)}
-                      onChange={handlePeoplePickerChange(act)}
-                    />
+
+                  {/* Wrap PeoplePicker in an ErrorBoundary; on error set peoplePickerFailed */}
+                  {!peoplePickerFailed && context ? (
+                    <PeoplePickerErrorBoundary onError={() => setPeoplePickerFailed(true)}>
+                      <PeoplePicker
+                        context={
+                          {
+                            ...(context as any),
+                            absoluteUrl: (context as any)?.pageContext?.web?.absoluteUrl ?? window.location.origin
+                          } as any
+                        }
+                        titleText=""
+                        personSelectionLimit={5}
+                        showtooltip
+                        principalTypes={[PrincipalType.User]}
+                        resolveDelay={300}
+                        ensureUser={true}
+                        placeholder="Type a name or email..."
+                        defaultSelectedUsers={
+                          (() => {
+                            const raw = actionDetails[act]?.responsibility;
+                            if (!raw) return [];
+                            if (Array.isArray(raw)) {
+                              return raw
+                                .map((r: any) =>
+                                  typeof r === 'string'
+                                    ? r
+                                    : r.secondaryText || r.loginName || r.text || ''
+                                )
+                                .filter(Boolean);
+                            }
+                            if (typeof raw === 'string' && raw.length) {
+                              return raw
+                                .split(/; ?/)
+                                .map((s: string) => s.trim())
+                                .filter(Boolean);
+                            }
+                            return [];
+                          })()
+                        }
+                        onChange={handlePeoplePickerChange(act)}
+                      />
+                    </PeoplePickerErrorBoundary>
                   ) : (
-                    <span style={{ fontSize: 12, color: '#a19f9d' }}>SharePoint context unavailable.</span>
+                    // fallback: freeform NormalPeoplePicker so user can still enter assignees
+                    <>
+                      <div style={{ marginBottom: 6, color: '#a19f9d', fontSize: 12 }}>
+                        {peoplePickerFailed ? 'People search failed — use manual entry.' : 'PeoplePicker unavailable.'}
+                      </div>
+                      <NormalPeoplePicker
+                        onResolveSuggestions={(filterText: string, _selected?: IPersonaProps[]) => {
+                          if (!filterText || filterText.trim().length === 0) return [];
+                          const t = filterText.trim();
+                          const isEmail = /\S+@\S+\.\S+/.test(t);
+                          return [{
+                            key: t,
+                            primaryText: t,
+                            text: t,
+                            secondaryText: isEmail ? t : undefined
+                          }];
+                        }}
+                        onChange={(items?: IPersonaProps[] | undefined) => {
+                          const values = (items || []).map(p => (p.secondaryText || p.text || p.primaryText)).filter(Boolean);
+                          updateActionDetail(act, 'responsibility', values);
+                        }}
+                        selectedItems={
+                          (() => {
+                            const raw = actionDetails[act]?.responsibility;
+                            const values: IPersonaProps[] = [];
+                            if (!raw) return values;
+                            const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(/; ?/).map((s: string) => s.trim()).filter(Boolean) : []);
+                            return arr.map((s: string) => {
+                              const isEmail = /\S+@\S+\.\S+/.test(s);
+                              return { key: s, primaryText: s, text: s, secondaryText: isEmail ? s : undefined } as IPersonaProps;
+                            });
+                          })()
+                        }
+                        resolveDelay={300}
+                        inputProps={{ 'aria-label': 'Responsibility' }}
+                      />
+                    </>
                   )}
                 </div>
 
