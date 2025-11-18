@@ -13,6 +13,8 @@ import {
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { saveRCAItem, updateRCAItem } from '../../../../repositories/repositoriesInterface/RCARepository';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
+import MessageModal from '../ModalPopups/MessageModal';
+
 interface RCAFormProps {
   onSubmit?: (data: any) => void;
   initialData?: any;
@@ -79,6 +81,12 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
 
   // new: control whether the attachments panel is expanded
   const [attachmentsOpen, setAttachmentsOpen] = useState<boolean>(false);
+
+  // modal state for MessageModal (was missing causing "Cannot find name 'setModalTitle'" etc.)
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [modalTitle, setModalTitle] = useState<string>('');
+  const [modalMessage, setModalMessage] = useState<string>('');
+  const [modalIsError, setModalIsError] = useState<boolean>(false);
 
   const onFilesAdded = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.prototype.slice.call(e.target.files) : [];
@@ -241,18 +249,41 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
         if (numericRepoId && numericRepoId > 0) {
           await updateRCAItem(numericRepoId, item, context);
           console.log('RCA updated', numericRepoId);
+
+          // show success modal for update
+          setModalTitle('Success');
+          setModalMessage('RCA updated successfully.');
+          setModalIsError(false);
+          setModalOpen(true);
+
         } else {
           const result = await saveRCAItem(item, context);
           console.log('RCA saved', result);
+
+          // show success modal for create
+          setModalTitle('Success');
+          setModalMessage('RCA saved successfully.');
+          setModalIsError(false);
+          setModalOpen(true);
         }
       } else {
         console.warn('No WebPart context provided to save/update RCA item - skipping backend call.');
+        setModalTitle('Warning');
+        setModalMessage('SharePoint context unavailable — item was not saved to backend.');
+        setModalIsError(false);
+        setModalOpen(true);
       }
 
       if (onSubmit) onSubmit(payload);
       else console.log('RCA Form submit', payload);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save/update RCA item', err);
+
+      // show error modal with message
+      setModalTitle('Error');
+      setModalMessage(err?.message || 'Failed to save/update RCA item.');
+      setModalIsError(true);
+      setModalOpen(true);
     }
   };
 
@@ -524,6 +555,17 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
         <DefaultButton text="Reset" onClick={onReset} />
         <PrimaryButton text="Save" onClick={onSave} />
       </div>
+
+      {/* Message modal for success / error */}
+      <MessageModal
+        {...({
+          isOpen: modalOpen,
+          title: modalTitle,
+          message: modalMessage,
+          isError: modalIsError,
+          onDismiss: () => setModalOpen(false)
+        } as any)}
+      />
     </div>
   );
 }

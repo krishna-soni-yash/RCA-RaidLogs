@@ -117,7 +117,26 @@ export class RCARepository implements IRCARepository {
             if (item.Cause !== undefined) payload.Cause = item.Cause;
             if (item.RootCause !== undefined) payload.RootCause = item.RootCause;
             if (item.RCATechniqueUsedAndReference !== undefined) payload.RCATechniqueUsedAndReference = item.RCATechniqueUsedAndReference;
-            if (item.RCATypeOfAction !== undefined) payload.RCATypeOfAction = item.RCATypeOfAction;
+            if (item.RCATypeOfAction !== undefined) {
+                try {
+                    const raw = item.RCATypeOfAction;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(',') : []);
+
+                    const values: string[] = parts
+                        .map(p => p.trim())
+                        .filter(p => p.length > 0);
+
+                    if (values.length > 0) {
+                        payload.RCATypeOfAction = values ;
+                    } else {
+                        console.warn('RCARepository.saveRCAItem: no valid values parsed for RCATypeOfAction; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.saveRCAItem: failed to parse RCATypeOfAction', e);
+                }
+            }
 
             // helper: try to resolve emails (or simple strings) to SharePoint user IDs using service helpers
 
@@ -233,7 +252,26 @@ export class RCARepository implements IRCARepository {
             if (item.Cause !== undefined) payload.Cause = item.Cause;
             if (item.RootCause !== undefined) payload.RootCause = item.RootCause;
             if (item.RCATechniqueUsedAndReference !== undefined) payload.RCATechniqueUsedAndReference = item.RCATechniqueUsedAndReference;
-            if (item.RCATypeOfAction !== undefined) payload.RCATypeOfAction = item.RCATypeOfAction;
+            if (item.RCATypeOfAction !== undefined) {
+                try {
+                    const raw = item.RCATypeOfAction;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(',') : []);
+
+                    const values: string[] = parts
+                        .map(p => p.trim())
+                        .filter(p => p.length > 0);
+
+                    if (values.length > 0) {
+                        payload.RCATypeOfAction = values;
+                    } else {
+                        console.warn('RCARepository.updateRCAItem: no valid values parsed for RCATypeOfAction; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.updateRCAItem: failed to parse RCATypeOfAction', e);
+                }
+            }
 
             // helper: try to resolve emails (or simple strings) to SharePoint user IDs using service helpers
 

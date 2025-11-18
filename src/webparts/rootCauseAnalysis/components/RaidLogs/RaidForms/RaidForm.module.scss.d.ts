@@ -1,0 +1,20 @@
+declare const styles: {
+  readonly "modalContainer": string;
+  readonly "modalContent": string;
+  readonly "modalHeader": string;
+  readonly "closeButton": string;
+  readonly "modalBody": string;
+  readonly "modalFooter": string;
+  readonly "calculatedField": string;
+  readonly "calculatedValue": string;
+  readonly "actionsSection": string;
+  readonly "actionsContainer": string;
+  readonly "actionRow": string;
+  readonly "actionHeader": string;
+  readonly "removeActionButton": string;
+  readonly "addActionButton": string;
+  readonly "actionTypeSelection": string;
+  readonly "actionTabs": string;
+  readonly "actionTabContent": string;
+};
+export = styles;
