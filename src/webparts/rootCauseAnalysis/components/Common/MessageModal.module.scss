@@ -1,0 +1,86 @@
+.messageModalContainer {
+  :global {
+    .ms-Dialog-main {
+      max-width: 450px !important;
+      min-width: 350px !important;
+      border-radius: 8px;
+    }
+  }
+}
+
+.messageModalContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+}
+
+.messageModalHeader {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+  
+  .closeButton {
+    color: #666;
+    
+    &:hover {
+      color: #333;
+      background-color: #f3f2f1;
+    }
+  }
+}
+
+.messageModalBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 30px;
+  text-align: center;
+  
+  .iconContainer {
+    margin-bottom: 16px;
+    
+    .icon {
+      animation: fadeInScale 0.3s ease-in-out;
+    }
+  }
+  
+  .title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: #323130;
+  }
+  
+  .message {
+    font-size: 14px;
+    color: #605E5C;
+    margin: 0;
+    line-height: 1.5;
+    max-width: 100%;
+    word-wrap: break-word;
+  }
+}
+
+.messageModalFooter {
+  display: flex;
+  justify-content: center;
+  padding: 20px 30px 30px;
+  border-top: 1px solid #edebe9;
+  
+  button {
+    min-width: 100px;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
