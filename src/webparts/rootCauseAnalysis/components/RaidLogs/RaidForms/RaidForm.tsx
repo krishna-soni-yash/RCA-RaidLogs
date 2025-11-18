@@ -18,7 +18,7 @@ import { SPHttpClient } from '@microsoft/sp-http';
 
 import styles from './RaidForm.module.scss';
 import { IRaidItem, RaidType, IRaidAction, IPersonPickerUser } from '../IRaidItem';
-import { generateRaidId, DROPDOWN_OPTIONS } from '../../../constants/Constants';
+import { generateRaidId, DROPDOWN_OPTIONS } from '../../../../../common/Constants';
 
 export interface IRaidFormProps {
   isOpen: boolean;

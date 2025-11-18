@@ -1,7 +1,7 @@
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { SharePointService, ISharePointListItem, IListQueryOptions } from './SharePointService';
 import { IRaidItem, RaidType, IRaidAction } from '../components/RaidLogs/IRaidItem';
-import { LIST_NAMES } from '../constants/Constants';
+import { LIST_NAMES } from '../../../common/Constants';
 import { 
   IExtendedRaidItem
 } from '../interfaces/IRaidService';

@@ -6,8 +6,8 @@ import RaidTable from './RaidTables';
 import RaidForm from './RaidForms';
 import { RaidServiceFactory } from '../../services/RaidListService';
 import { IExtendedRaidItem } from '../../interfaces/IRaidService';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../constants/Constants';
-import { MessageModal, MessageType } from '../Common';
+import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../common/Constants';
+import { MessageModal, MessageType } from '../ModalPopups';
 
 const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [items, setItems] = React.useState<IExtendedRaidItem[]>([]);

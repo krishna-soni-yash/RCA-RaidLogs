@@ -3,7 +3,7 @@ import { DetailsList, IColumn, SelectionMode, IconButton } from '@fluentui/react
 import styles from './RaidTable.module.scss';
 import { IRaidItem, RaidType, IPersonPickerUser } from '../IRaidItem';
 import { IExtendedRaidItem } from '../../../interfaces/IRaidService';
-import { formatDateShort } from '../../../constants/DateUtils';
+import { formatDateShort } from '../../../../../common/DateUtils';
 
 export interface IRaidTableProps {
   items: IExtendedRaidItem[];
