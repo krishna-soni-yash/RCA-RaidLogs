@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, DefaultButton, Dialog, DialogType, IconButton } from '@fluentui/react';
+import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
 import { RCACOLUMNS } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
@@ -37,6 +37,74 @@ interface RCATableProps {
 	context: WebPartContext;
 }
 
+
+// add styles for better UI alignment and visual polish
+const classNames = mergeStyleSets({
+	container: {
+		padding: 12,
+		background: '#ffffff',
+		borderRadius: 6,
+		boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+	},
+	detailsList: {
+		// tweaks to header and row padding for compact, aligned look
+		selectors: {
+			// ensure the list uses full width and remove content wrapper extra right padding
+			// '.ms-DetailsList': {
+			// 	width: '100%'
+			// },
+			// '.ms-DetailsList-contentWrapper': {
+			// 	paddingRight: 0
+			// },
+			// '.ms-DetailsHeader': {
+			// 	padding: '8px 8px', // less right padding
+			// 	background: '#f3f2f1',
+			// 	borderRadius: '6px 6px 0 0'
+			// },
+			// '.ms-DetailsHeader-cell': {
+			// 	paddingRight: 8
+			// },
+			// '.ms-DetailsRow': {
+			// 	padding: '6px 8px', // reduce right padding
+			// 	alignItems: 'center'
+			// },
+			// '.ms-DetailsRow-cell': {
+			// 	display: 'flex',
+			// 	alignItems: 'center',
+			// 	paddingRight: 8
+			// }
+		}
+	},
+	rowWrapper: {
+		display: 'flex',
+		alignItems: 'center'
+	},
+	expandButton: {
+		width: 36,
+		display: 'flex',
+		justifyContent: 'center',
+		alignItems: 'center'
+	},
+	subtableContainer: {
+		/* reduce left/right padding and make subtable visually tighter to match main list */
+		padding: '8px 12px 12px 56px',
+		background: '#ffffff',
+		borderLeft: '4px solid #0078d4',
+		borderBottom: '1px solid #eee',
+		borderRight: '1px solid #eee',
+		borderRadius: '0 0 6px 6px',
+		boxShadow: 'inset 0 1px 0 rgba(0,0,0,0.02)'
+	},
+	subDetailsList: {
+		selectors: {
+			//'.ms-DetailsList': { width: '100%' },
+			//'.ms-DetailsList-contentWrapper': { paddingRight: 0 },
+			//'.ms-DetailsHeader': { padding: '6px 8px', background: '#faf9f8', fontSize: 12 },
+			//'.ms-DetailsHeader-cell': { paddingRight: 8 },
+			//'.ms-DetailsRow-cell': { padding: '6px 6px', fontSize: 13 }
+		}
+	}
+});
 
 
 
@@ -233,21 +301,22 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		});
 
 		const subColumns: IColumn[] = [
-			{ key: 'type', name: 'Type of Action', fieldName: 'type', minWidth: 120, maxWidth: 180, isResizable: true },
-			{ key: 'actionPlan', name: 'Action Plan', fieldName: 'actionPlan', minWidth: 250, maxWidth: 500, isResizable: true },
-			{ key: 'responsibility', name: 'Responsibility', fieldName: 'responsibility', minWidth: 180, maxWidth: 300, isResizable: true },
-			{ key: 'planned', name: 'Planned', fieldName: 'planned', minWidth: 120, maxWidth: 160, isResizable: true },
-			{ key: 'actual', name: 'Actual', fieldName: 'actual', minWidth: 120, maxWidth: 160, isResizable: true }
+			{ key: 'type', name: 'Type of Action', fieldName: 'type', minWidth: 100, maxWidth: 140, isResizable: true },
+			{ key: 'actionPlan', name: 'Action Plan', fieldName: 'actionPlan', minWidth: 180, maxWidth: 360, isResizable: true },
+			{ key: 'responsibility', name: 'Responsibility', fieldName: 'responsibility', minWidth: 120, maxWidth: 180, isResizable: true },
+			{ key: 'planned', name: 'Planned', fieldName: 'planned', minWidth: 90, maxWidth: 130, isResizable: true },
+			{ key: 'actual', name: 'Actual', fieldName: 'actual', minWidth: 90, maxWidth: 130, isResizable: true }
 		];
 
 		return (
-			<div style={{ padding: '8px 12px 12px 56px', background: '#fafafa', borderLeft: '2px solid #e1dfdd' }}>
+			<div className={classNames.subtableContainer}>
 				<DetailsList
 					items={rows}
 					columns={subColumns}
 					selectionMode={SelectionMode.none}
 					checkboxVisibility={CheckboxVisibility.hidden}
 					compact={true}
+					className={classNames.subDetailsList}
 					setKey={`subtable-${it.ID ?? it.__repoId ?? Math.random()}`}
 					isHeaderVisible={true}
 				/>
@@ -263,15 +332,17 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		const k = keyForItem(item);
 		return (
 			<div>
-				<div style={{ display: 'flex', alignItems: 'center' }}>
+				<div className={classNames.rowWrapper}>
 					{/* expand/collapse icon button (chevrons) */}
-					<IconButton
-						onClick={() => toggleExpand(item)}
-						title={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
-						ariaLabel={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
-						iconProps={{ iconName: expandedKeys.indexOf(k) !== -1 ? 'ChevronUp' : 'ChevronDown', styles: { root: { fontSize: 12 } } }}
-						styles={{ root: { width: 28, height: 28, marginLeft: 8, marginRight: 8 }, icon: { fontSize: 12 } }}
-					/>
+					<div className={classNames.expandButton}>
+						<IconButton
+							onClick={() => toggleExpand(item)}
+							title={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
+							ariaLabel={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
+							iconProps={{ iconName: expandedKeys.indexOf(k) !== -1 ? 'ChevronUp' : 'ChevronDown', styles: { root: { fontSize: 12 } } }}
+							styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
+						/>
+					</div>
 					<div style={{ flex: 1 }}>{defaultRow}</div>
 				</div>
 				{expandedKeys.indexOf(k) !== -1 && renderActionSubTable(item)}
@@ -294,18 +365,20 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				/>
 			</div>
 
-			<DetailsList
-				items={RCAItems.length > 0 ? RCAItems : localItems}
-				columns={displayedColumns}
-				onRenderRow={onRenderRow}
-				// disable selection UI and behavior
-				selectionMode={SelectionMode.none}
-				checkboxVisibility={CheckboxVisibility.hidden}
-				compact={compact}
-				className={className}
-				// keep virtualization/automatic layout
-				setKey="rca-table"
-			/>
+			<div className={classNames.container}>
+				<DetailsList
+					items={RCAItems.length > 0 ? RCAItems : localItems}
+					columns={displayedColumns}
+					onRenderRow={onRenderRow}
+					// disable selection UI and behavior
+					selectionMode={SelectionMode.none}
+					checkboxVisibility={CheckboxVisibility.hidden}
+					compact={compact}
+					className={`${className ?? ''} ${classNames.detailsList}`}
+					// keep virtualization/automatic layout
+					setKey="rca-table"
+				/>
+			</div>
 
 			<Dialog
 				hidden={!isDialogOpen}
