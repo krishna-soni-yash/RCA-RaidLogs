@@ -100,35 +100,7 @@ export class RCARepository implements IRCARepository {
         }
     }
 
-    public resolveEmailsToIds = async (raw: any, context?: WebPartContext): Promise<number[]> => {
-        const emails: string[] = typeof raw === 'string'
-            ? raw.split(/; ?/).map((s: string) => s.trim()).filter(Boolean)
-            : (Array.isArray(raw) ? raw.map(String).map(s => s.trim()).filter(Boolean) : []);
-
-        if (emails.length === 0) return [];
-
-        // prefer common ensureUser helpers if implemented on the service
-        const svcAny = this.service as any;
-        const ensureFn = svcAny?.ensureuser
-        if (!ensureFn) {
-            // no resolver available; avoid sending person objects that may break REST — return empty
-            console.warn('RCARepository.saveRCAItem: no ensureUser function on service; skipping person resolution for', emails);
-            return [];
-        }
-
-        const ids: number[] = [];
-        for (const em of emails) {
-            try {
-                // some ensureUser implementations accept email/login and return user object or id
-                const res = await ensureFn(context,em);
-                const id = typeof res === 'number' ? res : (res?.Id || res?.ID || res?.id);
-                if (id) ids.push(Number(id));
-            } catch (e) {
-                console.warn('RCARepository.saveRCAItem: ensureUser failed for', em, e);
-            }
-        }
-        return ids;
-    };
+  
 
     public async saveRCAItem(item: IRCAList, context?: WebPartContext): Promise<any> {
         if (!context) {
@@ -152,12 +124,26 @@ export class RCARepository implements IRCARepository {
 
             if (item.ActionPlanCorrection !== undefined) payload.ActionPlanCorrection = item.ActionPlanCorrection;
             if (item.ResponsibilityCorrection !== undefined) {
-                const ids = await this.resolveEmailsToIds(item.ResponsibilityCorrection,context);
-                if (ids.length === 1) payload.ResponsibilityCorrectionId = ids[0];
-                else if (ids.length > 1) payload.ResponsibilityCorrectionId = { results: ids };
-                else {
-                    // no IDs resolved -> skip adding ResponsibilityCorrection to payload to avoid malformed request
-                    console.warn('RCARepository.saveRCAItem: no user IDs resolved for ResponsibilityCorrection; field omitted from payload');
+                try {
+                    const raw = item.ResponsibilityCorrection;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(/; ?/) : []);
+
+                    const ids: number[] = parts
+                        .map(p => (p || '').split('|')[0].trim())
+                        .map(s => Number(s))
+                        .filter((n) => !isNaN(n) && n > 0);
+
+                    if (ids.length === 1) {
+                        payload.ResponsibilityCorrectionId = ids[0];
+                    } else if (ids.length > 1) {
+                        payload.ResponsibilityCorrectionId = { results: ids };
+                    } else {
+                        console.warn('RCARepository.saveRCAItem: no valid IDs parsed for ResponsibilityCorrection; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.saveRCAItem: failed to parse ResponsibilityCorrection', e);
                 }
             }
             if (item.PlannedClosureDateCorrection !== undefined) payload.PlannedClosureDateCorrection = item.PlannedClosureDateCorrection;
@@ -165,11 +151,26 @@ export class RCARepository implements IRCARepository {
 
             if (item.ActionPlanCorrective !== undefined) payload.ActionPlanCorrective = item.ActionPlanCorrective;
             if (item.ResponsibilityCorrective !== undefined) {
-                const ids = await this.resolveEmailsToIds(item.ResponsibilityCorrective,context);
-                if (ids.length === 1) payload.ResponsibilityCorrectiveId = ids[0];
-                else if (ids.length > 1) payload.ResponsibilityCorrectiveId = { results: ids };
-                else {
-                    console.warn('RCARepository.saveRCAItem: no user IDs resolved for ResponsibilityCorrective; field omitted from payload');
+                  try {
+                    const raw = item.ResponsibilityCorrective;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(/; ?/) : []);
+
+                    const ids: number[] = parts
+                        .map(p => (p || '').split('|')[0].trim())
+                        .map(s => Number(s))
+                        .filter((n) => !isNaN(n) && n > 0);
+
+                    if (ids.length === 1) {
+                        payload.ResponsibilityCorrectiveId = ids[0];
+                    } else if (ids.length > 1) {
+                        payload.ResponsibilityCorrectiveId = { results: ids };
+                    } else {
+                        console.warn('RCARepository.saveRCAItem: no valid IDs parsed for ResponsibilityCorrection; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.saveRCAItem: failed to parse ResponsibilityCorrective', e);
                 }
             }
 
@@ -177,11 +178,26 @@ export class RCARepository implements IRCARepository {
             if (item.ActualClosureDateCorrective !== undefined) payload.ActualClosureDateCorrective = item.ActualClosureDateCorrective;
             if (item.ActionPlanPreventive !== undefined) payload.ActionPlanPreventive = item.ActionPlanPreventive;
             if (item.ResponsibilityPreventive !== undefined) {
-                const ids = await this.resolveEmailsToIds(item.ResponsibilityPreventive,context);
-                if (ids.length === 1) payload.ResponsibilityPreventiveId = ids[0];
-                else if (ids.length > 1) payload.ResponsibilityPreventiveId = { results: ids };
-                else {
-                    console.warn('RCARepository.saveRCAItem: no user IDs resolved for ResponsibilityPreventive; field omitted from payload');
+                  try {
+                    const raw = item.ResponsibilityPreventive;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(/; ?/) : []);
+
+                    const ids: number[] = parts
+                        .map(p => (p || '').split('|')[0].trim())
+                        .map(s => Number(s))
+                        .filter((n) => !isNaN(n) && n > 0);
+
+                    if (ids.length === 1) {
+                        payload.ResponsibilityPreventiveId = ids[0];
+                    } else if (ids.length > 1) {
+                        payload.ResponsibilityPreventiveId = { results: ids };
+                    } else {
+                        console.warn('RCARepository.saveRCAItem: no valid IDs parsed for ResponsibilityPreventive; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.saveRCAItem: failed to parse ResponsibilityPreventive', e);
                 }
             }
             if (item.PlannedClosureDatePreventive !== undefined) payload.PlannedClosureDatePreventive = item.PlannedClosureDatePreventive;
@@ -223,13 +239,32 @@ export class RCARepository implements IRCARepository {
 
 
             if (item.ActionPlanCorrection !== undefined) payload.ActionPlanCorrection = item.ActionPlanCorrection;
+
             if (item.ResponsibilityCorrection !== undefined) {
-                const ids = await this.resolveEmailsToIds(item.ResponsibilityCorrection,context);
-                if (ids.length === 1) payload.ResponsibilityCorrectionId = ids[0];
-                else if (ids.length > 1) payload.ResponsibilityCorrectionId = { results: ids };
-                else {
-                    // no IDs resolved -> skip adding ResponsibilityCorrection to payload to avoid malformed request
-                    console.warn('RCARepository.saveRCAItem: no user IDs resolved for ResponsibilityCorrection; field omitted from payload');
+                // ResponsibilityCorrection may be stored as:
+                // - "id|email; id|email"
+                // - array of such strings
+                // Extract id (left side of '|') from each part and pass IDs to payload
+                try {
+                    const raw = item.ResponsibilityCorrection;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(/; ?/) : []);
+
+                    const ids: number[] = parts
+                        .map(p => (p || '').split('|')[0].trim())
+                        .map(s => Number(s))
+                        .filter((n) => !isNaN(n) && n > 0);
+
+                    if (ids.length === 1) {
+                        payload.ResponsibilityCorrectionId = ids[0];
+                    } else if (ids.length > 1) {
+                        payload.ResponsibilityCorrectionId = { results: ids };
+                    } else {
+                        console.warn('RCARepository.updateRCAItem: no valid IDs parsed for ResponsibilityCorrection; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.updateRCAItem: failed to parse ResponsibilityCorrection', e);
                 }
             }
             if (item.PlannedClosureDateCorrection !== undefined) payload.PlannedClosureDateCorrection = item.PlannedClosureDateCorrection;
@@ -237,11 +272,26 @@ export class RCARepository implements IRCARepository {
 
             if (item.ActionPlanCorrective !== undefined) payload.ActionPlanCorrective = item.ActionPlanCorrective;
             if (item.ResponsibilityCorrective !== undefined) {
-                const ids = await this.resolveEmailsToIds(item.ResponsibilityCorrective,context);
-                if (ids.length === 1) payload.ResponsibilityCorrectiveId = ids[0];
-                else if (ids.length > 1) payload.ResponsibilityCorrectiveId = { results: ids };
-                else {
-                    console.warn('RCARepository.saveRCAItem: no user IDs resolved for ResponsibilityCorrective; field omitted from payload');
+                  try {
+                    const raw = item.ResponsibilityCorrective;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(/; ?/) : []);
+
+                    const ids: number[] = parts
+                        .map(p => (p || '').split('|')[0].trim())
+                        .map(s => Number(s))
+                        .filter((n) => !isNaN(n) && n > 0);
+
+                    if (ids.length === 1) {
+                        payload.ResponsibilityCorrectiveId = ids[0];
+                    } else if (ids.length > 1) {
+                        payload.ResponsibilityCorrectiveId = { results: ids };
+                    } else {
+                        console.warn('RCARepository.updateRCAItem: no valid IDs parsed for ResponsibilityCorrection; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.updateRCAItem: failed to parse ResponsibilityCorrective', e);
                 }
             }
 
@@ -249,13 +299,29 @@ export class RCARepository implements IRCARepository {
             if (item.ActualClosureDateCorrective !== undefined) payload.ActualClosureDateCorrective = item.ActualClosureDateCorrective;
             if (item.ActionPlanPreventive !== undefined) payload.ActionPlanPreventive = item.ActionPlanPreventive;
             if (item.ResponsibilityPreventive !== undefined) {
-                const ids = await this.resolveEmailsToIds(item.ResponsibilityPreventive,context);
-                if (ids.length === 1) payload.ResponsibilityPreventiveId = ids[0];
-                else if (ids.length > 1) payload.ResponsibilityPreventiveId = { results: ids };
-                else {
-                    console.warn('RCARepository.saveRCAItem: no user IDs resolved for ResponsibilityPreventive; field omitted from payload');
+                  try {
+                    const raw = item.ResponsibilityPreventive;
+                    const parts: string[] = Array.isArray(raw)
+                        ? raw.map((r: any) => String(r))
+                        : (typeof raw === 'string' ? raw.split(/; ?/) : []);
+
+                    const ids: number[] = parts
+                        .map(p => (p || '').split('|')[0].trim())
+                        .map(s => Number(s))
+                        .filter((n) => !isNaN(n) && n > 0);
+
+                    if (ids.length === 1) {
+                        payload.ResponsibilityPreventiveId = ids[0];
+                    } else if (ids.length > 1) {
+                        payload.ResponsibilityPreventiveId = { results: ids };
+                    } else {
+                        console.warn('RCARepository.updateRCAItem: no valid IDs parsed for ResponsibilityPreventive; field omitted');
+                    }
+                } catch (e) {
+                    console.warn('RCARepository.updateRCAItem: failed to parse ResponsibilityPreventive', e);
                 }
             }
+            
             if (item.PlannedClosureDatePreventive !== undefined) payload.PlannedClosureDatePreventive = item.PlannedClosureDatePreventive;
             if (item.ActualClosureDatePreventive !== undefined) payload.ActualClosureDatePreventive = item.ActualClosureDatePreventive;
 
