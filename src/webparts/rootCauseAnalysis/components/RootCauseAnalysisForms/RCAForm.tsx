@@ -413,7 +413,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
 
       {/* Tabs for each selected action type; fallback single fields when none selected */}
       {form.actionType && form.actionType.length > 0 ? (
-        <Pivot aria-label="Action type tabs">
+        <Pivot aria-label="Action type tabs" style={{ marginTop: 16 }}>
           {(form.actionType as string[]).map((act) => (
             <PivotItem headerText={act} key={act}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
