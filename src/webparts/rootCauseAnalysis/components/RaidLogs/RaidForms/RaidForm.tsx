@@ -14,11 +14,11 @@ import {
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { SPHttpClient } from '@microsoft/sp-http';
 
 import styles from './RaidForm.module.scss';
-import { IRaidItem, RaidType, IRaidAction, IPersonPickerUser } from '../IRaidItem';
+import { IRaidItem, RaidType, IRaidAction, IPersonPickerUser } from '../interfaces/IRaidItem';
 import { generateRaidId, DROPDOWN_OPTIONS } from '../../../../../common/Constants';
+import { RaidListService } from '../RaidListService';
 
 export interface IRaidFormProps {
   isOpen: boolean;
@@ -35,13 +35,19 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
   const [selectedActionTypes, setSelectedActionTypes] = React.useState<string[]>([]);
   const [mitigationAction, setMitigationAction] = React.useState<IRaidAction | null>(null);
   const [contingencyAction, setContingencyAction] = React.useState<IRaidAction | null>(null);
+  
+  // State for dropdown options fetched from SharePoint lists
+  const [potentialCostOptions, setPotentialCostOptions] = React.useState<Array<{ key: string; text: string }>>([]);
+  const [potentialBenefitOptions, setPotentialBenefitOptions] = React.useState<Array<{ key: string; text: string }>>([]);
+  const [probabilityValueOptions, setProbabilityValueOptions] = React.useState<Array<{ key: string; text: string }>>([]);
+  const [impactValueOptions, setImpactValueOptions] = React.useState<Array<{ key: string; text: string }>>([]);
 
   const convertPeoplePickerItems = (items: any[]): IPersonPickerUser[] => {
-    return items.map(item => ({
-      id: item.id || item.loginName,
-      loginName: item.loginName,
-      displayName: item.text || item.displayName,
-      email: item.secondaryText || item.mail || item.email
+    return items.map((p: any) => ({
+      id: p?.id ?? p?.loginName ?? p?.key ?? '',
+      email: p?.secondaryText ?? p?.mail ?? p?.loginName ?? '',
+      loginName: p?.loginName ?? '',
+      displayName: p?.text ?? p?.primaryText ?? ''
     }));
   };
 
@@ -82,61 +88,13 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     
     return result;
   };
-  const convertToUserIds = async (users: IPersonPickerUser[]): Promise<number[]> => {
-    if (!users || !Array.isArray(users)) return [];
+  const serializeUserField = (users: IPersonPickerUser[]): string => {
+    if (!users || !Array.isArray(users) || users.length === 0) return '';
     
-    const userIds: number[] = [];
-
-    const ensureUserByLogin = async (loginName: string): Promise<number | null> => {
-      try {
-        const url = `${context.pageContext.web.absoluteUrl}/_api/web/ensureuser`;
-        const body = JSON.stringify({ logonName: loginName });
-        const headers = {
-          'Accept': 'application/json;odata=nometadata',
-          'Content-Type': 'application/json;odata=nometadata'
-        };
-        const options: any = {
-          headers,
-          body
-        };
-        const response = await context.spHttpClient.post(url, SPHttpClient.configurations.v1, options);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.Id) {
-            return data.Id;
-          }
-        }
-      } catch (e) {
-        // ignore and return null
-      }
-      return null;
-    };
-    
-    for (const user of users) {
-      const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
-      
-      if (typeof userId === 'number' && !isNaN(userId) && userId > 0) {
-        userIds.push(userId);
-      } else {
-        try {
-          let loginName = user.loginName || user.email;
-          
-          if (loginName && loginName.indexOf('i:0#.f|membership|') === -1 && loginName.indexOf('@') !== -1) {
-            loginName = `i:0#.f|membership|${loginName}`;
-          }
-          
-          if (loginName) {
-            const ensuredId = await ensureUserByLogin(loginName);
-            if (ensuredId) {
-              userIds.push(ensuredId);
-            }
-          }
-        } catch (error) {
-        }
-      }
-    }
-    
-    return userIds;
+    // Serialize as "id|email; id|email" format like RCAForm
+    return users
+      .map((r: any) => `${r.id ?? ''}|${r.email ?? ''}`)
+      .join('; ');
   };
   
 
@@ -175,11 +133,62 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     }
   }, [item, type]);
 
+  // Fetch dropdown options from SharePoint lists when component mounts
   React.useEffect(() => {
-    if (type === 'Opportunity' && (formData.potentialCost || formData.potentialBenefit)) {
-      const cost = Number(formData.potentialCost) || 0;
-      const benefit = Number(formData.potentialBenefit) || 0;
-      const calculatedValue = cost * benefit;
+    const loadDropdownOptions = async () => {
+      try {
+        const raidService = new RaidListService(context);
+
+        // Fetch all dropdown options in parallel
+        const [potentialCost, potentialBenefit, probabilityValue, impactValue] = await Promise.all([
+          raidService.getPotentialCostOptions(),
+          raidService.getPotentialBenefitOptions(),
+          raidService.getProbabilityValueOptions(),
+          raidService.getImpactValueOptions()
+        ]);
+
+        // Update state with fetched options (no fallback to constants)
+        setPotentialCostOptions(potentialCost);
+        setPotentialBenefitOptions(potentialBenefit);
+        setProbabilityValueOptions(probabilityValue);
+        setImpactValueOptions(impactValue);
+      } catch (error) {
+        console.error('Error loading dropdown options:', error);
+        // Set empty arrays on error
+        setPotentialCostOptions([]);
+        setPotentialBenefitOptions([]);
+        setProbabilityValueOptions([]);
+        setImpactValueOptions([]);
+      }
+    };
+
+    if (isOpen) {
+      loadDropdownOptions();
+    }
+  }, [isOpen, context]);
+
+  React.useEffect(() => {
+    if (type === 'Opportunity') {
+      const cost = formData.potentialCost;
+      const benefit = formData.potentialBenefit;
+      
+      // Excel formula: =IF(AND(N5="",O5=""),"",IF((O5-N5)/O5*100<=0,0,(O5-N5)/O5*100))
+      let calculatedValue: number | undefined;
+      
+      if (!cost && !benefit) {
+        calculatedValue = undefined;
+      } else {
+        const costNum = Number(cost) || 0;
+        const benefitNum = Number(benefit) || 0;
+        
+        if (benefitNum === 0) {
+          calculatedValue = 0;
+        } else {
+          const percentage = ((benefitNum - costNum) / benefitNum) * 100;
+          calculatedValue = percentage <= 0 ? 0 : percentage;
+        }
+      }
+      
       if (formData.opportunityValue !== calculatedValue) {
         updateFormData('opportunityValue', calculatedValue);
       }
@@ -290,15 +299,15 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
       const preparedMitigationAction = (selectedActionTypes.indexOf('Mitigation') !== -1 && mitigationAction) ? {
         ...mitigationAction,
         responsibility: mitigationAction.responsibility 
-          ? await convertToUserIds(mitigationAction.responsibility)
-          : []
+          ? serializeUserField(mitigationAction.responsibility)
+          : ''
       } : null;
 
       const preparedContingencyAction = (selectedActionTypes.indexOf('Contingency') !== -1 && contingencyAction) ? {
         ...contingencyAction,
         responsibility: contingencyAction.responsibility 
-          ? await convertToUserIds(contingencyAction.responsibility)
-          : []
+          ? serializeUserField(contingencyAction.responsibility)
+          : ''
       } : null;
 
       itemToSave.mitigationAction = preparedMitigationAction;
@@ -315,7 +324,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     }
 
     if (formData.responsibility) {
-      const convertedResponsibility = await convertToUserIds(formData.responsibility);
+      const convertedResponsibility = serializeUserField(formData.responsibility);
       itemToSave.responsibility = convertedResponsibility;
       console.log('📝 RaidForm - Converted responsibility:', {
         original: formData.responsibility,
@@ -323,7 +332,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
       });
     }
     if (formData.byWhom) {
-      const convertedByWhom = await convertToUserIds(formData.byWhom);
+      const convertedByWhom = serializeUserField(formData.byWhom);
       itemToSave.byWhom = convertedByWhom;
       console.log('📝 RaidForm - Converted byWhom:', {
         original: formData.byWhom,
@@ -377,12 +386,13 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
             msGraphClientFactory: context.msGraphClientFactory,
             spHttpClient: context.spHttpClient
           }}
-          titleText="By Whom (Name)"
+          titleText="Identified By"
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
           required={false}
           disabled={false}
+          ensureUser={true}
           onChange={(items: any[]) => {
             console.log('👤 ByWhom PeoplePicker onChange:', items);
             const selectedUsers = convertPeoplePickerItems(items);
@@ -417,6 +427,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           showtooltip={true}
           required={false}
           disabled={false}
+          ensureUser={true}
           onChange={(items: any[]) => {
             console.log('👤 Responsibility (Issue) PeoplePicker onChange:', items);
             const selectedUsers = convertPeoplePickerItems(items);
@@ -483,12 +494,13 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
             msGraphClientFactory: context.msGraphClientFactory,
             spHttpClient: context.spHttpClient
           }}
-          titleText="By Whom (Name)"
+          titleText="Identified By"
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
           required={false}
           disabled={false}
+          ensureUser={true}
           onChange={(items: any[]) => {
             console.log('👤 ByWhom (Constraints) PeoplePicker onChange:', items);
             const selectedUsers = convertPeoplePickerItems(items);
@@ -523,6 +535,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           showtooltip={true}
           required={false}
           disabled={false}
+          ensureUser={true}
           onChange={(items: any[]) => {
             console.log('👤 Responsibility (Constraints) PeoplePicker onChange:', items);
             const selectedUsers = convertPeoplePickerItems(items);
@@ -570,10 +583,6 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
       priority: DROPDOWN_OPTIONS.PRIORITY,
       status: DROPDOWN_OPTIONS.STATUS
     };
-
-    const potentialCostOptions = DROPDOWN_OPTIONS.POTENTIAL_COST;
-
-    const potentialBenefitOptions = DROPDOWN_OPTIONS.POTENTIAL_BENEFIT;
     
     return (
       <div>
@@ -638,10 +647,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           options={potentialCostOptions}
           selectedKey={formData.potentialCost?.toString()}
           onChange={(_, option) => {
-            const newCost = Number(option?.key);
-            updateFormData('potentialCost', newCost);
-            const benefit = Number(formData.potentialBenefit) || 0;
-            updateFormData('opportunityValue', newCost * benefit);
+            updateFormData('potentialCost', Number(option?.key));
           }}
           placeholder="Select..."
         />
@@ -651,18 +657,15 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           options={potentialBenefitOptions}
           selectedKey={formData.potentialBenefit?.toString()}
           onChange={(_, option) => {
-            const newBenefit = Number(option?.key);
-            updateFormData('potentialBenefit', newBenefit);
-            const cost = Number(formData.potentialCost) || 0;
-            updateFormData('opportunityValue', cost * newBenefit);
+            updateFormData('potentialBenefit', Number(option?.key));
           }}
           placeholder="Select..."
         />
         
         <div className={styles.calculatedField}>
-          <Text variant="medium">Opportunity Value (% to 10)</Text>
+          <Text variant="medium">Opportunity Value</Text>
           <div className={styles.calculatedValue}>
-            {formData.opportunityValue || 0}
+            {formData.opportunityValue !== undefined ? formData.opportunityValue.toFixed(2) : '-'}
           </div>
         </div>
         
@@ -688,6 +691,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           showtooltip={true}
           required={false}
           disabled={false}
+          ensureUser={true}
           onChange={(items: any[]) => {
             console.log('👤 Responsibility (Opportunity) PeoplePicker onChange:', items);
             const selectedUsers = convertPeoplePickerItems(items);
@@ -753,10 +757,6 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
       actionType: DROPDOWN_OPTIONS.ACTION_TYPE,
       status: DROPDOWN_OPTIONS.STATUS
     };
-
-    const probabilityOptions = DROPDOWN_OPTIONS.PROBABILITY_VALUE;
-
-    const impactOptions = DROPDOWN_OPTIONS.IMPACT_VALUE;
     
     return (
       <div>
@@ -818,26 +818,20 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         
         <Dropdown
           label="Impact Value (1 to 10)"
-          options={impactOptions}
+          options={impactValueOptions}
           selectedKey={formData.impactValue?.toString()}
           onChange={(_, option) => {
-            const newImpact = Number(option?.key);
-            updateFormData('impactValue', newImpact);
-            const probability = Number(formData.probabilityValue) || 0;
-            updateFormData('riskExposure', newImpact * probability);
+            updateFormData('impactValue', Number(option?.key));
           }}
           placeholder="Select..."
         />
         
         <Dropdown
           label="Probability Value (1 to 10)"
-          options={probabilityOptions}
+          options={probabilityValueOptions}
           selectedKey={formData.probabilityValue?.toString()}
           onChange={(_, option) => {
-            const newProbability = Number(option?.key);
-            updateFormData('probabilityValue', newProbability);
-            const impact = Number(formData.impactValue) || 0;
-            updateFormData('riskExposure', impact * newProbability);
+            updateFormData('probabilityValue', Number(option?.key));
           }}
           placeholder="Select..."
         />
@@ -897,6 +891,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
                           showtooltip={true}
                           required={false}
                           disabled={false}
+                          ensureUser={true}
                           onChange={(items: any[]) => {
                             console.log('👤 Responsibility (Mitigation) PeoplePicker onChange:', items);
                             const selectedUsers = convertPeoplePickerItems(items);
@@ -965,6 +960,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
                           showtooltip={true}
                           required={false}
                           disabled={false}
+                          ensureUser={true}
                           onChange={(items: any[]) => {
                             console.log('👤 Responsibility (Contingency) PeoplePicker onChange:', items);
                             const selectedUsers = convertPeoplePickerItems(items);

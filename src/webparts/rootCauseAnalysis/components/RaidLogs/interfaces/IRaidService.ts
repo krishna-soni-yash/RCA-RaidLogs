@@ -1,4 +1,4 @@
-import { IRaidItem } from '../components/RaidLogs/IRaidItem';
+import { IRaidItem } from './IRaidItem';
 
 export interface IExtendedRaidItem extends IRaidItem {
 }

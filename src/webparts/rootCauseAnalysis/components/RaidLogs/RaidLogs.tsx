@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner } from '@fluentui/react';
 import styles from './RaidLogs.module.scss';
-import { IRaidLogsProps, IRaidItem, RaidType } from './IRaidItem';
+import { IRaidLogsProps, IRaidItem, RaidType } from './interfaces/IRaidItem';
 import RaidTable from './RaidTables';
 import RaidForm from './RaidForms';
-import { RaidServiceFactory } from '../../services/RaidListService';
-import { IExtendedRaidItem } from '../../interfaces/IRaidService';
+import { RaidServiceFactory } from './RaidListService';
+import { IExtendedRaidItem } from './interfaces/IRaidService';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../common/Constants';
 import { MessageModal, MessageType } from '../ModalPopups';
 
@@ -26,6 +26,11 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [messageType, setMessageType] = React.useState<MessageType>('info');
   
   const raidService = React.useMemo(() => RaidServiceFactory.getInstance(context), [context]);
+
+  // History modal state
+  const [showHistoryModal, setShowHistoryModal] = React.useState<boolean>(false);
+  const [historyVersions, setHistoryVersions] = React.useState<any[]>([]);
+  const [historyItemTitle, setHistoryItemTitle] = React.useState<string>('');
 
   const showMessage = (message: string, type: MessageType): void => {
     setMessageText(message);
@@ -192,6 +197,22 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
       setEditingId(item.id);
       setSelectedType(item.type);
       setShowModal(true);
+    }
+  };
+
+  const viewHistory = async (item: IExtendedRaidItem): Promise<void> => {
+    if (!item || !item.id) return;
+    try {
+      setLoading(true);
+      const versions = await raidService.getVersionHistory(item.id);
+      setHistoryVersions(versions || []);
+      setHistoryItemTitle(item.description || `Item ${item.id}`);
+      setShowHistoryModal(true);
+    } catch (err) {
+      console.error('Error fetching version history:', err);
+      showMessage(ERROR_MESSAGES.NETWORK_ERROR, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -391,7 +412,116 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
         currentTab={currentTab}
         onEdit={editItem}
         onDelete={deleteItem}
+        onViewHistory={viewHistory}
       />
+
+      {/* Version History Modal */}
+      <Modal
+        isOpen={showHistoryModal}
+        onDismiss={() => setShowHistoryModal(false)}
+        isBlocking={false}
+        containerClassName={styles.historyModalContainer}
+      >
+        <div className={styles.historyModalContent}>
+          <div className={styles.historyModalHeader}>
+            <h2>Version History - {historyItemTitle}</h2>
+            <IconButton
+              iconProps={{ iconName: 'Cancel' }}
+              ariaLabel="Close"
+              onClick={() => setShowHistoryModal(false)}
+              className={styles.closeButton}
+            />
+          </div>
+          <div className={styles.historyModalBody}>
+            {historyVersions && historyVersions.length > 0 ? (
+              <>
+                <div className={styles.versionSuccessMessage}>
+                  <i className={`ms-Icon ms-Icon--CompletedSolid ${styles.successIcon}`} />
+                  <span>Found {historyVersions.length} version(s) for this item</span>
+                </div>
+                <div className={styles.versionList}>
+                  {historyVersions.map((version: any, index: number) => {
+                    const isCurrentVersion = index === 0;
+                    const versionLabel = version.VersionLabel || `${version.VersionId || version.Id || index + 1}.0`;
+                    const modifiedDate = version.Modified || version.Created || '';
+                    const editorName = version.Editor?.Title || version.Editor?.Name || version.Author?.Title || 'Unknown';
+                    const editorEmail = version.Editor?.EMail || version.Editor?.Email || '';
+                    const modifiedBy = editorEmail ? `(${editorEmail})` : editorName;
+                    
+                    return (
+                      <div 
+                        key={version.VersionId || version.Id || index} 
+                        className={`${styles.versionCard} ${isCurrentVersion ? styles.currentVersion : ''}`}
+                      >
+                        <div className={styles.versionHeader}>
+                          <div className={styles.versionTitle}>
+                            <span className={styles.versionNumber}>Version {versionLabel}</span>
+                            {isCurrentVersion && <span className={styles.currentBadge}>(Current)</span>}
+                          </div>
+                          <div className={styles.versionDate}>
+                            {modifiedDate ? new Date(modifiedDate).toLocaleString('en-GB', { 
+                              day: '2-digit', 
+                              month: '2-digit', 
+                              year: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true 
+                            }) : ''}
+                          </div>
+                        </div>
+                        <div className={styles.versionDetails}>
+                          <div className={styles.versionField}>
+                            <span className={styles.fieldLabel}>Modified by:</span>
+                            <span className={styles.fieldValue}>{modifiedBy}</span>
+                          </div>
+                          {version.RiskDescription && (
+                            <div className={styles.versionField}>
+                              <span className={styles.fieldLabel}>Description:</span>
+                              <span className={styles.fieldValue}>{version.RiskDescription}</span>
+                            </div>
+                          )}
+                          {version.RiskStatus && (
+                            <div className={styles.versionField}>
+                              <span className={styles.fieldLabel}>Status:</span>
+                              <span className={styles.fieldValue}>{version.RiskStatus}</span>
+                            </div>
+                          )}
+                          {version.Remarks && (
+                            <div className={styles.versionField}>
+                              <span className={styles.fieldLabel}>Remarks:</span>
+                              <span className={styles.fieldValue}>{version.Remarks}</span>
+                            </div>
+                          )}
+                          {version.ActionPlan && (
+                            <div className={styles.versionField}>
+                              <span className={styles.fieldLabel}>Action Plan:</span>
+                              <span className={styles.fieldValue}>{version.ActionPlan}</span>
+                            </div>
+                          )}
+                          {version.Impact && (
+                            <div className={styles.versionField}>
+                              <span className={styles.fieldLabel}>Impact:</span>
+                              <span className={styles.fieldValue}>{version.Impact}</span>
+                            </div>
+                          )}
+                          {version.RiskPriority && (
+                            <div className={styles.versionField}>
+                              <span className={styles.fieldLabel}>Priority:</span>
+                              <span className={styles.fieldValue}>{version.RiskPriority}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className={styles.emptyVersionState}>No version history available</div>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       {renderTypeSelectionModal()}
       

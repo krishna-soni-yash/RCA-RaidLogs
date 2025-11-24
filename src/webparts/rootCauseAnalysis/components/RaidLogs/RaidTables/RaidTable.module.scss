@@ -72,6 +72,14 @@
   }
 }
 
+.editButton {
+  color: #0078d4;
+}
+
+.deleteButton {
+  color: #dc3545;
+}
+
 .emptyState {
   display: flex;
   align-items: center;
@@ -96,4 +104,151 @@
 .emptyStateSubtext {
   font-size: 14px;
   margin: 0;
+}
+
+.subText {
+  /* Match the standard table cell text styling */
+  font-size: 14px;
+  color: #333;
+  margin-top: 4px;
+}
+
+.historyButton {
+  color: #107C10; /* Fluent UI success green */
+
+  &:hover {
+    color: #107C10;
+    background: #e6f4ea;
+  }
+}
+
+// Custom expandable table styles
+.customTable {
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableHeader {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+  font-weight: 600;
+  color: #333;
+}
+
+.headerCell {
+  padding: 12px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.tableRow {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #f8f9fa;
+  }
+}
+
+.tableCell {
+  padding: 12px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.expandButton {
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #666;
+
+  &:hover {
+    background: #f3f2f1;
+    color: #0078d4;
+  }
+}
+
+.expandedContent {
+  background: #fafbfc;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 16px 24px;
+  margin-left: 40px;
+}
+
+.actionPlanTable {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: white;
+}
+
+.actionPlanHeader {
+  display: flex;
+  background: #e8f4fd;
+  border-bottom: 2px solid #0078d4;
+  font-weight: 600;
+  color: #0078d4;
+}
+
+.actionHeaderCell {
+  padding: 10px 12px;
+  border-right: 1px solid #d0e8f7;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.actionPlanRow {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #f8f9fa;
+  }
+}
+
+.actionCell {
+  padding: 10px 12px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 13px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:last-child {
+    border-right: none;
+  }
 }
