@@ -106,7 +106,8 @@ export const LIST_NAMES = {
   IMPACT_VALUE: 'ImpactValue',
   PROBABILITY_VALUE: 'ProbabilityValue',
   POTENTIAL_COST: 'PotentialCost',
-  POTENTIAL_BENEFIT: 'PotentialBenefit'
+  POTENTIAL_BENEFIT: 'PotentialBenefit',
+  RAID_DESCRIPTION: 'RAIDDescription',
 
   // Add other list names here as needed
 } as const;
