@@ -15,6 +15,13 @@ export interface IRaidTableProps {
 
 const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDelete, onViewHistory }) => {
   const [expandedRows, setExpandedRows] = React.useState<Set<number>>(new Set());
+  const PAGE_SIZE = 8;
+  const [currentPage, setCurrentPage] = React.useState<number>(1);
+
+  React.useEffect(() => {
+    // Reset to first page whenever the items change
+    setCurrentPage(1);
+  }, [items]);
 
   const toggleRow = (itemId: number): void => {
     setExpandedRows((prevExpanded) => {
@@ -560,10 +567,14 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
 
   // Render Risk table with expandable action details using DetailsList
   if (currentTab === 'Risk') {
+    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = items.slice(startIndex, startIndex + PAGE_SIZE);
+
     return (
       <div className={styles.tableContainer}>
         <DetailsList
-          items={items}
+          items={pageItems}
           columns={getColumns()}
           selectionMode={SelectionMode.none}
           isHeaderVisible={true}
@@ -606,20 +617,72 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
             );
           }}
         />
+
+        {items.length > PAGE_SIZE && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              aria-label="Previous page"
+              style={{ marginRight: 8 }}
+            >
+              Prev
+            </button>
+            <span style={{ marginRight: 8 }}>Page {currentPage} of {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
       </div>
     );
   }
 
   // Default DetailsList for other tabs
+  // Default DetailsList for other tabs
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = items.slice(startIndex, startIndex + PAGE_SIZE);
+
   return (
     <div className={styles.tableContainer}>
       <DetailsList
-        items={items}
+        items={pageItems}
         columns={getColumns()}
         selectionMode={SelectionMode.none}
         isHeaderVisible={true}
         className={styles.detailsList}
       />
+
+      {items.length > PAGE_SIZE && (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            aria-label="Previous page"
+            style={{ marginRight: 8 }}
+          >
+            Prev
+          </button>
+          <span style={{ marginRight: 8 }}>Page {currentPage} of {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            aria-label="Next page"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };

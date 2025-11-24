@@ -735,10 +735,10 @@ export class RaidListService {
    */
   async getRiskItemsByRaidId(raidId: string): Promise<IExtendedRaidItem[]> {
     try {
-      const options: IListQueryOptions = {
+      const options = this.createQueryOptions({
         filter: `RAIDId eq '${raidId}'`,
         orderBy: 'TypeOfAction'
-      };
+      });
 
       const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
         context: this.context,
@@ -1144,6 +1144,28 @@ export class RaidListService {
       }));
     } catch (error) {
       console.error('Error fetching IMPACT_VALUE options:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch RAID_DESCRIPTION options from SharePoint list
+   * @returns Array of dropdown options with key (Title) and text (Title)
+   */
+  async getRaidDescriptionOptions(): Promise<Array<{ key: string; text: string }>> {
+    try {
+      const items = await this.genericService.fetchAllItems<any>({
+        context: this.context,
+        listTitle: LIST_NAMES.RAID_DESCRIPTION,
+        select: ['Description', 'Title']
+      });
+
+      return items.map(item => ({
+        key: item.Description,
+        text: item.Description
+      }));
+    } catch (error) {
+      console.error('Error fetching RAID_DESCRIPTION options:', error);
       return [];
     }
   }

@@ -41,6 +41,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
   const [potentialBenefitOptions, setPotentialBenefitOptions] = React.useState<Array<{ key: string; text: string }>>([]);
   const [probabilityValueOptions, setProbabilityValueOptions] = React.useState<Array<{ key: string; text: string }>>([]);
   const [impactValueOptions, setImpactValueOptions] = React.useState<Array<{ key: string; text: string }>>([]);
+  const [raidDescriptionOptions, setRaidDescriptionOptions] = React.useState<Array<{ key: string; text: string }>>([]);
 
   const convertPeoplePickerItems = (items: any[]): IPersonPickerUser[] => {
     return items.map((p: any) => ({
@@ -140,11 +141,12 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         const raidService = new RaidListService(context);
 
         // Fetch all dropdown options in parallel
-        const [potentialCost, potentialBenefit, probabilityValue, impactValue] = await Promise.all([
+        const [potentialCost, potentialBenefit, probabilityValue, impactValue, raidDescription] = await Promise.all([
           raidService.getPotentialCostOptions(),
           raidService.getPotentialBenefitOptions(),
           raidService.getProbabilityValueOptions(),
-          raidService.getImpactValueOptions()
+          raidService.getImpactValueOptions(),
+          raidService.getRaidDescriptionOptions()
         ]);
 
         // Update state with fetched options (no fallback to constants)
@@ -152,6 +154,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         setPotentialBenefitOptions(potentialBenefit);
         setProbabilityValueOptions(probabilityValue);
         setImpactValueOptions(impactValue);
+        setRaidDescriptionOptions(raidDescription);
       } catch (error) {
         console.error('Error loading dropdown options:', error);
         // Set empty arrays on error
@@ -159,6 +162,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         setPotentialBenefitOptions([]);
         setProbabilityValueOptions([]);
         setImpactValueOptions([]);
+        setRaidDescriptionOptions([]);
       }
     };
 
@@ -593,15 +597,31 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           placeholder="Select a date"
         />
         
-        <TextField
-          label="Description"
-          multiline
-          rows={3}
-          value={formData.description || ''}
-          onChange={(_, value) => updateFormData('description', value || '')}
-          placeholder="Enter value here"
-          required
-        />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <TextField
+              label="Description"
+              multiline
+              rows={3}
+              value={formData.description || ''}
+              onChange={(_, value) => updateFormData('description', value || '')}
+              placeholder="Enter value here"
+              required
+            />
+          </div>
+          <div style={{ width: '200px', marginTop: '28px' }}>
+            <Dropdown
+              placeholder="Or select from list"
+              options={raidDescriptionOptions}
+              onChange={(_, option) => {
+                if (option) {
+                  updateFormData('description', option.text);
+                }
+              }}
+              styles={{ dropdown: { width: '100%' } }}
+            />
+          </div>
+        </div>
         
         <Dropdown
           label="Associated Goal"
@@ -767,15 +787,31 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           placeholder="Select a date"
         />
         
-        <TextField
-          label="Description"
-          multiline
-          rows={3}
-          value={formData.description || ''}
-          onChange={(_, value) => updateFormData('description', value || '')}
-          placeholder="Enter value here"
-          required
-        />
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <TextField
+              label="Description"
+              multiline
+              rows={3}
+              value={formData.description || ''}
+              onChange={(_, value) => updateFormData('description', value || '')}
+              placeholder="Enter value here"
+              required
+            />
+          </div>
+          <div style={{ width: '200px', marginTop: '28px' }}>
+            <Dropdown
+              placeholder="Or select from list"
+              options={raidDescriptionOptions}
+              onChange={(_, option) => {
+                if (option) {
+                  updateFormData('description', option.text);
+                }
+              }}
+              styles={{ dropdown: { width: '100%' } }}
+            />
+          </div>
+        </div>
         
         <Dropdown
           label="Associated Goal"
