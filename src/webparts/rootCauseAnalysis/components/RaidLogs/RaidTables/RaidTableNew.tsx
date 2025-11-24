@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { DetailsList, IColumn, SelectionMode, IconButton } from '@fluentui/react';
+import { DetailsList, IColumn, SelectionMode, IconButton, DetailsRow } from '@fluentui/react';
 import styles from './RaidTable.module.scss';
-import { RaidType, IPersonPickerUser } from '../IRaidItem';
-import { IExtendedRaidItem } from '../../../interfaces/IRaidService';
+import { RaidType, IPersonPickerUser } from '../interfaces/IRaidItem';
+import { IExtendedRaidItem } from '../interfaces/IRaidService';
 import { formatDateShort } from '../../../../../common/DateUtils';
 
 export interface IRaidTableProps {
@@ -10,9 +10,25 @@ export interface IRaidTableProps {
   currentTab: RaidType;
   onEdit: (item: IExtendedRaidItem) => void;
   onDelete: (item: IExtendedRaidItem) => Promise<void>;
+  onViewHistory?: (item: IExtendedRaidItem) => void;
 }
 
-const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDelete }) => {
+const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDelete, onViewHistory }) => {
+  const [expandedRows, setExpandedRows] = React.useState<Set<number>>(new Set());
+
+  const toggleRow = (itemId: number): void => {
+    setExpandedRows((prevExpanded) => {
+      const newExpanded = new Set<number>();
+      prevExpanded.forEach(id => newExpanded.add(id));
+      
+      if (newExpanded.has(itemId)) {
+        newExpanded.delete(itemId);
+      } else {
+        newExpanded.add(itemId);
+      }
+      return newExpanded;
+    });
+  };
   
   const truncate = (str: string | undefined, length: number = 50): string => {
     if (!str) return '-';
@@ -54,11 +70,30 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
     if (currentTab === 'Issue' || currentTab === 'Assumption' || currentTab === 'Dependency' || currentTab === 'Constraints') {
       return [
         {
+          key: 'actions',
+          name: 'Actions',
+          minWidth: 100,
+          maxWidth: 120,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => (
+            <div className={styles.actions}>
+              <IconButton
+                iconProps={{ iconName: 'Edit' }}
+                title="Edit"
+                onClick={() => onEdit(item)}
+                className={`${styles.actionButton} ${styles.editButton}`}
+              />
+              {/* Delete button intentionally hidden per UI requirement */}
+            </div>
+          )
+        },
+        {
           key: 'details',
           name: 'Details',
           fieldName: 'details',
           minWidth: 200,
           maxWidth: 250,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => truncate(item.details)
         },
         {
@@ -67,14 +102,16 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'date',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.date)
         },
         {
           key: 'byWhom',
-          name: 'By Whom',
+          name: 'Identified By',
           fieldName: 'byWhom',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatUserArray(item.byWhom)
         },
         {
@@ -83,6 +120,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'implementationActions',
           minWidth: 180,
           maxWidth: 220,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => truncate(item.implementationActions, 40)
         },
         {
@@ -91,6 +129,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'responsibility',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatUserArray(item.responsibility)
         },
         {
@@ -99,6 +138,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'plannedClosureDate',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.plannedClosureDate)
         },
         {
@@ -107,6 +147,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'actualClosureDate',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.actualClosureDate)
         },
         {
@@ -115,39 +156,44 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'remarks',
           minWidth: 150,
           maxWidth: 200,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => truncate(item.remarks, 40)
         },
+        
+      ];
+    } else if (currentTab === 'Opportunity') {
+      return [
         {
           key: 'actions',
           name: 'Actions',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => (
             <div className={styles.actions}>
               <IconButton
                 iconProps={{ iconName: 'Edit' }}
                 title="Edit"
                 onClick={() => onEdit(item)}
-                className={styles.actionButton}
+                className={`${styles.actionButton} ${styles.editButton}`}
               />
               <IconButton
-                iconProps={{ iconName: 'Delete' }}
-                title="Delete"
-                onClick={async () => await onDelete(item)}
-                className={`${styles.actionButton} ${styles.deleteButton}`}
+                iconProps={{ iconName: 'History' }}
+                title="Version History"
+                onClick={() => onViewHistory && onViewHistory(item)}
+                className={`${styles.actionButton} ${styles.historyButton}`}
               />
+              {/* Delete button intentionally hidden per UI requirement */}
             </div>
           )
-        }
-      ];
-    } else if (currentTab === 'Opportunity') {
-      return [
+        },
         {
           key: 'identificationDate',
-          name: 'ID Date',
+          name: 'Identification Date',
           fieldName: 'identificationDate',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.identificationDate)
         },
         {
@@ -156,6 +202,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'description',
           minWidth: 180,
           maxWidth: 220,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => truncate(item.description, 40)
         },
         {
@@ -164,6 +211,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'associatedGoal',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.associatedGoal || '-'
         },
         {
@@ -172,6 +220,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'source',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.source || '-'
         },
         {
@@ -180,6 +229,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'category',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.category || '-'
         },
         {
@@ -188,6 +238,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'impact',
           minWidth: 100,
           maxWidth: 130,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.impact || '-'
         },
         {
@@ -196,6 +247,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'priority',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.priority || '-'
         },
         {
@@ -204,6 +256,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'potentialCost',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => {
             if (!item.potentialCost) return '-';
             const costLabels: { [key: number]: string } = {
@@ -227,6 +280,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'potentialBenefit',
           minWidth: 120,
           maxWidth: 140,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => {
             if (!item.potentialBenefit) return '-';
             const benefitLabels: { [key: number]: string } = {
@@ -250,7 +304,21 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'opportunityValue',
           minWidth: 120,
           maxWidth: 140,
-          onRender: (item: IExtendedRaidItem) => item.opportunityValue?.toString() || '-'
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => (
+            <div>{item.opportunityValue !== undefined ? item.opportunityValue: '-'}</div>
+          )
+        },
+        {
+          key: 'leverageActionPlan',
+          name: 'Leverage Action Plan',
+          fieldName: 'actionPlan',
+          minWidth: 180,
+          maxWidth: 300,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => (
+            <div>{item.actionPlan ? <div className={styles.subText}>{truncate(item.actionPlan, 140)}</div> : '-'}</div>
+          )
         },
         {
           key: 'responsibility',
@@ -258,6 +326,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'responsibility',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatUserArray(item.responsibility)
         },
         {
@@ -266,6 +335,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'targetDate',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.targetDate)
         },
         {
@@ -274,6 +344,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'actualDate',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.actualDate)
         },
         {
@@ -282,39 +353,82 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'status',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.status || '-'
+        },
+        {
+          key: 'effectiveness',
+          name: 'Effectiveness',
+          fieldName: 'effectiveness',
+          minWidth: 120,
+          maxWidth: 150,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => item.effectiveness || '-'
+        },
+        {
+          key: 'remarks',
+          name: 'Remarks',
+          fieldName: 'remarks',
+          minWidth: 150,
+          maxWidth: 200,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => truncate(item.remarks, 40)
+        },
+        
+      ];
+    } else if (currentTab === 'Risk') {
+      return [
+        {
+          key: 'expand',
+          name: '',
+          minWidth: 40,
+          maxWidth: 40,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => {
+            const hasActions = item.actions && item.actions.length > 0;
+            if (!hasActions) return null;
+            const isExpanded = expandedRows.has(item.id);
+            return (
+              <IconButton
+                iconProps={{ iconName: isExpanded ? 'ChevronDown' : 'ChevronRight' }}
+                title={isExpanded ? 'Collapse' : 'Expand'}
+                onClick={() => toggleRow(item.id)}
+                className={styles.expandButton}
+              />
+            );
+          }
         },
         {
           key: 'actions',
           name: 'Actions',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => (
             <div className={styles.actions}>
               <IconButton
                 iconProps={{ iconName: 'Edit' }}
                 title="Edit"
                 onClick={() => onEdit(item)}
-                className={styles.actionButton}
+                className={`${styles.actionButton} ${styles.editButton}`}
               />
               <IconButton
-                iconProps={{ iconName: 'Delete' }}
-                title="Delete"
-                onClick={async () => await onDelete(item)}
-                className={`${styles.actionButton} ${styles.deleteButton}`}
+                iconProps={{ iconName: 'History' }}
+                title="Version History"
+                onClick={() => onViewHistory && onViewHistory(item)}
+                className={`${styles.actionButton} ${styles.historyButton}`}
               />
+              {/* Delete button intentionally hidden per UI requirement */}
             </div>
           )
-        }
-      ];
-    } else if (currentTab === 'Risk') {
-      return [
+        },
         {
           key: 'identificationDate',
-          name: 'ID Date',
+          name: 'Identification Date',
           fieldName: 'identificationDate',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => formatDateShort(item.identificationDate)
         },
         {
@@ -323,6 +437,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'description',
           minWidth: 180,
           maxWidth: 220,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => truncate(item.description, 40)
         },
         {
@@ -331,6 +446,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'associatedGoal',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.associatedGoal || '-'
         },
         {
@@ -339,6 +455,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'source',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.source || '-'
         },
         {
@@ -347,6 +464,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'category',
           minWidth: 120,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.category || '-'
         },
         {
@@ -355,6 +473,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'impact',
           minWidth: 100,
           maxWidth: 130,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.impact || '-'
         },
         {
@@ -363,6 +482,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'priority',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.priority || '-'
         },
         {
@@ -371,6 +491,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'impactValue',
           minWidth: 100,
           maxWidth: 120,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.impactValue?.toString() || '-'
         },
         {
@@ -379,6 +500,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'probabilityValue',
           minWidth: 130,
           maxWidth: 150,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.probabilityValue?.toString() || '-'
         },
         {
@@ -387,6 +509,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'riskExposure',
           minWidth: 110,
           maxWidth: 130,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => item.riskExposure?.toString() || '-'
         },
         {
@@ -395,30 +518,28 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
           fieldName: 'typeOfAction',
           minWidth: 150,
           maxWidth: 180,
+          isResizable: true,
           onRender: (item: IExtendedRaidItem) => getTypeOfAction(item)
         },
         {
-          key: 'actions',
-          name: 'Actions',
-          minWidth: 100,
-          maxWidth: 120,
-          onRender: (item: IExtendedRaidItem) => (
-            <div className={styles.actions}>
-              <IconButton
-                iconProps={{ iconName: 'Edit' }}
-                title="Edit"
-                onClick={() => onEdit(item)}
-                className={styles.actionButton}
-              />
-              <IconButton
-                iconProps={{ iconName: 'Delete' }}
-                title="Delete"
-                onClick={async () => await onDelete(item)}
-                className={`${styles.actionButton} ${styles.deleteButton}`}
-              />
-            </div>
-          )
-        }
+          key: 'effectiveness',
+          name: 'Effectiveness',
+          fieldName: 'effectiveness',
+          minWidth: 120,
+          maxWidth: 150,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => item.effectiveness || '-'
+        },
+        {
+          key: 'remarks',
+          name: 'Remarks',
+          fieldName: 'remarks',
+          minWidth: 150,
+          maxWidth: 200,
+          isResizable: true,
+          onRender: (item: IExtendedRaidItem) => truncate(item.remarks, 40)
+        },
+        
       ];
     }
     return [];
@@ -437,6 +558,59 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
     );
   }
 
+  // Render Risk table with expandable action details using DetailsList
+  if (currentTab === 'Risk') {
+    return (
+      <div className={styles.tableContainer}>
+        <DetailsList
+          items={items}
+          columns={getColumns()}
+          selectionMode={SelectionMode.none}
+          isHeaderVisible={true}
+          className={styles.detailsList}
+          onRenderRow={(props) => {
+            if (!props) return null;
+            
+            const item = props.item as IExtendedRaidItem;
+            const isExpanded = expandedRows.has(item.id);
+            const hasActions = item.actions && item.actions.length > 0;
+            
+            return (
+              <div key={item.id}>
+                <DetailsRow {...props} />
+                {isExpanded && hasActions && (
+                  <div className={styles.expandedContent}>
+                    <div className={styles.actionPlanTable}>
+                      <div className={styles.actionPlanHeader}>
+                        <div className={styles.actionHeaderCell} style={{ width: '120px' }}>Type of Action</div>
+                        <div className={styles.actionHeaderCell} style={{ width: '250px' }}>Action Plan</div>
+                        <div className={styles.actionHeaderCell} style={{ width: '120px' }}>Responsibility</div>
+                        <div className={styles.actionHeaderCell} style={{ width: '110px' }}>Target Date</div>
+                        <div className={styles.actionHeaderCell} style={{ width: '110px' }}>Actual Date</div>
+                        <div className={styles.actionHeaderCell} style={{ width: '100px' }}>Status</div>
+                      </div>
+                      {item.actions && item.actions.map((action: any, index: number) => (
+                        <div key={index} className={styles.actionPlanRow}>
+                          <div className={styles.actionCell} style={{ width: '120px' }}>{action.type || '-'}</div>
+                          <div className={styles.actionCell} style={{ width: '250px' }} title={action.plan}>{truncate(action.plan, 35)}</div>
+                          <div className={styles.actionCell} style={{ width: '120px' }}>{formatUserArray(action.responsibility)}</div>
+                          <div className={styles.actionCell} style={{ width: '110px' }}>{formatDateShort(action.targetDate)}</div>
+                          <div className={styles.actionCell} style={{ width: '110px' }}>{formatDateShort(action.actualDate)}</div>
+                          <div className={styles.actionCell} style={{ width: '100px' }}>{action.status || '-'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Default DetailsList for other tabs
   return (
     <div className={styles.tableContainer}>
       <DetailsList
