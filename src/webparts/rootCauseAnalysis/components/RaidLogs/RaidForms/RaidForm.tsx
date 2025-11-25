@@ -619,18 +619,6 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
               required
             />
           </div>
-          <div style={{ width: '200px', marginTop: '28px' }}>
-            <Dropdown
-              placeholder="Or select from list"
-              options={raidDescriptionOptions}
-              onChange={(_, option) => {
-                if (option) {
-                  updateFormData('description', option.text);
-                }
-              }}
-              styles={{ dropdown: { width: '100%' } }}
-            />
-          </div>
         </div>
         
         <Dropdown
