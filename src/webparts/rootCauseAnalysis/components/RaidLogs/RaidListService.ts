@@ -3,22 +3,13 @@ import GenericServiceInstance from '../../../../services/GenericServices';
 import { IGenericService } from '../../../../services/IGenericServices';
 import { IRaidItem, RaidType, IRaidAction } from './interfaces/IRaidItem';
 import { LIST_NAMES } from '../../../../common/Constants';
-import { 
-  IExtendedRaidItem
-} from './interfaces/IRaidService';
+import { IExtendedRaidItem } from './interfaces/IRaidService';
 
-/**
- * Generic SharePoint List Item interface
- */
 export interface ISharePointListItem {
   Id?: number;
   Title?: string;
   [key: string]: any;
 }
-
-/**
- * SharePoint List Query Options
- */
 export interface IListQueryOptions {
   select?: string[];
   filter?: string;
@@ -27,12 +18,6 @@ export interface IListQueryOptions {
   skip?: number;
   expand?: string[];
 }
-
-/**
- * SharePoint List Item interface for RAID items
- * Extends the generic interface with RAID-specific fields
- * Field names match SharePoint internal field names
- */
 export interface IRaidSharePointItem extends ISharePointListItem {
   Id?: number;
   Title?: string;
@@ -82,12 +67,6 @@ export interface IRaidSharePointItem extends ISharePointListItem {
   AuthorId?: number;
   EditorId?: number;
 }
-
-/**
- * RAID List Service
- * Specialized service for RAID (Risk, Assumption, Issue, Dependency, Opportunity, Constraints) items
- * Uses the generic SharePoint service underneath
- */
 export class RaidListService {
   private genericService: IGenericService;
   private context: WebPartContext;
@@ -153,7 +132,6 @@ export class RaidListService {
       ActualClosureDate: this.convertToISODate(raidItem.actualClosureDate),
       Effectiveness: raidItem.effectiveness || undefined,
       Remarks: raidItem.remarks || undefined
-      // DO NOT set responsibility or byWhom here - they will be converted to ResponsibilityId and ByWhomId below
     };
 
     if (this.enablePeoplePickerFields) {
@@ -236,25 +214,25 @@ export class RaidListService {
 
   private parsePeoplePickerField(value: any): any {
     if (!value) return undefined;
-    
+
     try {
       if (typeof value === 'object') {
         if (Array.isArray(value)) {
           const parsedUsers = value.map((user: any) => this.parseUserObject(user)).filter((user: any) => user !== null && user !== undefined);
           return parsedUsers.length > 0 ? parsedUsers : undefined;
         }
-        
+
         if (value.results && Array.isArray(value.results)) {
           const parsedUsers = value.results.map((user: any) => this.parseUserObject(user)).filter((user: any) => user !== null && user !== undefined);
           return parsedUsers.length > 0 ? parsedUsers : undefined;
         }
-        
+
         const parsedUser = this.parseUserObject(value);
         if (parsedUser) {
           return [parsedUser];
         }
       }
-      
+
       if (typeof value === 'string') {
         try {
           const parsed = JSON.parse(value);
@@ -281,7 +259,7 @@ export class RaidListService {
           }
         }
       }
-      
+
       if (typeof value === 'number') {
         return [{
           id: String(value),
@@ -290,7 +268,7 @@ export class RaidListService {
           email: ''
         }];
       }
-      
+
       return undefined;
     } catch (error) {
       return undefined;
@@ -351,71 +329,55 @@ export class RaidListService {
 
   private async convertUserFieldForSharePointAsync(userField: any, context: WebPartContext): Promise<number[] | null> {
     if (!userField) return null;
-    
+
     try {
-      // Parse the serialized format "id|email; id|email" (same as RCA repository)
-      // The PeoplePicker with ensureUser={true} should provide numeric IDs
       if (typeof userField === 'string') {
-        // Empty string check
         if (userField.trim() === '') return null;
-        
+
         const parts = userField.split(/;\s*/);
         const userIds: number[] = [];
-        
+
         for (const part of parts) {
           if (!part || part.trim() === '') continue;
-          
-          // Split by pipe to get ID|email format
           const pipeIndex = part.indexOf('|');
           const idPart = pipeIndex !== -1 ? part.substring(0, pipeIndex).trim() : part.trim();
-          
-          // Parse the ID as number (PeoplePicker with ensureUser should give numeric IDs)
           const numericId = parseInt(idPart, 10);
           if (!isNaN(numericId) && numericId > 0) {
             userIds.push(numericId);
           } else {
-            console.warn('⚠️ Non-numeric ID found in serialized user field:', idPart, '- Ensure ensureUser={true} is set on PeoplePicker');
+            console.warn('Non-numeric ID found in serialized user field:', idPart);
           }
         }
-        
-        console.log('📊 Parsed user IDs for SharePoint:', userIds);
-        
-        // Return array of IDs (PnPjs will handle the proper formatting)
+
         return userIds.length > 0 ? userIds : null;
       }
-      
-      // Handle array format
+
       if (Array.isArray(userField)) {
         const userIds: number[] = [];
-        
+
         for (const user of userField) {
           if (typeof user === 'number' && !isNaN(user) && user > 0) {
             userIds.push(user);
           } else if (typeof user === 'string' && user.trim() !== '') {
             const pipeIndex = user.indexOf('|');
             const idPart = pipeIndex !== -1 ? user.substring(0, pipeIndex).trim() : user.trim();
-            
             const numericId = parseInt(idPart, 10);
             if (!isNaN(numericId) && numericId > 0) {
               userIds.push(numericId);
             }
           }
         }
-        
-        // Return array of IDs (PnPjs will handle the proper formatting)
+
         return userIds.length > 0 ? userIds : null;
       }
-      
+
       return null;
     } catch (error) {
-      console.error('❌ Error in convertUserFieldForSharePointAsync:', error);
+      console.error('Error in convertUserFieldForSharePointAsync:', error);
       return null;
     }
   }
 
-  /**
-   * Helper method to convert values to numbers for SharePoint numeric fields
-   */
   private convertToNumber(value: any): number | undefined {
     // Handle null, undefined, empty string, and whitespace-only strings
     if (value === null || value === undefined || value === '' || 
@@ -458,10 +420,6 @@ export class RaidListService {
     // Round to specified decimal places
     return Math.round(numValue * Math.pow(10, decimals)) / Math.pow(10, decimals);
   }
-
-  /**
-   * Helper method to convert dates to ISO string format for SharePoint
-   */
   private convertToISODate(value: any): string | undefined {
     if (value === null || value === undefined || value === '') {
       return undefined;
@@ -494,9 +452,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * CREATE: Add new RAID item
-   */
   async createRaidItem(raidItem: Omit<IRaidItem, 'id'>): Promise<IExtendedRaidItem | null> {
     try {
       const spItem = await this.convertToSharePointItem({ ...raidItem, id: 0 });
@@ -538,14 +493,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * CREATE: Create Risk item with separate Mitigation and Contingency SharePoint items
-   * This method creates 2 SharePoint list items for a single Risk form entry:
-   * - One item for Mitigation action
-   * - One item for Contingency action
-   * Both items share the same RaidID and common field values
-   * Only action-specific fields differ between the two items
-   */
   async createRiskItemWithActions(
     raidItem: Omit<IRaidItem, 'id'>,
     mitigationAction: IRaidAction | null,
@@ -728,11 +675,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * UTILITY: Get Risk items by RaidID
-   * Returns all SharePoint items that share the same RaidID
-   * Used to fetch both Mitigation and Contingency items for a single Risk
-   */
   async getRiskItemsByRaidId(raidId: string): Promise<IExtendedRaidItem[]> {
     try {
       const options = this.createQueryOptions({
@@ -1017,9 +959,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * UTILITY: Check if RAID list exists
-   */
   async checkListExists(): Promise<boolean> {
     try {
       await this.genericService.fetchAllItems({ context: this.context, listTitle: this.listName, pageSize: 1 });
@@ -1029,9 +968,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * UTILITY: Get list information
-   */
   async getListInfo(): Promise<any> {
     try {
       // GenericService does not currently expose list metadata; try a minimal fetch to confirm availability
@@ -1042,16 +978,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * DROPDOWN OPTIONS: Fetch dropdown options from SharePoint lists
-   * These methods fetch dropdown options from SharePoint lists dynamically
-   * Title field is used as key and Text field is used as text
-   */
-
-  /**
-   * Fetch POTENTIAL_COST options from SharePoint list
-   * @returns Array of dropdown options with key (Title) and text (Text)
-   */
   async getPotentialCostOptions(): Promise<Array<{ key: string; text: string }>> {
     try {
       const items = await this.genericService.fetchAllItems<any>({
@@ -1073,10 +999,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * Fetch POTENTIAL_BENEFIT options from SharePoint list
-   * @returns Array of dropdown options with key (Title) and text (Text)
-   */
   async getPotentialBenefitOptions(): Promise<Array<{ key: string; text: string }>> {
     try {
       const items = await this.genericService.fetchAllItems<any>({
@@ -1098,10 +1020,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * Fetch PROBABILITY_VALUE options from SharePoint list
-   * @returns Array of dropdown options with key (Title) and text (Text)
-   */
   async getProbabilityValueOptions(): Promise<Array<{ key: string; text: string }>> {
     try {
       const items = await this.genericService.fetchAllItems<any>({
@@ -1123,10 +1041,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * Fetch IMPACT_VALUE options from SharePoint list
-   * @returns Array of dropdown options with key (Title) and text (Text)
-   */
   async getImpactValueOptions(): Promise<Array<{ key: string; text: string }>> {
     try {
       const items = await this.genericService.fetchAllItems<any>({
@@ -1148,10 +1062,6 @@ export class RaidListService {
     }
   }
 
-  /**
-   * Fetch RAID_DESCRIPTION options from SharePoint list
-   * @returns Array of dropdown options with key (Title) and text (Title)
-   */
   async getRaidDescriptionOptions(): Promise<Array<{ key: string; text: string }>> {
     try {
       const items = await this.genericService.fetchAllItems<any>({

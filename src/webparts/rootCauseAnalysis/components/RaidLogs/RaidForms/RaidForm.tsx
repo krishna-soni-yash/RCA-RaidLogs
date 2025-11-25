@@ -214,6 +214,16 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Helper to format a Date to local YYYY-MM-DD string (preserves selected date)
+  const formatDateLocal = (date?: Date | null): string => {
+    if (!date) return '';
+    if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+    const y = date.getFullYear();
+    const m = ("0" + String(date.getMonth() + 1)).slice(-2);
+    const d = ("0" + String(date.getDate())).slice(-2);
+    return `${y}-${m}-${d}`;
+  };
+
 
 
   const handleActionTypeChange = (actionType: string, checked: boolean): void => {
@@ -379,7 +389,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Date"
           value={formData.date ? new Date(formData.date) : undefined}
-          onSelectDate={(date) => updateFormData('date', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('date', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -447,14 +457,14 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Planned Closure Date"
           value={formData.plannedClosureDate ? new Date(formData.plannedClosureDate) : undefined}
-          onSelectDate={(date) => updateFormData('plannedClosureDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('plannedClosureDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
         <DatePicker
           label="Actual Closure Date"
           value={formData.actualClosureDate ? new Date(formData.actualClosureDate) : undefined}
-          onSelectDate={(date) => updateFormData('actualClosureDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('actualClosureDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -487,7 +497,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Date"
           value={formData.date ? new Date(formData.date) : undefined}
-          onSelectDate={(date) => updateFormData('date', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('date', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -555,14 +565,14 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Planned Closure Date"
           value={formData.plannedClosureDate ? new Date(formData.plannedClosureDate) : undefined}
-          onSelectDate={(date) => updateFormData('plannedClosureDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('plannedClosureDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
         <DatePicker
           label="Actual Closure Date"
           value={formData.actualClosureDate ? new Date(formData.actualClosureDate) : undefined}
-          onSelectDate={(date) => updateFormData('actualClosureDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('actualClosureDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -593,7 +603,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Identification Date"
           value={formData.identificationDate ? new Date(formData.identificationDate) : undefined}
-          onSelectDate={(date) => updateFormData('identificationDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('identificationDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -727,14 +737,14 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Target Date"
           value={formData.targetDate ? new Date(formData.targetDate) : undefined}
-          onSelectDate={(date) => updateFormData('targetDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('targetDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
         <DatePicker
           label="Actual Date"
           value={formData.actualDate ? new Date(formData.actualDate) : undefined}
-          onSelectDate={(date) => updateFormData('actualDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('actualDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -783,7 +793,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         <DatePicker
           label="Identification Date"
           value={formData.identificationDate ? new Date(formData.identificationDate) : undefined}
-          onSelectDate={(date) => updateFormData('identificationDate', date?.toISOString().split('T')[0] || '')}
+          onSelectDate={(date) => updateFormData('identificationDate', formatDateLocal(date) || '')}
           placeholder="Select a date"
         />
         
@@ -943,14 +953,14 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
                         <DatePicker
                           label="Target Date"
                           value={mitigationAction.targetDate ? new Date(mitigationAction.targetDate) : undefined}
-                          onSelectDate={(date) => updateActionInType('Mitigation', 'targetDate', date?.toISOString().split('T')[0] || '')}
+                          onSelectDate={(date) => updateActionInType('Mitigation', 'targetDate', formatDateLocal(date) || '')}
                           placeholder="Select a date"
                         />
                         
                         <DatePicker
                           label="Actual Date"
                           value={mitigationAction.actualDate ? new Date(mitigationAction.actualDate) : undefined}
-                          onSelectDate={(date) => updateActionInType('Mitigation', 'actualDate', date?.toISOString().split('T')[0] || '')}
+                          onSelectDate={(date) => updateActionInType('Mitigation', 'actualDate', formatDateLocal(date) || '')}
                           placeholder="Select a date"
                         />
                         
@@ -1012,14 +1022,14 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
                         <DatePicker
                           label="Target Date"
                           value={contingencyAction.targetDate ? new Date(contingencyAction.targetDate) : undefined}
-                          onSelectDate={(date) => updateActionInType('Contingency', 'targetDate', date?.toISOString().split('T')[0] || '')}
+                          onSelectDate={(date) => updateActionInType('Contingency', 'targetDate', formatDateLocal(date) || '')}
                           placeholder="Select a date"
                         />
                         
                         <DatePicker
                           label="Actual Date"
                           value={contingencyAction.actualDate ? new Date(contingencyAction.actualDate) : undefined}
-                          onSelectDate={(date) => updateActionInType('Contingency', 'actualDate', date?.toISOString().split('T')[0] || '')}
+                          onSelectDate={(date) => updateActionInType('Contingency', 'actualDate', formatDateLocal(date) || '')}
                           placeholder="Select a date"
                         />
                         
