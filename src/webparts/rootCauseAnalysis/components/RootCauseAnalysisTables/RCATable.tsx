@@ -6,9 +6,9 @@ import { RCACOLUMNS } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
 import { GenericService } from '../../../../services/GenericServices';
 import IGenericService from '../../../../services/IGenericServices';
-import { getRCAItems, RCARepository } from '../../../../repositories/repositoriesInterface/RCARepository';
+import { getRCAItems, RCARepository } from '../../../../repositories/RCARepository';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import IRCARepository from '../../../../repositories/IRCARepository';
+import IRCARepository from '../../../../repositories/repositoriesInterface/IRCARepository';
 
 
 
@@ -154,8 +154,8 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 	useEffect(() => {
 		fetchRCAItems();
-	}, [context]);
-	; const fetchRCAItems = async () => {
+	}, [context, handleFormSubmit]);
+	 const fetchRCAItems = async () => {
 		const genericServiceInstance: IGenericService = new GenericService(undefined, context);
 		genericServiceInstance.init(undefined, context);
 		const RCARepo: IRCARepository = new RCARepository(genericServiceInstance);
@@ -204,6 +204,11 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		form.performanceAfter = it.PerformanceAfterActionPlan || '';
 		form.quantitativeEffectiveness = it.QuantitativeOrStatisticalEffecti || '';
 		form.remarks = it.Remarks || '';
+		form.relatedSubMetric = it.RelatedSubMetric || '';
+		form.attachments = (it.attachments && Array.isArray(it.attachments)) ? it.attachments.map((a: any) => ({
+			FileName: a.FileName || a.fileName || '',
+			ServerRelativeUrl: a.ServerRelativeUrl || a.Url || a.FileRef || ''
+		})) : [];
 		// preserve id for editing context
 		form.__repoId = it.ID ?? it.Id ?? it.Id;
 		return form;
@@ -367,7 +372,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 			<div className={classNames.container}>
 				<DetailsList
-					items={RCAItems.length > 0 ? RCAItems : localItems}
+					items={RCAItems}
 					columns={displayedColumns}
 					onRenderRow={onRenderRow}
 					// disable selection UI and behavior

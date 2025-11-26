@@ -92,6 +92,10 @@ export interface IGenericService {
 	// Update an existing item in a list
 	updateItem<T = any>(options: IUpdateOptions): Promise<ISaveResult<T>>;
 
+	getSiteUrlForList(listTitle: string, context: WebPartContext): string;
+
+	getSpInstanceForSite(siteUrl: string, context: WebPartContext): any;
+
 	// Clear cached SP instances
 	clearCache(): void;
 
