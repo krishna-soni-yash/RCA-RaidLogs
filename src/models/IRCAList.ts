@@ -1,4 +1,11 @@
 export interface IRCAList {
+    ID: number;
+    Title: string;
+    // RCAItemID: string;
+    // RCAItemCreatedBy: string;
+    // RCAItemCreatedDate: string;
+    // RCAItemModifiedBy: string;
+    // RCAItemModifiedDate: string;
     LinkTitle: string;
     ProblemStatementNumber: string;
     CauseCategory: string;
@@ -29,4 +36,6 @@ export interface IRCAList {
     PerformanceAfterActionPlan: string;
     QuantitativeOrStatisticalEffecti: string;
     Remarks: string;
+    RelatedSubMetric: string;
+    attachments: any[];
 }

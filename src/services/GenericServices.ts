@@ -36,7 +36,7 @@ export class GenericService implements IGenericService {
     return SiteConfiguration.PARENT_LISTS.indexOf(listTitle) !== -1;
   }
 
-  private getSiteUrlForList(listTitle: string, context: WebPartContext): string {
+  public getSiteUrlForList(listTitle: string, context: WebPartContext): string {
     if (this.isParentSiteList(listTitle)) {
       return context.pageContext.site?.absoluteUrl || context.pageContext.web.absoluteUrl;
     }
@@ -44,7 +44,7 @@ export class GenericService implements IGenericService {
     return context.pageContext.web.absoluteUrl;
   }
 
-  private getSpInstanceForSite(siteUrl: string, context: WebPartContext): any {
+  public getSpInstanceForSite(siteUrl: string, context: WebPartContext): any {
     if (this.spInstances.has(siteUrl)) {
       return this.spInstances.get(siteUrl);
     }

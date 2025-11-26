@@ -89,7 +89,7 @@ export const selectedFields = [
   'PerformanceBeforeActionPlan',    
   'PerformanceAfterActionPlan',  
   'QuantitativeOrStatisticalEffecti',
-  'Remarks'
+  'Remarks',
 ];
 export const expandFields = [
   'ResponsibilityCorrection',

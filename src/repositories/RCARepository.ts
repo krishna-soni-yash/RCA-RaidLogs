@@ -1,11 +1,19 @@
-import genericService, { GenericService } from '../../services/GenericServices';
-import IGenericService from '../../services/IGenericServices';
+import genericService, { GenericService } from '../services/GenericServices';
+import IGenericService from '../services/IGenericServices';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { IRCAList } from '../../models/IRCAList';
-import ErrorMessages from '../../common/ErrorMessages';
-import { SubSiteListNames, selectedFields, expandFields } from '../../common/Constants';
-import IRCARepository from '../IRCARepository';
-//import IObjectivesMasterRepository from './repositoriesInterface/IObjectivesMasterRepository';
+import { IRCAList } from '../models/IRCAList';
+import ErrorMessages from '../common/ErrorMessages';
+import { SubSiteListNames, selectedFields, expandFields } from '../common/Constants';
+import IRCARepository from '../repositories/repositoriesInterface/IRCARepository';
+import '@pnp/sp/webs';
+import '@pnp/sp/lists';
+import '@pnp/sp/items';
+import '@pnp/sp/attachments';
+//import getSpInstanceForSite from '../services/GenericServices';
+//import getSiteUrlForList from '../services/GenericServices';
+
+//import { SPHttpClient } from '@microsoft/sp-http'; // << added import
+
 
 /**
  * Repository for ProjectTypes list
@@ -42,7 +50,6 @@ export class RCARepository implements IRCARepository {
         try {
             const genericServiceInstance: IGenericService = new GenericService(undefined, context);
             genericServiceInstance.init(undefined, context);
-            // const selectFields: string[] = ['Id', 'LinkTitle','ProjectType','IsActive'];
 
             const items = await this.service.fetchAllItems<any>({
                 context,
@@ -88,8 +95,30 @@ export class RCARepository implements IRCARepository {
                 PerformanceAfterActionPlan: it?.PerformanceAfterActionPlan || '',
                 QuantitativeOrStatisticalEffecti: it?.QuantitativeOrStatisticalEffecti || '',
                 Remarks: it?.Remarks || '',
-
+                RelatedSubMetric: it?.RelatedSubMetric || '',
+                attachments: []
             })) as unknown as IRCAList[];
+
+            if (context) {
+                let targetsiteurl: string; 
+                targetsiteurl = await this.service.getSiteUrlForList(SubSiteListNames.RootCauseAnalysis,context);
+                let sp:any;
+
+                sp = await this.service.getSpInstanceForSite(targetsiteurl,context);
+                await Promise.all(normalized.map(async (n) => {
+                    if (!n.ID) { n.attachments = []; return; }
+                    try {
+                        const files = await sp.web.lists.getByTitle(SubSiteListNames.RootCauseAnalysis).items.getById(n.ID).attachmentFiles();
+                        n.attachments = files.map((f: any) => ({
+                            FileName: f?.FileName || f?.FileLeafRef || '',
+                            ServerRelativeUrl: f?.ServerRelativeUrl || f?.ServerRelativePath?.DecodedUrl || ''
+                        }));
+                    } catch (e) {
+                        console.warn('Failed to load attachments for item', n.ID, e);
+                        n.attachments = [];
+                    }
+                }));
+            }
 
             this.cache = normalized;
             this.cacheTimestamp = now;
@@ -221,6 +250,7 @@ export class RCARepository implements IRCARepository {
             }
             if (item.PlannedClosureDatePreventive !== undefined) payload.PlannedClosureDatePreventive = item.PlannedClosureDatePreventive;
             if (item.ActualClosureDatePreventive !== undefined) payload.ActualClosureDatePreventive = item.ActualClosureDatePreventive;
+            if (item.RelatedSubMetric !== undefined) payload.RelatedSubMetric = item.RelatedSubMetric;
 
             const result = await this.service.saveItem<IRCAList>({
                 context,
@@ -362,7 +392,7 @@ export class RCARepository implements IRCARepository {
             
             if (item.PlannedClosureDatePreventive !== undefined) payload.PlannedClosureDatePreventive = item.PlannedClosureDatePreventive;
             if (item.ActualClosureDatePreventive !== undefined) payload.ActualClosureDatePreventive = item.ActualClosureDatePreventive;
-
+            if (item.RelatedSubMetric !== undefined) payload.RelatedSubMetric = item.RelatedSubMetric;
 
             await this.service.updateItem({
                 context,
@@ -376,6 +406,28 @@ export class RCARepository implements IRCARepository {
         catch (error: any) {
             throw new Error('Failed to update RCA item: ' + (error?.message || error));
         }
+    }
+    public async uploadRCAAttachment(itemId: number, file: File, context?: WebPartContext): Promise<void> {
+        if (!context || !itemId || !file) return;
+        const targetSiteUrl = await this.service.getSiteUrlForList(SubSiteListNames.RootCauseAnalysis, context);
+        const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+        const item = sp?.web?.lists?.getByTitle?.(SubSiteListNames.RootCauseAnalysis)?.items?.getById?.(itemId);
+        if (!item || !item.attachmentFiles || typeof item.attachmentFiles.add !== 'function') {
+            console.error('uploadRCAAttachment: attachmentFiles.add not available', { hasItem: !!item });
+            return;
+        }
+        await item.attachmentFiles.add(file.name, file);
+    }
+    public async deleteRCAAttachment(itemId: number, fileName: string, context?: WebPartContext): Promise<void> {
+        if (!context || !itemId || !fileName) return;
+        const targetSiteUrl = await this.service.getSiteUrlForList(SubSiteListNames.RootCauseAnalysis, context);
+        const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+        const attachment = sp?.web?.lists?.getByTitle?.(SubSiteListNames.RootCauseAnalysis)?.items?.getById?.(itemId)?.attachmentFiles?.getByName?.(fileName);
+        if (!attachment || typeof attachment.delete !== 'function') {
+            console.error('deleteRCAAttachment: attachmentFiles.getByName.delete not available', { hasAttachment: !!attachment });
+            return;
+        }
+        await attachment.delete();
     }
 
     public refresh(): void {
@@ -402,4 +454,8 @@ export const saveRCAItem = async (item: IRCAList, context?: WebPartContext): Pro
 export const updateRCAItem = async (itemId: number, item: IRCAList, context?: WebPartContext): Promise<any> => defaultInstance.updateRCAItem(itemId, item, context);
 export const refresh = (): void => defaultInstance.refresh();
 export const getCacheStatus = (): { cached: boolean; itemCount: number; age: number } => defaultInstance.getCacheStatus();
+export const deleteRCAAttachment = async (itemId: number, fileName: string, context?: WebPartContext): Promise<void> => defaultInstance.deleteRCAAttachment(itemId, fileName, context);
+export const uploadRCAAttachment = async (itemId: number, file: File, context?: WebPartContext): Promise<void> => defaultInstance.uploadRCAAttachment(itemId, file, context);
+
+
 

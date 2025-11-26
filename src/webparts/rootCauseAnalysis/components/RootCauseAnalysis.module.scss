@@ -145,3 +145,32 @@
     outline:none !important;
   }
 }
+.actionRow {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #f8f9fa;
+
+  >* {
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.actionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+
+  >span {
+    font-weight: 600;
+    color: #333;
+  }
+}
