@@ -6,7 +6,7 @@ import '@pnp/sp/items';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { SiteConfiguration } from '../common/Constants';
 import ErrorMessages from '../common/ErrorMessages';
-import IGenericService, { IFetchOptions, ISaveOptions, ISaveResult, IBatchSaveOptions, IUpdateOptions } from './IGenericServices';
+import IGenericService, { IFetchOptions, ISaveOptions, ISaveResult, IBatchSaveOptions, IUpdateOptions, IVersionHistoryOptions } from './IGenericServices';
 
 export class GenericService implements IGenericService {
   private static DEFAULT_PAGE_SIZE = 2000;
@@ -238,24 +238,54 @@ export class GenericService implements IGenericService {
             result = await list.items.add(cleanedItem);
 
             const resolveCreatedItemId = async (): Promise<number | undefined> => {
+              // Try result.data first
               if (result?.data) {
                 const directId = result.data.Id ?? result.data.ID ?? result.data.id;
                 if (directId !== undefined) {
                   const parsed = Number(directId);
-                  return isNaN(parsed) ? undefined : parsed;
+                  if (!isNaN(parsed)) return parsed;
                 }
               }
 
+              // Try result.item
               if (result?.item) {
                 try {
                   const itemData = await result.item.select('Id')();
                   const fallbackId = itemData?.Id ?? itemData?.ID ?? itemData?.id;
                   if (fallbackId !== undefined) {
                     const parsed = Number(fallbackId);
-                    return isNaN(parsed) ? undefined : parsed;
+                    if (!isNaN(parsed)) return parsed;
                   }
                 } catch (innerErr) {
-                  console.warn('Unable to resolve created item ID from item.select', innerErr);
+                  console.warn('GenericService.saveItem: Unable to resolve created item ID from item.select', innerErr);
+                }
+              }
+
+              // Final fallback: try to get the item back from the list directly
+              // This is a last resort and may be slower, but ensures we get the ID
+              if (cleanedItem.Title || cleanedItem.RiskDescription || Object.keys(cleanedItem).length > 0) {
+                try {
+                  // Wait a moment for SharePoint to process
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  
+                  // Try to find the most recently created item
+                  const recentItems = await list.items
+                    .orderBy('Created', false)
+                    .top(1)
+                    .select('Id')();
+                  
+                  if (recentItems && recentItems.length > 0) {
+                    const recentId = recentItems[0]?.Id ?? recentItems[0]?.ID ?? recentItems[0]?.id;
+                    if (recentId !== undefined) {
+                      const parsed = Number(recentId);
+                      if (!isNaN(parsed)) {
+                        console.log('GenericService.saveItem: Resolved item ID from recent items fallback:', parsed);
+                        return parsed;
+                      }
+                    }
+                  }
+                } catch (fallbackErr) {
+                  console.warn('GenericService.saveItem: Fallback query for item ID failed', fallbackErr);
                 }
               }
 
@@ -266,10 +296,7 @@ export class GenericService implements IGenericService {
 
             if (createdItemId === undefined) {
               console.warn('GenericService.saveItem: created item ID was not returned by SharePoint.');
-              return {
-                success: true,
-                item: (result?.data as T | undefined)
-              };
+              throw new Error('Created item ID was not returned by SharePoint. The item may have been created, but cannot be retrieved.');
             }
 
             // Fetch created item if select/expand specified
@@ -453,6 +480,102 @@ export class GenericService implements IGenericService {
     }
   }
 
+  public async deleteItem<T = any>(options: { context?: WebPartContext; spInstance?: any; listTitle: string; itemId: number; maxRetries?: number; retryDelayMs?: number; forceSiteUrl?: string; }): Promise<ISaveResult<T>> {
+    if (!options) throw new Error('delete options required');
+
+    const { context, spInstance, listTitle, itemId, maxRetries = GenericService.DEFAULT_MAX_RETRIES, retryDelayMs = GenericService.DEFAULT_RETRY_DELAY_MS, forceSiteUrl } = options;
+
+    if (!itemId || itemId <= 0) {
+      return { success: false, error: 'Invalid item id' };
+    }
+
+    let targetSiteUrl: string;
+    if (forceSiteUrl) {
+      targetSiteUrl = forceSiteUrl;
+    } else if (context) {
+      targetSiteUrl = this.getSiteUrlForList(listTitle, context);
+    } else {
+      return { success: false, error: ErrorMessages.CONTEXT_REQUIRED_FOR_SITE };
+    }
+
+    let targetSp: any;
+    if (spInstance) {
+      targetSp = spInstance;
+    } else if (context) {
+      targetSp = this.getSpInstanceForSite(targetSiteUrl, context);
+    } else {
+      return { success: false, error: ErrorMessages.PNP_INSTANCE_NOT_INITIALIZED };
+    }
+
+    try {
+      await this.withRetry(async () => {
+        const list = targetSp.web.lists.getByTitle(listTitle);
+        await list.items.getById(itemId).delete();
+      }, maxRetries, retryDelayMs);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error(`Error deleting item ${itemId} in list ${listTitle}:`, error);
+      return { success: false, error: error?.message || 'Unknown error during delete' };
+    }
+  }
+
+  public async getVersionHistory<T = any>(options: IVersionHistoryOptions): Promise<T[]> {
+    if (!options) throw new Error('version history options required');
+
+    const {
+      context, spInstance, listTitle, itemId,
+      select = [],
+      expand = [],
+      maxRetries = GenericService.DEFAULT_MAX_RETRIES,
+      retryDelayMs = GenericService.DEFAULT_RETRY_DELAY_MS,
+      forceSiteUrl
+    } = options as IVersionHistoryOptions;
+
+    if (!itemId || itemId <= 0) {
+      throw new Error('Invalid item id');
+    }
+
+    let targetSiteUrl: string;
+    if (forceSiteUrl) {
+      targetSiteUrl = forceSiteUrl;
+    } else if (context) {
+      targetSiteUrl = this.getSiteUrlForList(listTitle, context);
+    } else {
+      throw new Error(ErrorMessages.CONTEXT_REQUIRED_FOR_SITE);
+    }
+
+    let targetSp: any;
+    if (spInstance) {
+      targetSp = spInstance;
+    } else if (context) {
+      targetSp = this.getSpInstanceForSite(targetSiteUrl, context);
+    } else {
+      throw new Error(ErrorMessages.PNP_INSTANCE_NOT_INITIALIZED);
+    }
+
+    try {
+      const list = targetSp.web.lists.getByTitle(listTitle);
+
+      const buildQuery = () => {
+        let q: any = list.items.getById(itemId).versions;
+        if (select && select.length > 0) q = q.select(...select);
+        if (expand && expand.length > 0) q = q.expand(...expand);
+        return q;
+      };
+
+      const results = await this.withRetry(async () => {
+        const q = buildQuery();
+        return await q();
+      }, maxRetries, retryDelayMs);
+
+      return results || [];
+    } catch (error: any) {
+      console.error(`Error fetching versions for item ${itemId} in list ${listTitle}:`, error);
+      return [];
+    }
+  }
+
   private async validateItemColumns(sp: any, listTitle: string, item: any): Promise<void> {
     try {
       const list = sp.web.lists.getByTitle(listTitle);
@@ -469,6 +592,68 @@ export class GenericService implements IGenericService {
     } catch (error) {
       console.warn(`Could not validate columns for list ${listTitle}:`, error);
     }
+  }
+
+  /**
+   * Clean item for RaidLogs - more strict cleaning to avoid prototype issues
+   * This is a public method that can be used by RaidListService
+   */
+  public cleanItemForRaidSave(item: any): any {
+    // Remove read-only and system fields that shouldn't be saved
+    const fieldsToRemove = [
+      'Id', 'ID', 'id',
+      'Created', 'Modified',
+      'AuthorId', 'EditorId',
+      'Author', 'Editor',
+      'GUID', 'UniqueId',
+      'Version', '_ObjectVersion_',
+      'FileSystemObjectType',
+      'ServerRedirectedEmbedUri',
+      'ServerRedirectedEmbedUrl',
+      'ContentTypeId',
+      '_ObjectIdentity_',
+      '_ObjectType_',
+      'odata.type',
+      'odata.id',
+      'odata.etag',
+      'odata.editLink',
+      '[[Prototype]]'
+    ];
+
+    // Create a plain object with only own enumerable properties
+    const cleaned: any = {};
+    
+    // Only copy own enumerable properties (not prototype chain)
+    for (const key in item) {
+      if (Object.prototype.hasOwnProperty.call(item, key)) {
+        cleaned[key] = item[key];
+      }
+    }
+
+    fieldsToRemove.forEach(field => {
+      delete cleaned[field];
+    });
+
+    // Remove any fields starting with underscore (typically system fields)
+    Object.keys(cleaned).forEach(key => {
+      if (key.charAt(0) === '_' && key.charAt(key.length - 1) === '_') {
+        delete cleaned[key];
+      }
+    });
+
+    // Handle lookup fields - ensure they have proper format
+    Object.keys(cleaned).forEach(key => {
+      const value = cleaned[key];
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        // Handle lookup field objects
+        if (Object.prototype.hasOwnProperty.call(value, 'Id') && key.indexOf('Id') !== key.length - 2) {
+          cleaned[`${key}Id`] = value.Id;
+          delete cleaned[key];
+        }
+      }
+    });
+
+    return cleaned;
   }
 
   private cleanItemForSave(item: any): any {

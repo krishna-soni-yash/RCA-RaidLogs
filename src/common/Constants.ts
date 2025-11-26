@@ -103,6 +103,12 @@ export const expandFields = [
  */
 export const LIST_NAMES = {
   RAID_LOGS: 'RAIDLogs',
+  IMPACT_VALUE: 'ImpactValue',
+  PROBABILITY_VALUE: 'ProbabilityValue',
+  POTENTIAL_COST: 'PotentialCost',
+  POTENTIAL_BENEFIT: 'PotentialBenefit',
+  RAID_DESCRIPTION: 'RAIDDescription',
+
   // Add other list names here as needed
 } as const;
 
@@ -283,54 +289,6 @@ export const DROPDOWN_OPTIONS = {
   ACTION_TYPE: [
     { key: 'Mitigation', text: 'Mitigation' },
     { key: 'Contingency', text: 'Contingency' }
-  ],
-  POTENTIAL_COST: [
-    { key: '1', text: '1 - No Cost' },
-    { key: '2', text: '2 - Very Low Cost' },
-    { key: '3', text: '3 - Low Cost' },
-    { key: '4', text: '4 - Below Medium Cost' },
-    { key: '5', text: '5 - Medium Cost' },
-    { key: '6', text: '6 - Above Medium Cost' },
-    { key: '7', text: '7 - High Cost' },
-    { key: '8', text: '8 - Above High Cost' },
-    { key: '9', text: '9 - Very High Cost' },
-    { key: '10', text: '10 - Extreme High Cost' }
-  ],
-  POTENTIAL_BENEFIT: [
-    { key: '1', text: '1 - No Benefit' },
-    { key: '2', text: '2 - Very Low Benefit' },
-    { key: '3', text: '3 - Low Benefit' },
-    { key: '4', text: '4 - Below Moderate Benefit' },
-    { key: '5', text: '5 - Moderate Benefit' },
-    { key: '6', text: '6 - Above Moderate Benefit' },
-    { key: '7', text: '7 - High Benefit' },
-    { key: '8', text: '8 - Above High Benefit' },
-    { key: '9', text: '9 - Very High Benefit' },
-    { key: '10', text: '10 - Extreme High Benefit' }
-  ],
-  PROBABILITY_VALUE: [
-    { key: '1', text: '1 - Not likely to occur' },
-    { key: '2', text: '2 - Not very likely to occur' },
-    { key: '3', text: '3 - Somewhat less than an even chance' },
-    { key: '4', text: '4 - An even chance to occur' },
-    { key: '5', text: '5 - Somewhat greater than an even chance' },
-    { key: '6', text: '6 - Likely to occur' },
-    { key: '7', text: '7 - Very likely to occur' },
-    { key: '8', text: '8 - Almost sure to occur' },
-    { key: '9', text: '9 - Extremely sure to occur' },
-    { key: '10', text: '10 - Certain to occur' }
-  ],
-  IMPACT_VALUE: [
-    { key: '1', text: '1 - Very Low Impact' },
-    { key: '2', text: '2 - Low Impact - Needs No Attention' },
-    { key: '3', text: '3 - Has a minor impact and things are taken into considerations by the respective projects / departments' },
-    { key: '4', text: '4 - Medium impact and needs attention for resolving the issue' },
-    { key: '5', text: '5 - Has an impact and resolves in co-ordination with BUH / CEO- and DH' },
-    { key: '6', text: '6 - Has an high impact and which effects business value' },
-    { key: '7', text: '7 - Has an major impact and which has significant effect on business' },
-    { key: '8', text: '8 - Has a critical impact and call for a review with senior management' },
-    { key: '9', text: '9 - Has a very critical impact and needs senior management attention / CISO' },
-    { key: '10', text: '10 - Leads to serious problems and call for emergency mode' }
   ]
 };
 

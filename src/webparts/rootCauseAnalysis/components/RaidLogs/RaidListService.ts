@@ -1,16 +1,23 @@
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { SharePointService, ISharePointListItem, IListQueryOptions } from './SharePointService';
-import { IRaidItem, RaidType, IRaidAction } from '../components/RaidLogs/IRaidItem';
-import { LIST_NAMES } from '../../../common/Constants';
-import { 
-  IExtendedRaidItem
-} from '../interfaces/IRaidService';
+import GenericServiceInstance from '../../../../services/GenericServices';
+import { IGenericService } from '../../../../services/IGenericServices';
+import { IRaidItem, RaidType, IRaidAction } from './interfaces/IRaidItem';
+import { LIST_NAMES } from '../../../../common/Constants';
+import { IExtendedRaidItem } from './interfaces/IRaidService';
 
-/**
- * SharePoint List Item interface for RAID items
- * Extends the generic interface with RAID-specific fields
- * Field names match SharePoint internal field names
- */
+export interface ISharePointListItem {
+  Id?: number;
+  Title?: string;
+  [key: string]: any;
+}
+export interface IListQueryOptions {
+  select?: string[];
+  filter?: string;
+  orderBy?: string;
+  top?: number;
+  skip?: number;
+  expand?: string[];
+}
 export interface IRaidSharePointItem extends ISharePointListItem {
   Id?: number;
   Title?: string;
@@ -36,7 +43,7 @@ export interface IRaidSharePointItem extends ISharePointListItem {
   TypeOfAction?: string;
   ActionPlan?: string;
   Responsibility?: any; // Expanded people picker field (when using expand in query)
-  ResponsibilityId?: any; // People picker field with Id suffix (used for saving/updating)
+  ResponsibilityId?: any; // People picker field - can be string format "id|email; id|email" or numeric
   TargetDate?: string;
   ActualDate?: string;
   RiskStatus?: string; // Internal name for Status
@@ -45,7 +52,7 @@ export interface IRaidSharePointItem extends ISharePointListItem {
   IssueDetails?: string; // Internal name for Details
   IDADate?: string; // Internal name for Date
   ByWhom?: any; // Expanded people picker field (when using expand in query)
-  ByWhomId?: any; // People picker field with Id suffix (used for saving/updating)
+  ByWhomId?: any; // People picker field - can be string format "id|email; id|email" or numeric
   ImplementationActions?: string;
   PlannedClosureDate?: string;
   ActualClosureDate?: string;
@@ -60,19 +67,16 @@ export interface IRaidSharePointItem extends ISharePointListItem {
   AuthorId?: number;
   EditorId?: number;
 }
-
-/**
- * RAID List Service
- * Specialized service for RAID (Risk, Assumption, Issue, Dependency, Opportunity, Constraints) items
- * Uses the generic SharePoint service underneath
- */
 export class RaidListService {
-  private spService: SharePointService;
+  private genericService: IGenericService;
+  private context: WebPartContext;
   private listName: string;
   private enablePeoplePickerFields: boolean = true;
 
   constructor(context: WebPartContext, listName: string = LIST_NAMES.RAID_LOGS) {
-    this.spService = new SharePointService(context);
+    this.context = context;
+    this.genericService = GenericServiceInstance;
+    this.genericService.init(undefined, context);
     this.listName = listName;
   }
 
@@ -99,7 +103,7 @@ export class RaidListService {
     return { ...baseOptions, ...additionalOptions };
   }
 
-  private convertToSharePointItem(raidItem: IRaidItem): Omit<IRaidSharePointItem, 'Id'> {
+  private async convertToSharePointItem(raidItem: IRaidItem): Promise<Omit<IRaidSharePointItem, 'Id'>> {
     const spItem: any = {
       SelectType: raidItem.type,
       RAIDId: raidItem.raidId || undefined,
@@ -116,7 +120,7 @@ export class RaidListService {
       TypeOfAction: raidItem.typeOfAction || undefined,
       PotentialCost: this.convertToNumber(raidItem.potentialCost),
       PotentialBenefit: this.convertToNumber(raidItem.potentialBenefit),
-      OpportunityValue: this.convertToNumber(raidItem.opportunityValue),
+      OpportunityValue: this.convertToNumberWithDecimals(raidItem.opportunityValue, 2),
       ActionPlan: raidItem.actionPlan || undefined,
       TargetDate: this.convertToISODate(raidItem.targetDate),
       ActualDate: this.convertToISODate(raidItem.actualDate),
@@ -133,23 +137,31 @@ export class RaidListService {
     if (this.enablePeoplePickerFields) {
       try {
         if (raidItem.responsibility) {
-          const responsibilityValue = this.convertUserFieldForSharePoint(raidItem.responsibility);
+          console.log('🔄 Converting responsibility field:', raidItem.responsibility);
+          const responsibilityValue = await this.convertUserFieldForSharePointAsync(raidItem.responsibility, this.context);
+          console.log('✅ Converted responsibility to:', responsibilityValue);
           if (responsibilityValue !== null && responsibilityValue !== undefined) {
+            // Always use Id suffix for people picker fields
             spItem.ResponsibilityId = responsibilityValue;
           }
         }
       } catch (error) {
+        console.error('Error converting responsibility field:', error);
         this.enablePeoplePickerFields = false;
       }
 
       try {
         if (raidItem.byWhom) {
-          const byWhomValue = this.convertUserFieldForSharePoint(raidItem.byWhom);
+          console.log('🔄 Converting byWhom field:', raidItem.byWhom);
+          const byWhomValue = await this.convertUserFieldForSharePointAsync(raidItem.byWhom, this.context);
+          console.log('✅ Converted byWhom to:', byWhomValue);
           if (byWhomValue !== null && byWhomValue !== undefined) {
+            // Always use Id suffix for people picker fields
             spItem.ByWhomId = byWhomValue;
           }
         }
       } catch (error) {
+        console.error('Error converting byWhom field:', error);
         this.enablePeoplePickerFields = false;
       }
     }
@@ -202,25 +214,25 @@ export class RaidListService {
 
   private parsePeoplePickerField(value: any): any {
     if (!value) return undefined;
-    
+
     try {
       if (typeof value === 'object') {
         if (Array.isArray(value)) {
           const parsedUsers = value.map((user: any) => this.parseUserObject(user)).filter((user: any) => user !== null && user !== undefined);
           return parsedUsers.length > 0 ? parsedUsers : undefined;
         }
-        
+
         if (value.results && Array.isArray(value.results)) {
           const parsedUsers = value.results.map((user: any) => this.parseUserObject(user)).filter((user: any) => user !== null && user !== undefined);
           return parsedUsers.length > 0 ? parsedUsers : undefined;
         }
-        
+
         const parsedUser = this.parseUserObject(value);
         if (parsedUser) {
           return [parsedUser];
         }
       }
-      
+
       if (typeof value === 'string') {
         try {
           const parsed = JSON.parse(value);
@@ -247,7 +259,7 @@ export class RaidListService {
           }
         }
       }
-      
+
       if (typeof value === 'number') {
         return [{
           id: String(value),
@@ -256,7 +268,7 @@ export class RaidListService {
           email: ''
         }];
       }
-      
+
       return undefined;
     } catch (error) {
       return undefined;
@@ -315,110 +327,57 @@ export class RaidListService {
     }
   }
 
-  private convertUserFieldForSharePoint(userField: any): number | { results: number[] } | null {
+  private async convertUserFieldForSharePointAsync(userField: any, context: WebPartContext): Promise<number[] | null> {
     if (!userField) return null;
-    
+
     try {
-      if (typeof userField === 'number') {
-        return userField;
-      }
-      
       if (typeof userField === 'string') {
-        const numericValue = parseInt(userField, 10);
-        if (!isNaN(numericValue) && numericValue > 0) {
-          return numericValue;
+        if (userField.trim() === '') return null;
+
+        const parts = userField.split(/;\s*/);
+        const userIds: number[] = [];
+
+        for (const part of parts) {
+          if (!part || part.trim() === '') continue;
+          const pipeIndex = part.indexOf('|');
+          const idPart = pipeIndex !== -1 ? part.substring(0, pipeIndex).trim() : part.trim();
+          const numericId = parseInt(idPart, 10);
+          if (!isNaN(numericId) && numericId > 0) {
+            userIds.push(numericId);
+          } else {
+            console.warn('Non-numeric ID found in serialized user field:', idPart);
+          }
         }
-        return null;
+
+        return userIds.length > 0 ? userIds : null;
       }
-      
+
       if (Array.isArray(userField)) {
-        const processedUsers: number[] = [];
-        
+        const userIds: number[] = [];
+
         for (const user of userField) {
-          let userId: number | null = null;
-          
-          if (typeof user === 'number') {
-            userId = user;
-          } else if (typeof user === 'string') {
-            const numericValue = parseInt(user, 10);
-            if (!isNaN(numericValue) && numericValue > 0) {
-              userId = numericValue;
+          if (typeof user === 'number' && !isNaN(user) && user > 0) {
+            userIds.push(user);
+          } else if (typeof user === 'string' && user.trim() !== '') {
+            const pipeIndex = user.indexOf('|');
+            const idPart = pipeIndex !== -1 ? user.substring(0, pipeIndex).trim() : user.trim();
+            const numericId = parseInt(idPart, 10);
+            if (!isNaN(numericId) && numericId > 0) {
+              userIds.push(numericId);
             }
-          } else if (typeof user === 'object' && user !== null) {
-            userId = this.extractUserIdFromObject(user);
-          }
-          
-          if (userId !== null && userId !== undefined && !isNaN(userId) && userId > 0) {
-            processedUsers.push(userId);
           }
         }
-        
-        return processedUsers.length > 0 ? { results: processedUsers } : null;
+
+        return userIds.length > 0 ? userIds : null;
       }
-      
-      if (typeof userField === 'object' && userField !== null) {
-        if (userField.results && Array.isArray(userField.results)) {
-          return userField;
-        }
-        
-        const extractedUserId = this.extractUserIdFromObject(userField);
-        return extractedUserId !== null ? extractedUserId : null;
-      }
-      
+
       return null;
     } catch (error) {
+      console.error('Error in convertUserFieldForSharePointAsync:', error);
       return null;
     }
   }
 
-  private extractUserIdFromObject(userObj: any): number | null {
-    if (!userObj || typeof userObj !== 'object') return null;
-    
-    try {
-      if (userObj.id !== undefined) {
-        const userId = typeof userObj.id === 'string' ? parseInt(userObj.id, 10) : userObj.id;
-        if (typeof userId === 'number' && !isNaN(userId) && userId > 0) {
-          return userId;
-        }
-      }
-      
-      if (userObj.userId !== undefined) {
-        const userId = typeof userObj.userId === 'string' ? parseInt(userObj.userId, 10) : userObj.userId;
-        if (typeof userId === 'number' && !isNaN(userId) && userId > 0) {
-          return userId;
-        }
-      }
-      
-      if (userObj.Id !== undefined) {
-        const userId = typeof userObj.Id === 'string' ? parseInt(userObj.Id, 10) : userObj.Id;
-        if (typeof userId === 'number' && !isNaN(userId) && userId > 0) {
-          return userId;
-        }
-      }
-      
-      if (userObj.ID !== undefined) {
-        const userId = typeof userObj.ID === 'string' ? parseInt(userObj.ID, 10) : userObj.ID;
-        if (typeof userId === 'number' && !isNaN(userId) && userId > 0) {
-          return userId;
-        }
-      }
-      
-      if (userObj.key) {
-        const numericValue = parseInt(userObj.key, 10);
-        if (!isNaN(numericValue) && numericValue > 0) {
-          return numericValue;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * Helper method to convert values to numbers for SharePoint numeric fields
-   */
   private convertToNumber(value: any): number | undefined {
     // Handle null, undefined, empty string, and whitespace-only strings
     if (value === null || value === undefined || value === '' || 
@@ -453,9 +412,14 @@ export class RaidListService {
     return (isNaN(converted) || !isFinite(converted)) ? undefined : converted;
   }
 
-  /**
-   * Helper method to convert dates to ISO string format for SharePoint
-   */
+  private convertToNumberWithDecimals(value: any, decimals: number = 2): number | undefined {
+    const numValue = this.convertToNumber(value);
+    if (numValue === undefined) {
+      return undefined;
+    }
+    // Round to specified decimal places
+    return Math.round(numValue * Math.pow(10, decimals)) / Math.pow(10, decimals);
+  }
   private convertToISODate(value: any): string | undefined {
     if (value === null || value === undefined || value === '') {
       return undefined;
@@ -488,35 +452,47 @@ export class RaidListService {
     }
   }
 
-  /**
-   * CREATE: Add new RAID item
-   */
   async createRaidItem(raidItem: Omit<IRaidItem, 'id'>): Promise<IExtendedRaidItem | null> {
     try {
-      const spItem = this.convertToSharePointItem({ ...raidItem, id: 0 });
-      
-      const result = await this.spService.createItem<IRaidSharePointItem>(
-        { listName: this.listName },
-        spItem
-      );
+      const spItem = await this.convertToSharePointItem({ ...raidItem, id: 0 });
+      // Clean the item using RaidLogs-specific cleaning function
+      const cleanedItem = this.genericService.cleanItemForRaidSave(spItem);
+      const queryOptions = this.createQueryOptions();
 
-      if (result.success && result.data) {
-        return this.convertFromSharePointItem(result.data);
+      const result = await this.genericService.saveItem<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        item: cleanedItem,
+        select: queryOptions.select || [],
+        expand: queryOptions.expand || []
+      });
+
+      if (result && result.success) {
+        let createdSpItem: IRaidSharePointItem | undefined = undefined;
+        if (result.item) {
+          createdSpItem = result.item as IRaidSharePointItem;
+        } else if (result.itemId) {
+          const fetched = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+            context: this.context,
+            listTitle: this.listName,
+            filter: `Id eq ${result.itemId}`,
+            select: queryOptions.select || [],
+            expand: queryOptions.expand || []
+          });
+          createdSpItem = fetched && fetched.length > 0 ? fetched[0] : undefined;
+        }
+
+        if (createdSpItem) {
+          return this.convertFromSharePointItem(createdSpItem);
+        }
       }
+
       return null;
     } catch (error) {
       return null;
     }
   }
 
-  /**
-   * CREATE: Create Risk item with separate Mitigation and Contingency SharePoint items
-   * This method creates 2 SharePoint list items for a single Risk form entry:
-   * - One item for Mitigation action
-   * - One item for Contingency action
-   * Both items share the same RaidID and common field values
-   * Only action-specific fields differ between the two items
-   */
   async createRiskItemWithActions(
     raidItem: Omit<IRaidItem, 'id'>,
     mitigationAction: IRaidAction | null,
@@ -579,15 +555,16 @@ export class RaidListService {
         orderBy: 'Modified'
       });
 
-      const result = await this.spService.getItems<IRaidSharePointItem>(
-        { listName: this.listName },
-        options
-      );
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        orderBy: options.orderBy,
+        filter: options.filter
+      });
 
-      if (result.success && result.data) {
-        return result.data.map(spItem => this.convertFromSharePointItem(spItem));
-      }
-      return [];
+      return items.map((spItem: IRaidSharePointItem) => this.convertFromSharePointItem(spItem));
     } catch (error) {
       return [];
     }
@@ -600,15 +577,16 @@ export class RaidListService {
         orderBy: 'Modified'
       });
 
-      const result = await this.spService.getItems<IRaidSharePointItem>(
-        { listName: this.listName },
-        options
-      );
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        filter: options.filter,
+        orderBy: options.orderBy
+      });
 
-      if (result.success && result.data) {
-        return result.data.map(spItem => this.convertFromSharePointItem(spItem));
-      }
-      return [];
+      return items.map(spItem => this.convertFromSharePointItem(spItem));
     } catch (error) {
       return [];
     }
@@ -617,15 +595,17 @@ export class RaidListService {
   async getRaidItemById(itemId: number): Promise<IExtendedRaidItem | null> {
     try {
       const options = this.createQueryOptions();
-      
-      const result = await this.spService.getItemById<IRaidSharePointItem>(
-        { listName: this.listName },
-        itemId,
-        options
-      );
 
-      if (result.success && result.data) {
-        return this.convertFromSharePointItem(result.data);
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        filter: `Id eq ${itemId}`
+      });
+
+      if (items && items.length > 0) {
+        return this.convertFromSharePointItem(items[0]);
       }
       return null;
     } catch (error) {
@@ -641,16 +621,39 @@ export class RaidListService {
       }
 
       const updatedItem = { ...currentItem, ...updates };
-      const spUpdates = this.convertToSharePointItem(updatedItem);
+      const spUpdates = await this.convertToSharePointItem(updatedItem);
+      // Clean the item using RaidLogs-specific cleaning function
+      const cleanedUpdates = this.genericService.cleanItemForRaidSave(spUpdates);
 
-      const result = await this.spService.updateItem<IRaidSharePointItem>(
-        { listName: this.listName },
+      const queryOptions = this.createQueryOptions();
+
+      const result = await this.genericService.updateItem<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
         itemId,
-        spUpdates
-      );
+        item: cleanedUpdates,
+        select: queryOptions.select || [],
+        expand: queryOptions.expand || []
+      });
 
-      if (result.success && result.data) {
-        return this.convertFromSharePointItem(result.data);
+      if (result && result.success) {
+        let updatedSpItem: IRaidSharePointItem | undefined = undefined;
+        if (result.item) {
+          updatedSpItem = result.item as IRaidSharePointItem;
+        } else if (result.itemId) {
+          const fetched = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+            context: this.context,
+            listTitle: this.listName,
+            filter: `Id eq ${result.itemId}`,
+            select: queryOptions.select || [],
+            expand: queryOptions.expand || []
+          });
+          updatedSpItem = fetched && fetched.length > 0 ? fetched[0] : undefined;
+        }
+
+        if (updatedSpItem) {
+          return this.convertFromSharePointItem(updatedSpItem);
+        }
       }
       return null;
     } catch (error) {
@@ -660,38 +663,35 @@ export class RaidListService {
 
   async deleteRaidItem(itemId: number): Promise<boolean> {
     try {
-      const result = await this.spService.deleteItem(
-        { listName: this.listName },
+      const result = await this.genericService.deleteItem({
+        context: this.context,
+        listTitle: this.listName,
         itemId
-      );
+      });
 
-      return result.success;
+      return result && result.success;
     } catch (error) {
       return false;
     }
   }
 
-  /**
-   * UTILITY: Get Risk items by RaidID
-   * Returns all SharePoint items that share the same RaidID
-   * Used to fetch both Mitigation and Contingency items for a single Risk
-   */
   async getRiskItemsByRaidId(raidId: string): Promise<IExtendedRaidItem[]> {
     try {
-      const options: IListQueryOptions = {
+      const options = this.createQueryOptions({
         filter: `RAIDId eq '${raidId}'`,
         orderBy: 'TypeOfAction'
-      };
+      });
 
-      const result = await this.spService.getItems<IRaidSharePointItem>(
-        { listName: this.listName },
-        options
-      );
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        filter: options.filter,
+        orderBy: options.orderBy
+      });
 
-      if (result.success && result.data) {
-        return result.data.map(spItem => this.convertFromSharePointItem(spItem));
-      }
-      return [];
+      return items.map((spItem: IRaidSharePointItem) => this.convertFromSharePointItem(spItem));
     } catch (error) {
       return [];
     }
@@ -841,15 +841,16 @@ export class RaidListService {
         orderBy: 'Modified'
       };
 
-      const result = await this.spService.getItems<IRaidSharePointItem>(
-        { listName: this.listName },
-        options
-      );
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        filter: options.filter,
+        orderBy: options.orderBy
+      });
 
-      if (result.success && result.data) {
-        return result.data.map(spItem => this.convertFromSharePointItem(spItem));
-      }
-      return [];
+      return items.map((spItem: IRaidSharePointItem) => this.convertFromSharePointItem(spItem));
     } catch (error) {
       return [];
     }
@@ -862,15 +863,16 @@ export class RaidListService {
         orderBy: 'Modified'
       };
 
-      const result = await this.spService.getItems<IRaidSharePointItem>(
-        { listName: this.listName },
-        options
-      );
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        filter: options.filter,
+        orderBy: options.orderBy
+      });
 
-      if (result.success && result.data) {
-        return result.data.map(spItem => this.convertFromSharePointItem(spItem));
-      }
-      return [];
+      return items.map((spItem: IRaidSharePointItem) => this.convertFromSharePointItem(spItem));
     } catch (error) {
       return [];
     }
@@ -883,15 +885,16 @@ export class RaidListService {
         orderBy: 'Modified'
       };
 
-      const result = await this.spService.getItems<IRaidSharePointItem>(
-        { listName: this.listName },
-        options
-      );
+      const items = await this.genericService.fetchAllItems<IRaidSharePointItem>({
+        context: this.context,
+        listTitle: this.listName,
+        select: options.select || [],
+        expand: options.expand || [],
+        filter: options.filter,
+        orderBy: options.orderBy
+      });
 
-      if (result.success && result.data) {
-        return result.data.map(spItem => this.convertFromSharePointItem(spItem));
-      }
-      return [];
+      return items.map((spItem: IRaidSharePointItem) => this.convertFromSharePointItem(spItem));
     } catch (error) {
       return [];
     }
@@ -929,18 +932,152 @@ export class RaidListService {
   }
 
   /**
-   * UTILITY: Check if RAID list exists
+   * Get version history for a specific list item
    */
-  async checkListExists(): Promise<boolean> {
-    return await this.spService.listExists({ listName: this.listName });
+  async getVersionHistory(itemId: number): Promise<any[]> {
+    try {
+      if (!itemId || itemId <= 0) return [];
+
+      const versions = await this.genericService.getVersionHistory<any>({
+        context: this.context,
+        listTitle: this.listName,
+        itemId,
+        // Request fields relevant to RAID log items with Editor expanded
+        select: [
+          '*',
+          'Editor/Title', 
+          'Editor/EMail',
+          'Editor/Name'
+        ],
+        expand: ['Editor']
+      });
+
+      return versions || [];
+    } catch (error) {
+      console.error('Error fetching version history:', error);
+      return [];
+    }
   }
 
-  /**
-   * UTILITY: Get list information
-   */
+  async checkListExists(): Promise<boolean> {
+    try {
+      await this.genericService.fetchAllItems({ context: this.context, listTitle: this.listName, pageSize: 1 });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async getListInfo(): Promise<any> {
-    const result = await this.spService.getListInfo({ listName: this.listName });
-    return result.success ? result.data : null;
+    try {
+      // GenericService does not currently expose list metadata; try a minimal fetch to confirm availability
+      await this.genericService.fetchAllItems({ context: this.context, listTitle: this.listName, pageSize: 1 });
+      return { listName: this.listName };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getPotentialCostOptions(): Promise<Array<{ key: string; text: string }>> {
+    try {
+      const items = await this.genericService.fetchAllItems<any>({
+        context: this.context,
+        listTitle: LIST_NAMES.POTENTIAL_COST,
+        select: ['Title', 'Text']
+      });
+
+      // Sort by numeric value of Title (1-10)
+      const sortedItems = items.sort((a, b) => Number(a.Title) - Number(b.Title));
+
+      return sortedItems.map(item => ({
+        key: item.Title,
+        text: `${item.Title} - ${item.Text}`
+      }));
+    } catch (error) {
+      console.error('Error fetching POTENTIAL_COST options:', error);
+      return [];
+    }
+  }
+
+  async getPotentialBenefitOptions(): Promise<Array<{ key: string; text: string }>> {
+    try {
+      const items = await this.genericService.fetchAllItems<any>({
+        context: this.context,
+        listTitle: LIST_NAMES.POTENTIAL_BENEFIT,
+        select: ['Title', 'Text']
+      });
+
+      // Sort by numeric value of Title (1-10)
+      const sortedItems = items.sort((a, b) => Number(a.Title) - Number(b.Title));
+
+      return sortedItems.map(item => ({
+        key: item.Title,
+        text: `${item.Title} - ${item.Text}`
+      }));
+    } catch (error) {
+      console.error('Error fetching POTENTIAL_BENEFIT options:', error);
+      return [];
+    }
+  }
+
+  async getProbabilityValueOptions(): Promise<Array<{ key: string; text: string }>> {
+    try {
+      const items = await this.genericService.fetchAllItems<any>({
+        context: this.context,
+        listTitle: LIST_NAMES.PROBABILITY_VALUE,
+        select: ['Title', 'Text']
+      });
+
+      // Sort by numeric value of Title (1-10)
+      const sortedItems = items.sort((a, b) => Number(a.Title) - Number(b.Title));
+
+      return sortedItems.map(item => ({
+        key: item.Title,
+        text: `${item.Title} - ${item.Text}`
+      }));
+    } catch (error) {
+      console.error('Error fetching PROBABILITY_VALUE options:', error);
+      return [];
+    }
+  }
+
+  async getImpactValueOptions(): Promise<Array<{ key: string; text: string }>> {
+    try {
+      const items = await this.genericService.fetchAllItems<any>({
+        context: this.context,
+        listTitle: LIST_NAMES.IMPACT_VALUE,
+        select: ['Title', 'Text']
+      });
+
+      // Sort by numeric value of Title (1-10)
+      const sortedItems = items.sort((a, b) => Number(a.Title) - Number(b.Title));
+
+      return sortedItems.map(item => ({
+        key: item.Title,
+        text: `${item.Title} - ${item.Text}`
+      }));
+    } catch (error) {
+      console.error('Error fetching IMPACT_VALUE options:', error);
+      return [];
+    }
+  }
+
+  async getRaidDescriptionOptions(): Promise<Array<{ key: string; text: string }>> {
+    try {
+      const items = await this.genericService.fetchAllItems<any>({
+        context: this.context,
+        listTitle: LIST_NAMES.RAID_DESCRIPTION,
+        select: ['Description', 'Title']
+      });
+
+      return items.map(item => ({
+        key: item.Description,
+        text: item.Description
+      }));
+    } catch (error) {
+      console.error('Error fetching RAID_DESCRIPTION options:', error);
+      return [];
+    }
   }
 
 }

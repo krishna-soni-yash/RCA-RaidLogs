@@ -29,6 +29,18 @@ export interface ISaveOptions {
 	validateColumns?: boolean;
 }
 
+export interface IVersionHistoryOptions {
+    context?: WebPartContext;
+    spInstance?: any;
+    listTitle: string;
+    itemId: number;
+    select?: string[];
+    expand?: string[];
+    maxRetries?: number;
+    retryDelayMs?: number;
+    forceSiteUrl?: string;
+}
+
 export interface ISaveResult<T = any> {
 	success: boolean;
 	item?: T;
@@ -86,6 +98,15 @@ export interface IGenericService {
 
 	// Clear cached SP instances
 	clearCache(): void;
+
+	// Delete an item from a list
+	deleteItem<T = any>(options: { context?: WebPartContext; spInstance?: any; listTitle: string; itemId: number; maxRetries?: number; retryDelayMs?: number; forceSiteUrl?: string; }): Promise<ISaveResult<T>>;
+
+	// Get version history for a list item
+	getVersionHistory<T = any>(options: IVersionHistoryOptions): Promise<T[]>;
+
+	// Clean item specifically for RaidLogs (public method)
+	cleanItemForRaidSave(item: any): any;
 }
 
 export default IGenericService;
