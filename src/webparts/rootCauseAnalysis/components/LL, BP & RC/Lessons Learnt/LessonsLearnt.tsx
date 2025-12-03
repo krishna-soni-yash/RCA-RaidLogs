@@ -15,7 +15,7 @@ import {
 } from '@fluentui/react';
 import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
-import { addLessonsLearnt, fetchLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
+import { addLessonsLearnt, fetchLessonsLearnt, updateLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
 import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
@@ -100,6 +100,13 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     setShowLessonsLearntForm(true);
   }, []);
 
+  const handleEditItem = React.useCallback((lesson: ILessonsLearnt) => {
+    setSelectedLesson(lesson);
+    setFormMode('edit');
+    setFormError(null);
+    setShowLessonsLearntForm(true);
+  }, []);
+
   const onRenderItemColumn = React.useCallback((item: ILessonsLearnt, _: number | undefined, column?: IColumn) => {
     if (!column) {
       return null;
@@ -113,7 +120,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
 
       const onEdit = (ev?: any) => {
         ev?.stopPropagation();
-        alert(`Edit Lessons Learnt item ${item.ID}`);
+        handleEditItem(item);
       };
 
       return (
@@ -131,7 +138,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, [handleViewItem]);
+  }, [handleEditItem, handleViewItem]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -186,6 +193,29 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
       setIsSaving(false);
     }
   }, [context, handleCloseForm]);
+
+  const handleUpdateLesson = React.useCallback(async (values: ILessonsLearnt) => {
+    if (!selectedLesson?.ID) {
+      setFormError('Unable to determine which lesson to update.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setFormError(null);
+      const updated = await updateLessonsLearnt({ ...values, ID: selectedLesson.ID }, context);
+      setItems(prev => {
+        const next = prev.map(it => (it.ID === updated.ID ? { ...it, ...updated } : it));
+        return next.sort((a, b) => (b.ID ?? 0) - (a.ID ?? 0));
+      });
+      handleCloseForm();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to update lesson.';
+      setFormError(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [context, handleCloseForm, selectedLesson]);
 
   return (
     <div>
@@ -243,7 +273,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
                 <LessonsLearntForm
                   mode={formMode}
                   initialValues={selectedLesson ?? undefined}
-                  onSubmit={isCreateMode ? handleCreateLesson : undefined}
+                  onSubmit={isCreateMode ? handleCreateLesson : formMode === 'edit' ? handleUpdateLesson : undefined}
                   onCancel={handleCloseForm}
                   isSaving={isSaving}
                 />
