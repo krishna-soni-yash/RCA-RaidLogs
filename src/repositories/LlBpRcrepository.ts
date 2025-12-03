@@ -25,6 +25,161 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		this.service = service ?? genericService;
 	}
 
+	private toArray<T>(value?: T | T[]): T[] {
+		if (value === undefined || value === null) {
+			return [];
+		}
+		return Array.isArray(value) ? value : [value];
+	}
+
+	private pickFirstString(values: Array<string | undefined | null>): string | undefined {
+		for (const value of values) {
+			if (typeof value === 'string') {
+				const trimmed = value.trim();
+				if (trimmed.length > 0) {
+					return trimmed;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private pickFirstNumber(values: any[]): number | undefined {
+		for (const value of values) {
+			if (typeof value === 'number' && !isNaN(value)) {
+				return value;
+			}
+			if (typeof value === 'string' && value.trim().length > 0) {
+				const parsed = Number(value.trim());
+				if (!isNaN(parsed)) {
+					return parsed;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private normalizePersonField(item: any, fieldName: string): { displayName?: string; email?: string; loginName?: string; id?: number } {
+		if (!item) {
+			return {};
+		}
+		const rawValue = item[fieldName];
+		const personObject = Array.isArray(rawValue) ? (rawValue.length > 0 ? rawValue[0] : undefined) : rawValue;
+		const displayName = typeof rawValue === 'string'
+			? rawValue
+			: this.pickFirstString([
+				personObject?.Title,
+				personObject?.Name,
+				personObject?.DisplayName,
+				personObject?.LoginName,
+				personObject?.UserPrincipalName,
+				personObject?.Email,
+				personObject?.EMail
+			]);
+		const email = this.pickFirstString([
+			item?.[`${fieldName}Email`],
+			personObject?.Email,
+			personObject?.EMail
+		]);
+		const loginName = this.pickFirstString([
+			item?.[`${fieldName}LoginName`],
+			personObject?.LoginName,
+			personObject?.UserPrincipalName,
+			personObject?.Name
+		]);
+		const id = this.pickFirstNumber([
+			item?.[`${fieldName}Id`],
+			personObject?.Id,
+			personObject?.ID
+		]);
+		return {
+			displayName,
+			email,
+			loginName,
+			id
+		};
+	}
+
+	private async resolvePersonForSave(
+		context: WebPartContext,
+		person: {
+			id?: number | number[];
+			loginName?: string | string[];
+			email?: string | string[];
+			displayName?: string | string[];
+		}
+	): Promise<{ id?: number; loginName?: string; email?: string; displayName?: string }> {
+		const existingId = this.pickFirstNumber(this.toArray(person?.id));
+		const loginCandidate = this.pickFirstString(this.toArray(person?.loginName));
+		const emailCandidate = this.pickFirstString(this.toArray(person?.email));
+		const displayCandidate = this.pickFirstString([
+			...this.toArray(person?.displayName),
+			loginCandidate,
+			emailCandidate
+		]);
+		if (existingId !== undefined) {
+			return {
+				id: existingId,
+				loginName: loginCandidate,
+				email: emailCandidate,
+				displayName: displayCandidate
+			};
+		}
+
+		const ensureCandidates = [loginCandidate, emailCandidate]
+			.filter((candidate, index, array) => typeof candidate === 'string' && candidate.length > 0 && array.indexOf(candidate) === index) as string[];
+
+		for (const candidate of ensureCandidates) {
+			try {
+				const resolver: any = typeof (this.service as any)?.ensureuser === 'function'
+					? this.service
+					: new GenericService(undefined, context);
+				const ensured = await resolver.ensureuser(context, candidate);
+				if (ensured) {
+					const ensuredId = this.pickFirstNumber([
+						ensured?.Id,
+						ensured?.ID,
+						ensured?.UserId
+					]);
+					if (ensuredId !== undefined) {
+						return {
+							id: ensuredId,
+							loginName: this.pickFirstString([
+								ensured?.LoginName,
+								ensured?.UserPrincipalName,
+								loginCandidate,
+								emailCandidate
+							]),
+							email: this.pickFirstString([
+								ensured?.Email,
+								ensured?.EMail,
+								emailCandidate,
+								loginCandidate
+							]),
+							displayName: this.pickFirstString([
+								ensured?.Title,
+								ensured?.DisplayName,
+								ensured?.LoginName,
+								emailCandidate,
+								loginCandidate,
+								displayCandidate
+							])
+						};
+					}
+				}
+			} catch (error) {
+				console.warn('LlBpRcrepository.resolvePersonForSave: failed to ensure user', candidate, error);
+			}
+		}
+
+		return {
+			id: undefined,
+			loginName: loginCandidate,
+			email: emailCandidate,
+			displayName: displayCandidate
+		};
+	}
+
 	public setService(service: IGenericService): void {
 		this.service = service;
 	}
@@ -176,7 +331,20 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			const items = await this.service.fetchAllItems<any>({
 				context,
 				listTitle: SubSiteListNames.LlBpRc,
-				pageSize: 2000
+				pageSize: 2000,
+				select: [
+					'ID',
+					'BpBestPracticesDescription',
+					'BpReferences',
+					'BpResponsibility',
+					'BpResponsibilityId',
+					'BpRemarks',
+					'DataType',
+					'BpResponsibility/Id',
+					'BpResponsibility/Title',
+					'BpResponsibility/EMail'
+				],
+				expand: ['BpResponsibility']
 			});
 
 			const normalized = (items || [])
@@ -184,14 +352,25 @@ class LlBpRcrepository implements ILlBpRcRepository {
 					const rawType = (it?.DataType ?? it?.datatype ?? '').toString().trim();
 					return !rawType || rawType === BestPracticesDataType;
 				})
-				.map((it: any) => ({
-					ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
-					BpBestPracticesDescription: it?.BpBestPracticesDescription ?? it?.BestPracticesDescription ?? it?.Description ?? it?.Title ?? '',
-					BpReferences: it?.BpReferences ?? it?.References ?? '',
-					BpResponsibility: it?.BpResponsibility ?? it?.Responsibility ?? '',
-					BpRemarks: it?.BpRemarks ?? it?.Remarks ?? '',
-					DataType: it?.DataType ?? BestPracticesDataType
-				})) as IBestPractices[];
+				.map((it: any) => {
+					const responsibilityInfo = this.normalizePersonField(it, 'BpResponsibility');
+					const responsibilityDisplay = this.pickFirstString([
+						typeof it?.BpResponsibility === 'string' ? it.BpResponsibility : undefined,
+						responsibilityInfo.displayName
+					]) ?? '';
+
+					return {
+						ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
+						BpBestPracticesDescription: it?.BpBestPracticesDescription ?? it?.BestPracticesDescription ?? it?.Description ?? it?.Title ?? '',
+						BpReferences: it?.BpReferences ?? it?.References ?? '',
+						BpResponsibility: responsibilityDisplay,
+						BpResponsibilityId: responsibilityInfo.id,
+						BpResponsibilityEmail: responsibilityInfo.email,
+						BpResponsibilityLoginName: responsibilityInfo.loginName,
+						BpRemarks: it?.BpRemarks ?? it?.Remarks ?? '',
+						DataType: it?.DataType ?? BestPracticesDataType
+					};
+				}) as IBestPractices[];
 
 			this.bestPracticesCache = normalized;
 			this.bestPracticesCacheTimestamp = now;
@@ -212,14 +391,27 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const description = (item.BpBestPracticesDescription ?? '').trim();
-		const payload = {
-			Title: description || (item.BpResponsibility ?? '').trim() || 'Best Practice',
+		const resolvedResponsibility = await this.resolvePersonForSave(context, {
+			id: item.BpResponsibilityId,
+			loginName: item.BpResponsibilityLoginName,
+			email: item.BpResponsibilityEmail,
+			displayName: item.BpResponsibility
+		});
+		const responsibilityDisplay = this.pickFirstString([
+			resolvedResponsibility.displayName,
+			typeof item.BpResponsibility === 'string' ? item.BpResponsibility.trim() : undefined
+		]) ?? '';
+		const payload: any = {
+			Title: description || responsibilityDisplay || 'Best Practice',
 			BpBestPracticesDescription: description,
 			BpReferences: (item.BpReferences ?? '').trim(),
-			BpResponsibility: (item.BpResponsibility ?? '').trim(),
+			BpResponsibility: responsibilityDisplay,
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
+		if (resolvedResponsibility.id !== undefined) {
+			payload.BpResponsibilityId = resolvedResponsibility.id;
+		}
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -240,6 +432,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
 			BpResponsibility: payload.BpResponsibility,
+			BpResponsibilityId: payload.BpResponsibilityId,
+			BpResponsibilityEmail: resolvedResponsibility.email,
+			BpResponsibilityLoginName: resolvedResponsibility.loginName,
 			BpRemarks: payload.BpRemarks,
 			DataType: payload.DataType
 		};
@@ -259,14 +454,27 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const description = (item.BpBestPracticesDescription ?? '').trim();
-		const payload = {
-			Title: description || (item.BpResponsibility ?? '').trim() || 'Best Practice',
+		const resolvedResponsibility = await this.resolvePersonForSave(context, {
+			id: item.BpResponsibilityId,
+			loginName: item.BpResponsibilityLoginName,
+			email: item.BpResponsibilityEmail,
+			displayName: item.BpResponsibility
+		});
+		const responsibilityDisplay = this.pickFirstString([
+			resolvedResponsibility.displayName,
+			typeof item.BpResponsibility === 'string' ? item.BpResponsibility.trim() : undefined
+		]) ?? '';
+		const payload: any = {
+			Title: description || responsibilityDisplay || 'Best Practice',
 			BpBestPracticesDescription: description,
 			BpReferences: (item.BpReferences ?? '').trim(),
-			BpResponsibility: (item.BpResponsibility ?? '').trim(),
+			BpResponsibility: responsibilityDisplay,
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
+		if (resolvedResponsibility.id !== undefined) {
+			payload.BpResponsibilityId = resolvedResponsibility.id;
+		}
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -286,6 +494,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
 			BpResponsibility: payload.BpResponsibility,
+			BpResponsibilityId: payload.BpResponsibilityId,
+			BpResponsibilityEmail: resolvedResponsibility.email,
+			BpResponsibilityLoginName: resolvedResponsibility.loginName,
 			BpRemarks: payload.BpRemarks,
 			DataType: payload.DataType
 		};
@@ -308,7 +519,21 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			const items = await this.service.fetchAllItems<any>({
 				context,
 				listTitle: SubSiteListNames.LlBpRc,
-				pageSize: 2000
+				pageSize: 2000,
+				select: [
+					'ID',
+					'RcComponentName',
+					'RcLocation',
+					'RcPurposeMainFunctionality',
+					'RcResponsibility',
+					'RcResponsibilityId',
+					'RcRemarks',
+					'DataType',
+					'RcResponsibility/Id',
+					'RcResponsibility/Title',
+					'RcResponsibility/EMail'
+				],
+				expand: ['RcResponsibility']
 			});
 
 			const normalized = (items || [])
@@ -316,15 +541,26 @@ class LlBpRcrepository implements ILlBpRcRepository {
 					const rawType = (it?.DataType ?? it?.datatype ?? '').toString().trim();
 					return !rawType || rawType === ReusableComponentsDataType;
 				})
-				.map((it: any) => ({
-					ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
-					RcComponentName: it?.RcComponentName ?? it?.ComponentName ?? it?.Title ?? '',
-					RcLocation: it?.RcLocation ?? it?.Location ?? '',
-					RcPurposeMainFunctionality: it?.RcPurposeMainFunctionality ?? it?.Purpose ?? '',
-					RcResponsibility: it?.RcResponsibility ?? it?.Responsibility ?? '',
-					RcRemarks: it?.RcRemarks ?? it?.Remarks ?? '',
-					DataType: it?.DataType ?? ReusableComponentsDataType
-				})) as IReusableComponents[];
+				.map((it: any) => {
+					const responsibilityInfo = this.normalizePersonField(it, 'RcResponsibility');
+					const responsibilityDisplay = this.pickFirstString([
+						typeof it?.RcResponsibility === 'string' ? it.RcResponsibility : undefined,
+						responsibilityInfo.displayName
+					]) ?? '';
+
+					return {
+						ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
+						RcComponentName: it?.RcComponentName ?? it?.ComponentName ?? it?.Title ?? '',
+						RcLocation: it?.RcLocation ?? it?.Location ?? '',
+						RcPurposeMainFunctionality: it?.RcPurposeMainFunctionality ?? it?.Purpose ?? '',
+						RcResponsibility: responsibilityDisplay,
+						RcResponsibilityId: responsibilityInfo.id,
+						RcResponsibilityEmail: responsibilityInfo.email,
+						RcResponsibilityLoginName: responsibilityInfo.loginName,
+						RcRemarks: it?.RcRemarks ?? it?.Remarks ?? '',
+						DataType: it?.DataType ?? ReusableComponentsDataType
+					};
+				}) as IReusableComponents[];
 
 			this.reusableCache = normalized;
 			this.reusableCacheTimestamp = now;
@@ -344,15 +580,29 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			throw new Error('Reusable Component item is required.');
 		}
 
-		const payload = {
-			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || '').trim() || 'Reusable Component',
+		const resolvedResponsibility = await this.resolvePersonForSave(context, {
+			id: item.RcResponsibilityId,
+			loginName: item.RcResponsibilityLoginName,
+			email: item.RcResponsibilityEmail,
+			displayName: item.RcResponsibility
+		});
+		const responsibilityDisplay = this.pickFirstString([
+			resolvedResponsibility.displayName,
+			typeof item.RcResponsibility === 'string' ? item.RcResponsibility.trim() : undefined
+		]) ?? '';
+
+		const payload: any = {
+			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || responsibilityDisplay || '').trim() || 'Reusable Component',
 			RcComponentName: (item.RcComponentName ?? '').trim(),
 			RcLocation: (item.RcLocation ?? '').trim(),
 			RcPurposeMainFunctionality: (item.RcPurposeMainFunctionality ?? '').trim(),
-			RcResponsibility: (item.RcResponsibility ?? '').trim(),
+			RcResponsibility: responsibilityDisplay,
 			RcRemarks: (item.RcRemarks ?? '').trim(),
 			DataType: ReusableComponentsDataType
 		};
+		if (resolvedResponsibility.id !== undefined) {
+			payload.RcResponsibilityId = resolvedResponsibility.id;
+		}
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -374,6 +624,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcLocation: payload.RcLocation,
 			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
 			RcResponsibility: payload.RcResponsibility,
+			RcResponsibilityId: payload.RcResponsibilityId,
+			RcResponsibilityEmail: resolvedResponsibility.email,
+			RcResponsibilityLoginName: resolvedResponsibility.loginName,
 			RcRemarks: payload.RcRemarks,
 			DataType: payload.DataType
 		};
@@ -392,15 +645,29 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			throw new Error('Reusable Component ID is required for update.');
 		}
 
-		const payload = {
-			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || '').trim() || 'Reusable Component',
+		const resolvedResponsibility = await this.resolvePersonForSave(context, {
+			id: item.RcResponsibilityId,
+			loginName: item.RcResponsibilityLoginName,
+			email: item.RcResponsibilityEmail,
+			displayName: item.RcResponsibility
+		});
+		const responsibilityDisplay = this.pickFirstString([
+			resolvedResponsibility.displayName,
+			typeof item.RcResponsibility === 'string' ? item.RcResponsibility.trim() : undefined
+		]) ?? '';
+
+		const payload: any = {
+			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || responsibilityDisplay || '').trim() || 'Reusable Component',
 			RcComponentName: (item.RcComponentName ?? '').trim(),
 			RcLocation: (item.RcLocation ?? '').trim(),
 			RcPurposeMainFunctionality: (item.RcPurposeMainFunctionality ?? '').trim(),
-			RcResponsibility: (item.RcResponsibility ?? '').trim(),
+			RcResponsibility: responsibilityDisplay,
 			RcRemarks: (item.RcRemarks ?? '').trim(),
 			DataType: ReusableComponentsDataType
 		};
+		if (resolvedResponsibility.id !== undefined) {
+			payload.RcResponsibilityId = resolvedResponsibility.id;
+		}
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -421,6 +688,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcLocation: payload.RcLocation,
 			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
 			RcResponsibility: payload.RcResponsibility,
+			RcResponsibilityId: payload.RcResponsibilityId,
+			RcResponsibilityEmail: resolvedResponsibility.email,
+			RcResponsibilityLoginName: resolvedResponsibility.loginName,
 			RcRemarks: payload.RcRemarks,
 			DataType: payload.DataType
 		};
