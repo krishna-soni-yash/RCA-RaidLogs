@@ -327,6 +327,7 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
                   onSubmit={isCreateMode ? handleCreateComponent : formMode === 'edit' ? handleUpdateComponent : undefined}
                   onCancel={handleCloseForm}
                   isSaving={isSaving}
+                  context={context}
                 />
               </div>
             </div>

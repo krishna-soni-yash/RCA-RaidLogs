@@ -319,6 +319,7 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
                   onSubmit={isCreateMode ? handleCreateItem : formMode === 'edit' ? handleUpdateItem : undefined}
                   onCancel={handleCloseForm}
                   isSaving={isSaving}
+                  context={context}
                 />
               </div>
             </div>

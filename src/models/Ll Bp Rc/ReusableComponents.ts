@@ -4,6 +4,9 @@ export interface IReusableComponents {
     RcLocation?: string;
     RcPurposeMainFunctionality?: string;
     RcResponsibility?: string;
+    RcResponsibilityId?: number | number[];
+    RcResponsibilityEmail?: string | string[];
+    RcResponsibilityLoginName?: string | string[];
     RcRemarks?: string;
     DataType?: string;
 }
