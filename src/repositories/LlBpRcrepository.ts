@@ -335,6 +335,97 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 	}
 
+	public async addReusableComponents(item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> {
+		if (!context) {
+			throw new Error(ErrorMessages.WEBPART_CONTEXT_REQUIRED_OBJECTIVES);
+		}
+
+		if (!item) {
+			throw new Error('Reusable Component item is required.');
+		}
+
+		const payload = {
+			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || '').trim() || 'Reusable Component',
+			RcComponentName: (item.RcComponentName ?? '').trim(),
+			RcLocation: (item.RcLocation ?? '').trim(),
+			RcPurposeMainFunctionality: (item.RcPurposeMainFunctionality ?? '').trim(),
+			RcResponsibility: (item.RcResponsibility ?? '').trim(),
+			RcRemarks: (item.RcRemarks ?? '').trim(),
+			DataType: ReusableComponentsDataType
+		};
+
+		const result = await this.service.saveItem<any>({
+			context,
+			listTitle: SubSiteListNames.LlBpRc,
+			item: payload
+		});
+
+		if (!result?.success) {
+			throw new Error(result?.error ?? 'Failed to add Reusable Component.');
+		}
+
+		const savedIdRaw = result.itemId ?? (result.item?.Id ?? result.item?.ID ?? result.item?.id);
+		const savedId = typeof savedIdRaw === 'number' ? savedIdRaw : (savedIdRaw ? Number(savedIdRaw) : undefined);
+		const hasValidId = typeof savedId === 'number' && !isNaN(savedId);
+
+		const savedItem: IReusableComponents = {
+			ID: hasValidId ? savedId : undefined,
+			RcComponentName: payload.RcComponentName,
+			RcLocation: payload.RcLocation,
+			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
+			RcResponsibility: payload.RcResponsibility,
+			RcRemarks: payload.RcRemarks,
+			DataType: payload.DataType
+		};
+
+		this.invalidateReusableCache();
+
+		return savedItem;
+	}
+
+	public async updateReusableComponents(item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> {
+		if (!context) {
+			throw new Error(ErrorMessages.WEBPART_CONTEXT_REQUIRED_OBJECTIVES);
+		}
+
+		if (!item?.ID) {
+			throw new Error('Reusable Component ID is required for update.');
+		}
+
+		const payload = {
+			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || '').trim() || 'Reusable Component',
+			RcComponentName: (item.RcComponentName ?? '').trim(),
+			RcLocation: (item.RcLocation ?? '').trim(),
+			RcPurposeMainFunctionality: (item.RcPurposeMainFunctionality ?? '').trim(),
+			RcResponsibility: (item.RcResponsibility ?? '').trim(),
+			RcRemarks: (item.RcRemarks ?? '').trim(),
+			DataType: ReusableComponentsDataType
+		};
+
+		const result = await this.service.saveItem<any>({
+			context,
+			listTitle: SubSiteListNames.LlBpRc,
+			item: payload,
+			itemId: item.ID
+		});
+
+		if (!result?.success) {
+			throw new Error(result?.error ?? 'Failed to update Reusable Component.');
+		}
+
+		this.invalidateReusableCache();
+
+		return {
+			ID: item.ID,
+			RcComponentName: payload.RcComponentName,
+			RcLocation: payload.RcLocation,
+			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
+			RcResponsibility: payload.RcResponsibility,
+			RcRemarks: payload.RcRemarks,
+			DataType: payload.DataType
+		};
+	}
+
 	private invalidateLessonsCache(): void {
 		this.lessonsCache = null;
 		this.lessonsCacheTimestamp = 0;
@@ -343,6 +434,11 @@ class LlBpRcrepository implements ILlBpRcRepository {
 	private invalidateBestPracticesCache(): void {
 		this.bestPracticesCache = null;
 		this.bestPracticesCacheTimestamp = 0;
+	}
+
+	private invalidateReusableCache(): void {
+		this.reusableCache = null;
+		this.reusableCacheTimestamp = 0;
 	}
 
 	public refresh(): void {
@@ -369,3 +465,5 @@ export const fetchBestPractices = async (useCache: boolean = false, context?: We
 export const fetchReusableComponents = async (useCache: boolean = false, context?: WebPartContext): Promise<IReusableComponents[]> => defaultInstance.fetchReusableComponents(useCache, context);
 export const addBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.addBestPractices(item, context);
 export const updateBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.updateBestPractices(item, context);
+export const addReusableComponents = async (item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> => defaultInstance.addReusableComponents(item, context);
+export const updateReusableComponents = async (item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> => defaultInstance.updateReusableComponents(item, context);
