@@ -15,6 +15,7 @@ import {
 import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
 import { fetchLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
+import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
   context: WebPartContext;
@@ -141,7 +142,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   }, [context]);
 
   return (
-    <Stack tokens={stackTokens} className={styles.wrapper}>
+    <Stack tokens={stackTokens} className={styles.formWrapper}>
       {error && (
         <MessageBar messageBarType={MessageBarType.error} isMultiline={false}>
           {error}
@@ -166,6 +167,28 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
           </MessageBar>
         )
       )}
+
+
+    {showlessonsLearntForm && (
+                <div className={styles.overlay} onClick={() => { setShowlessonsLearntForm(false); }}>
+                    <div className={styles.container} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.header}>
+                            <h3 className={styles.title}>Lessons Learnt Form</h3>
+                            <IconButton
+                                iconProps={{ iconName: 'Cancel' }}
+                                ariaLabel="Close"
+                                onClick={() => { setShowlessonsLearntForm(false); }}
+                                className={styles.closeButton}
+                            />
+                        </div>
+                        <div className={styles.formWrapper}>
+                            <LessonsLearntForm
+                                onCancel={() => { setShowlessonsLearntForm(false); }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
     </Stack>
   );
 };
