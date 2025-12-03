@@ -15,7 +15,7 @@ import {
 } from '@fluentui/react';
 import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
-import { fetchLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
+import { addLessonsLearnt, fetchLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
 import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
@@ -31,6 +31,9 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   const [showLessonsLearntForm, setShowLessonsLearntForm] = React.useState<boolean>(false);
   const [selectedLesson, setSelectedLesson] = React.useState<ILessonsLearnt | null>(null);
   const [formMode, setFormMode] = React.useState<'view' | 'edit' | 'create'>('view');
+  const [isSaving, setIsSaving] = React.useState<boolean>(false);
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const isCreateMode = formMode === 'create';
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -78,11 +81,22 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   const handleCloseForm = React.useCallback(() => {
     setShowLessonsLearntForm(false);
     setSelectedLesson(null);
+    setFormError(null);
+    setIsSaving(false);
+    setFormMode('view');
   }, []);
 
   const handleViewItem = React.useCallback((lesson: ILessonsLearnt) => {
     setSelectedLesson(lesson);
     setFormMode('view');
+    setFormError(null);
+    setShowLessonsLearntForm(true);
+  }, []);
+
+  const handleCreateClick = React.useCallback(() => {
+    setSelectedLesson(null);
+    setFormMode('create');
+    setFormError(null);
     setShowLessonsLearntForm(true);
   }, []);
 
@@ -148,7 +162,6 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
       }
     };
 
-    // Load data once component is ready.
     void loadLessons();
 
     return () => {
@@ -156,14 +169,29 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     };
   }, [context]);
 
+  const handleCreateLesson = React.useCallback(async (values: ILessonsLearnt) => {
+    try {
+      setIsSaving(true);
+      setFormError(null);
+      const saved = await addLessonsLearnt(values, context);
+      setItems(prev => {
+        const next = [saved, ...prev];
+        return next.sort((a, b) => (b.ID ?? 0) - (a.ID ?? 0));
+      });
+      handleCloseForm();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to save lesson.';
+      setFormError(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [context, handleCloseForm]);
+
   return (
     <div>
       <PrimaryButton
         text="Add Lessons Learnt"
-        onClick={() => {
-          setFormMode('create');
-          setShowLessonsLearntForm(true);
-        }}
+        onClick={handleCreateClick}
         style={{ marginTop: '8px' }}
       />
       <Stack tokens={stackTokens} className={styles.formWrapper}>
@@ -206,11 +234,18 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
                   className={styles.closeButton}
                 />
               </div>
+              {formError && (
+                <MessageBar messageBarType={MessageBarType.error} isMultiline={false}>
+                  {formError}
+                </MessageBar>
+              )}
               <div className={styles.formWrapper}>
                 <LessonsLearntForm
                   mode={formMode}
                   initialValues={selectedLesson ?? undefined}
+                  onSubmit={isCreateMode ? handleCreateLesson : undefined}
                   onCancel={handleCloseForm}
+                  isSaving={isSaving}
                 />
               </div>
             </div>

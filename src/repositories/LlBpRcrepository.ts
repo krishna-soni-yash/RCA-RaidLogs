@@ -66,6 +66,89 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 	}
 
+	public async addLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> {
+		if (!context) {
+			throw new Error(ErrorMessages.WEBPART_CONTEXT_REQUIRED_OBJECTIVES);
+		}
+
+		if (!item) {
+			throw new Error('Lessons Learnt item is required.');
+		}
+
+		const payload = {
+			Title: (item.LlProblemFacedLearning || item.LlSolution || '').trim() || 'Lessons Learnt',
+			LlProblemFacedLearning: (item.LlProblemFacedLearning ?? '').trim(),
+			LlCategory: (item.LlCategory ?? '').trim(),
+			LlSolution: (item.LlSolution ?? '').trim(),
+			LlRemarks: (item.LlRemarks ?? '').trim()
+		};
+
+		const result = await this.service.saveItem<any>({
+			context,
+			listTitle: SubSiteListNames.LlBpRc,
+			item: payload
+		});
+
+		if (!result?.success) {
+			throw new Error(result?.error ?? 'Failed to add Lessons Learnt.');
+		}
+
+		const savedIdRaw = result.itemId ?? (result.item?.Id ?? result.item?.ID ?? result.item?.id);
+		const savedId = typeof savedIdRaw === 'number' ? savedIdRaw : (savedIdRaw ? Number(savedIdRaw) : undefined);
+		const hasValidId = typeof savedId === 'number' && !isNaN(savedId);
+
+		const savedItem: ILessonsLearnt = {
+			ID: hasValidId ? savedId : undefined,
+			LlProblemFacedLearning: payload.LlProblemFacedLearning,
+			LlCategory: payload.LlCategory,
+			LlSolution: payload.LlSolution,
+			LlRemarks: payload.LlRemarks
+		};
+
+		this.invalidateLessonsCache();
+
+		return savedItem;
+	}
+
+	public async updateLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> {
+		if (!context) {
+			throw new Error(ErrorMessages.WEBPART_CONTEXT_REQUIRED_OBJECTIVES);
+		}
+
+		if (!item?.ID) {
+			throw new Error('Lessons Learnt ID is required for update.');
+		}
+
+		const payload = {
+			Title: (item.LlProblemFacedLearning || item.LlSolution || '').trim() || 'Lessons Learnt',
+			LlProblemFacedLearning: (item.LlProblemFacedLearning ?? '').trim(),
+			LlCategory: (item.LlCategory ?? '').trim(),
+			LlSolution: (item.LlSolution ?? '').trim(),
+			LlRemarks: (item.LlRemarks ?? '').trim()
+		};
+
+		const result = await this.service.saveItem<any>({
+			context,
+			listTitle: SubSiteListNames.LlBpRc,
+			item: payload,
+			itemId: item.ID
+		});
+
+		if (!result?.success) {
+			throw new Error(result?.error ?? 'Failed to update Lessons Learnt.');
+		}
+
+		this.invalidateLessonsCache();
+
+		return {
+			ID: item.ID,
+			LlProblemFacedLearning: payload.LlProblemFacedLearning,
+			LlCategory: payload.LlCategory,
+			LlSolution: payload.LlSolution,
+			LlRemarks: payload.LlRemarks
+		};
+	}
+
 	public async fetchBestPractices(useCache: boolean = true, context?: WebPartContext): Promise<IBestPractices[]> {
 		const now = Date.now();
 		if (useCache && this.bestPracticesCache && (now - this.bestPracticesCacheTimestamp) < this.CACHE_DURATION) {
@@ -141,6 +224,11 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 	}
 
+	private invalidateLessonsCache(): void {
+		this.lessonsCache = null;
+		this.lessonsCacheTimestamp = 0;
+	}
+
 	public refresh(): void {
 		this.lessonsCache = null;
 		this.bestPracticesCache = null;
@@ -159,3 +247,5 @@ export const LlBpRcRepo = defaultInstance;
 export const fetchLessonsLearnt = async (useCache: boolean = false, context?: WebPartContext): Promise<ILessonsLearnt[]> => defaultInstance.fetchLessonsLearnt(useCache, context);
 export const fetchBestPractices = async (useCache: boolean = false, context?: WebPartContext): Promise<IBestPractices[]> => defaultInstance.fetchBestPractices(useCache, context);
 export const fetchReusableComponents = async (useCache: boolean = false, context?: WebPartContext): Promise<IReusableComponents[]> => defaultInstance.fetchReusableComponents(useCache, context);
+export const addLessonsLearnt = async (item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> => defaultInstance.addLessonsLearnt(item, context);
+export const updateLessonsLearnt = async (item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> => defaultInstance.updateLessonsLearnt(item, context);

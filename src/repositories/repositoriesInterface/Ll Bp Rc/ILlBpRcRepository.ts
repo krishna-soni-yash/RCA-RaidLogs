@@ -5,6 +5,9 @@ import { IReusableComponents } from '../../../models/Ll Bp Rc/ReusableComponents
 
 export interface ILlBpRcRepository {
   fetchLessonsLearnt(useCache?: boolean, context?: WebPartContext): Promise<ILessonsLearnt[]>;
+  addLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt>;
+  updateLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt>;
+  
   fetchBestPractices(useCache?: boolean, context?: WebPartContext): Promise<IBestPractices[]>;
   fetchReusableComponents(useCache?: boolean, context?: WebPartContext): Promise<IReusableComponents[]>;
 }
