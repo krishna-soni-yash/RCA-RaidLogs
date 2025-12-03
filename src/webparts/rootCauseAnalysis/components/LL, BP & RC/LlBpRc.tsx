@@ -3,8 +3,13 @@ import { Pivot, PivotItem } from "@fluentui/react";
 import LessonsLearnt from "./Lessons Learnt/LessonsLearnt";
 import BestPractices from "./Best Practices/BestPractices";
 import ReusableComponents from "./Reusable Components/ReusableComponents";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
 
-const LlBpRc: React.FC = () => {
+interface ILlBpRcProps {
+  context: WebPartContext;
+}
+
+const LlBpRc: React.FC<ILlBpRcProps> = ({ context }) => {
   return (
     <div>
       <Pivot aria-label="Lessons learnt tabs" defaultSelectedKey="lessonsLearnt">

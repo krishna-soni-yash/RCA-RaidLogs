@@ -14,6 +14,7 @@ export class SubSiteListNames {
   public static ProjectMetrics: string = "ProjectMetrics";
   public static ProjectMetricLogs: string = "ProjectMetricLogs";
   public static RootCauseAnalysis: string = "Root Cause Analysis";
+  public static LlBpRc: string = "LlBpRc";
 }
 
 //RCA Site Configuration
