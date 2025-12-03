@@ -10,7 +10,8 @@ import {
   Spinner,
   Stack,
   IStackTokens,
-  IconButton
+  IconButton,
+  PrimaryButton
 } from '@fluentui/react';
 import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
@@ -68,8 +69,8 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
       key: 'remarks',
       name: 'Remarks',
       fieldName: 'LlRemarks',
-      minWidth: 180,
-      maxWidth: 320,
+      minWidth: 140,
+      maxWidth: 260,
       isResizable: true
     }
   ], []);
@@ -156,56 +157,67 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   }, [context]);
 
   return (
-    <Stack tokens={stackTokens} className={styles.formWrapper}>
-      {error && (
-        <MessageBar messageBarType={MessageBarType.error} isMultiline={false}>
-          {error}
-        </MessageBar>
-      )}
+    <div>
+      <PrimaryButton
+        text="Add Lessons Learnt"
+        onClick={() => {
+          setFormMode('create');
+          setShowLessonsLearntForm(true);
+        }}
+        style={{ marginTop: '8px' }}
+      />
+      <Stack tokens={stackTokens} className={styles.formWrapper}>
 
-      {isLoading && <Spinner label="Loading lessons learnt..." />}
-
-      {!isLoading && !error && (
-        items.length > 0 ? (
-          <DetailsList
-            items={items}
-            columns={columns}
-            selectionMode={SelectionMode.none}
-            layoutMode={DetailsListLayoutMode.justified}
-            onRenderItemColumn={onRenderItemColumn}
-            compact
-          />
-        ) : (
-          <MessageBar messageBarType={MessageBarType.info} isMultiline={false}>
-            No lessons learnt have been captured yet.
+        {error && (
+          <MessageBar messageBarType={MessageBarType.error} isMultiline={false}>
+            {error}
           </MessageBar>
-        )
-      )}
-      {showLessonsLearntForm && (
-        <div className={styles.overlay} onClick={handleCloseForm}>
-          <div className={styles.container} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.header}>
-              <h3 className={styles.title}>
-                {formMode === 'view' ? 'View Lessons Learnt' : 'Lessons Learnt Form'}
-              </h3>
-              <IconButton
-                iconProps={{ iconName: 'Cancel' }}
-                ariaLabel="Close"
-                onClick={handleCloseForm}
-                className={styles.closeButton}
-              />
-            </div>
-            <div className={styles.formWrapper}>
-              <LessonsLearntForm
-                mode={formMode}
-                initialValues={selectedLesson ?? undefined}
-                onCancel={handleCloseForm}
-              />
+        )}
+
+        {isLoading && <Spinner label="Loading lessons learnt..." />}
+
+        {!isLoading && !error && (
+          items.length > 0 ? (
+            <DetailsList
+              items={items}
+              columns={columns}
+              selectionMode={SelectionMode.none}
+              layoutMode={DetailsListLayoutMode.justified}
+              onRenderItemColumn={onRenderItemColumn}
+              compact
+            />
+          ) : (
+            <MessageBar messageBarType={MessageBarType.info} isMultiline={false}>
+              No lessons learnt have been captured yet.
+            </MessageBar>
+          )
+        )}
+        {showLessonsLearntForm && (
+          <div className={styles.overlay} onClick={handleCloseForm}>
+            <div className={styles.container} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.header}>
+                <h3 className={styles.title}>
+                  {formMode === 'view' ? 'View Lessons Learnt' : 'Lessons Learnt'}
+                </h3>
+                <IconButton
+                  iconProps={{ iconName: 'Cancel' }}
+                  ariaLabel="Close"
+                  onClick={handleCloseForm}
+                  className={styles.closeButton}
+                />
+              </div>
+              <div className={styles.formWrapper}>
+                <LessonsLearntForm
+                  mode={formMode}
+                  initialValues={selectedLesson ?? undefined}
+                  onCancel={handleCloseForm}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </Stack>
+        )}
+      </Stack>
+    </div>
   );
 };
 

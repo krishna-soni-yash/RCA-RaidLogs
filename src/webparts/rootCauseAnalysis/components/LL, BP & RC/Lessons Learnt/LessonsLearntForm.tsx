@@ -47,25 +47,26 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
   });
   const isReadOnly = mode === 'view';
 
-  useEffect(() => {
-    if (!initialValues) {
-      setFormState({ ...fieldDefaults });
-      setErrors({
-        LlProblemFacedLearning: '',
-        LlCategory: '',
-        LlSolution: '',
-        LlRemarks: ''
-      });
-      return;
-    }
+  const createInitialState = useCallback((): LessonsLearntFormState => ({
+    LlProblemFacedLearning: initialValues?.LlProblemFacedLearning ?? '',
+    LlCategory: initialValues?.LlCategory ?? '',
+    LlSolution: initialValues?.LlSolution ?? '',
+    LlRemarks: initialValues?.LlRemarks ?? ''
+  }), [initialValues]);
 
-    setFormState({
-      LlProblemFacedLearning: initialValues.LlProblemFacedLearning ?? '',
-      LlCategory: initialValues.LlCategory ?? '',
-      LlSolution: initialValues.LlSolution ?? '',
-      LlRemarks: initialValues.LlRemarks ?? ''
+  const resetState = useCallback(() => {
+    setFormState(createInitialState());
+    setErrors({
+      LlProblemFacedLearning: '',
+      LlCategory: '',
+      LlSolution: '',
+      LlRemarks: ''
     });
-  }, [initialValues]);
+  }, [createInitialState]);
+
+  useEffect(() => {
+    resetState();
+  }, [resetState]);
 
   const validate = useCallback((state: LessonsLearntFormState) => {
     const nextErrors: Record<keyof LessonsLearntFormState, string> = {
@@ -130,6 +131,13 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
     );
   }, [formState, isReadOnly, isSaving]);
 
+  const handleReset = useCallback(() => {
+    if (isReadOnly) {
+      return;
+    }
+    resetState();
+  }, [isReadOnly, resetState]);
+
   return (
     <form className={styles.formWrapper} onSubmit={handleSubmit} noValidate>
       <Stack tokens={formStackTokens}>
@@ -173,15 +181,10 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
 
         <Stack horizontal tokens={buttonStackTokens}>
           {!isReadOnly && (
-            <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'} disabled={!canSubmit} />
-          )}
-          {onCancel && (
-            <DefaultButton
-              type="button"
-              text={isReadOnly ? 'Close' : 'Cancel'}
-              onClick={onCancel}
-              disabled={isSaving}
-            />
+            <>
+              <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'} disabled={!canSubmit} />
+              <DefaultButton type="button" text="Reset" onClick={handleReset} disabled={isSaving} />
+            </>
           )}
         </Stack>
       </Stack>
