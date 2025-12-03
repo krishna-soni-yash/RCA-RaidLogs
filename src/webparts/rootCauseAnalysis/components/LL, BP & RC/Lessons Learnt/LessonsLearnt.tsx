@@ -33,7 +33,17 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   const [formMode, setFormMode] = React.useState<'view' | 'edit' | 'create'>('view');
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const isCreateMode = formMode === 'create';
+  const successTimeoutRef = React.useRef<number | undefined>(undefined);
+
+  const clearSuccessMessage = React.useCallback(() => {
+    if (successTimeoutRef.current) {
+      window.clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = undefined;
+    }
+    setSuccessMessage(null);
+  }, []);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -176,6 +186,15 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     };
   }, [context]);
 
+  React.useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        window.clearTimeout(successTimeoutRef.current);
+        successTimeoutRef.current = undefined;
+      }
+    };
+  }, []);
+
   const handleCreateLesson = React.useCallback(async (values: ILessonsLearnt) => {
     try {
       setIsSaving(true);
@@ -185,6 +204,11 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
         const next = [saved, ...prev];
         return next.sort((a, b) => (b.ID ?? 0) - (a.ID ?? 0));
       });
+      clearSuccessMessage();
+      setSuccessMessage('Save Complete');
+      successTimeoutRef.current = window.setTimeout(() => {
+        clearSuccessMessage();
+      }, 1000);
       handleCloseForm();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to save lesson.';
@@ -208,6 +232,11 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
         const next = prev.map(it => (it.ID === updated.ID ? { ...it, ...updated } : it));
         return next.sort((a, b) => (b.ID ?? 0) - (a.ID ?? 0));
       });
+      clearSuccessMessage();
+      setSuccessMessage('Save Complete');
+      successTimeoutRef.current = window.setTimeout(() => {
+        clearSuccessMessage();
+      }, 1000);
       handleCloseForm();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to update lesson.';
@@ -225,6 +254,16 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
         style={{ marginTop: '8px' }}
       />
       <Stack tokens={stackTokens} className={styles.formWrapper}>
+
+        {successMessage && (
+          <MessageBar
+            messageBarType={MessageBarType.success}
+            isMultiline={false}
+            onDismiss={clearSuccessMessage}
+          >
+            {successMessage}
+          </MessageBar>
+        )}
 
         {error && (
           <MessageBar messageBarType={MessageBarType.error} isMultiline={false}>

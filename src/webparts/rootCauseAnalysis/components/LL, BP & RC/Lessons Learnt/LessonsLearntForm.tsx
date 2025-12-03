@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   DefaultButton,
   IStackTokens,
@@ -119,18 +119,6 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
     [formState, isReadOnly, onCancel, onSubmit, validate]
   );
 
-  const canSubmit = useMemo(() => {
-    if (isSaving || isReadOnly) {
-      return false;
-    }
-
-    return (
-      formState.LlProblemFacedLearning.trim().length > 0 &&
-      formState.LlCategory.trim().length > 0 &&
-      formState.LlSolution.trim().length > 0
-    );
-  }, [formState, isReadOnly, isSaving]);
-
   const handleReset = useCallback(() => {
     if (isReadOnly) {
       return;
@@ -182,7 +170,7 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
         <Stack horizontal tokens={buttonStackTokens}>
           {!isReadOnly && (
             <>
-              <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'} disabled={!canSubmit} />
+              <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'}/>
               <DefaultButton type="button" text="Reset" onClick={handleReset} disabled={isSaving} />
             </>
           )}
