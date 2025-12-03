@@ -1,6 +1,10 @@
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 import * as React from 'react';
 
-const ReusableComponents: React.FC = () => {
+interface IReusableComponentsProps {
+  context: WebPartContext;
+}
+const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => {
   return (
     <div>
         Reusable Components Content

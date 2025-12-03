@@ -33,7 +33,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
         case 'raidLogs':
           return <RaidLogs context={this.props.context} />;
         case 'lessonsLearnt':
-          return <LlBpRc />;
+          return <LlBpRc context={this.props.context} />;
         default:
           return <RCATable context={context} />
       }

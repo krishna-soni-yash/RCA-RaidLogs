@@ -10,17 +10,17 @@ interface ILlBpRcProps {
 }
 
 const LlBpRc: React.FC<ILlBpRcProps> = ({ context }) => {
-  return (
+    return (
     <div>
       <Pivot aria-label="Lessons learnt tabs" defaultSelectedKey="lessonsLearnt">
         <PivotItem headerText="Lessons Learnt" itemKey="lessonsLearnt">
-          <LessonsLearnt />
+          <LessonsLearnt context={context} />
         </PivotItem>
         <PivotItem headerText="Best Practices" itemKey="bestPractices">
-          <BestPractices />
+          <BestPractices context={context} />
         </PivotItem>
         <PivotItem headerText="Reusable Components" itemKey="reusableComponents">
-          <ReusableComponents />
+          <ReusableComponents context={context} />
         </PivotItem>
       </Pivot>
     </div>
