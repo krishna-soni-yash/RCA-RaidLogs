@@ -16,6 +16,7 @@ export interface ILessonsLearntFormProps {
   onSubmit?: (values: ILessonsLearnt) => void;
   onCancel?: () => void;
   isSaving?: boolean;
+  mode?: 'create' | 'edit' | 'view';
 }
 
 type LessonsLearntFormState = Required<Omit<ILessonsLearnt, 'ID'>>;
@@ -34,7 +35,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
   initialValues,
   onSubmit,
   onCancel,
-  isSaving
+  isSaving,
+  mode = 'create'
 }) => {
   const [formState, setFormState] = useState<LessonsLearntFormState>({ ...fieldDefaults });
   const [errors, setErrors] = useState<Record<keyof LessonsLearntFormState, string>>({
@@ -43,6 +45,7 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
     LlSolution: '',
     LlRemarks: ''
   });
+  const isReadOnly = mode === 'view';
 
   useEffect(() => {
     if (!initialValues) {
@@ -82,17 +85,24 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
 
   const handleChange = useCallback(
     (field: keyof LessonsLearntFormState) => (_: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, value?: string) => {
+      if (isReadOnly) {
+        return;
+      }
       setFormState(prev => ({ ...prev, [field]: value ?? '' }));
       if (errors[field]) {
         setErrors(prev => ({ ...prev, [field]: '' }));
       }
     },
-    [errors]
+    [errors, isReadOnly]
   );
 
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (isReadOnly) {
+        onCancel?.();
+        return;
+      }
       const nextState = { ...formState };
       if (!validate(nextState)) {
         return;
@@ -105,11 +115,11 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
         LlRemarks: nextState.LlRemarks.trim()
       });
     },
-    [formState, onSubmit, validate]
+    [formState, isReadOnly, onCancel, onSubmit, validate]
   );
 
   const canSubmit = useMemo(() => {
-    if (isSaving) {
+    if (isSaving || isReadOnly) {
       return false;
     }
 
@@ -118,48 +128,61 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
       formState.LlCategory.trim().length > 0 &&
       formState.LlSolution.trim().length > 0
     );
-  }, [formState, isSaving]);
+  }, [formState, isReadOnly, isSaving]);
 
   return (
-    <form className={styles.wrapper} onSubmit={handleSubmit} noValidate>
+    <form className={styles.formWrapper} onSubmit={handleSubmit} noValidate>
       <Stack tokens={formStackTokens}>
         <TextField
           label="Problem Faced / Learning"
           value={formState.LlProblemFacedLearning}
-          onChange={handleChange('LlProblemFacedLearning')}
+          onChange={isReadOnly ? undefined : handleChange('LlProblemFacedLearning')}
           multiline
           autoAdjustHeight
           required
           errorMessage={errors.LlProblemFacedLearning}
+          readOnly={isReadOnly}
         />
         <TextField
           label="Category"
           value={formState.LlCategory}
-          onChange={handleChange('LlCategory')}
+          onChange={isReadOnly ? undefined : handleChange('LlCategory')}
           required
           errorMessage={errors.LlCategory}
+          readOnly={isReadOnly}
         />
         <TextField
           label="Solution"
           value={formState.LlSolution}
-          onChange={handleChange('LlSolution')}
+          onChange={isReadOnly ? undefined : handleChange('LlSolution')}
           multiline
           autoAdjustHeight
           required
           errorMessage={errors.LlSolution}
+          readOnly={isReadOnly}
         />
         <TextField
           label="Remarks"
           value={formState.LlRemarks}
-          onChange={handleChange('LlRemarks')}
+          onChange={isReadOnly ? undefined : handleChange('LlRemarks')}
           multiline
           autoAdjustHeight
           errorMessage={errors.LlRemarks}
+          readOnly={isReadOnly}
         />
 
         <Stack horizontal tokens={buttonStackTokens}>
-          <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'} disabled={!canSubmit} />
-          {onCancel && <DefaultButton type="button" text="Cancel" onClick={onCancel} disabled={isSaving} />}
+          {!isReadOnly && (
+            <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'} disabled={!canSubmit} />
+          )}
+          {onCancel && (
+            <DefaultButton
+              type="button"
+              text={isReadOnly ? 'Close' : 'Cancel'}
+              onClick={onCancel}
+              disabled={isSaving}
+            />
+          )}
         </Stack>
       </Stack>
     </form>

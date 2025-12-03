@@ -27,6 +27,9 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   const [items, setItems] = React.useState<ILessonsLearnt[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showLessonsLearntForm, setShowLessonsLearntForm] = React.useState<boolean>(false);
+  const [selectedLesson, setSelectedLesson] = React.useState<ILessonsLearnt | null>(null);
+  const [formMode, setFormMode] = React.useState<'view' | 'edit' | 'create'>('view');
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -71,6 +74,17 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     }
   ], []);
 
+  const handleCloseForm = React.useCallback(() => {
+    setShowLessonsLearntForm(false);
+    setSelectedLesson(null);
+  }, []);
+
+  const handleViewItem = React.useCallback((lesson: ILessonsLearnt) => {
+    setSelectedLesson(lesson);
+    setFormMode('view');
+    setShowLessonsLearntForm(true);
+  }, []);
+
   const onRenderItemColumn = React.useCallback((item: ILessonsLearnt, _: number | undefined, column?: IColumn) => {
     if (!column) {
       return null;
@@ -79,7 +93,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     if (column.key === 'actions') {
       const onView = (ev?: any) => {
         ev?.stopPropagation();
-        alert(`View Lessons Learnt item ${item.ID}`);
+        handleViewItem(item);
       };
 
       const onEdit = (ev?: any) => {
@@ -102,7 +116,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, []);
+  }, [handleViewItem]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -167,28 +181,30 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
           </MessageBar>
         )
       )}
-
-
-    {showlessonsLearntForm && (
-                <div className={styles.overlay} onClick={() => { setShowlessonsLearntForm(false); }}>
-                    <div className={styles.container} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.header}>
-                            <h3 className={styles.title}>Lessons Learnt Form</h3>
-                            <IconButton
-                                iconProps={{ iconName: 'Cancel' }}
-                                ariaLabel="Close"
-                                onClick={() => { setShowlessonsLearntForm(false); }}
-                                className={styles.closeButton}
-                            />
-                        </div>
-                        <div className={styles.formWrapper}>
-                            <LessonsLearntForm
-                                onCancel={() => { setShowlessonsLearntForm(false); }}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
+      {showLessonsLearntForm && (
+        <div className={styles.overlay} onClick={handleCloseForm}>
+          <div className={styles.container} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.header}>
+              <h3 className={styles.title}>
+                {formMode === 'view' ? 'View Lessons Learnt' : 'Lessons Learnt Form'}
+              </h3>
+              <IconButton
+                iconProps={{ iconName: 'Cancel' }}
+                ariaLabel="Close"
+                onClick={handleCloseForm}
+                className={styles.closeButton}
+              />
+            </div>
+            <div className={styles.formWrapper}>
+              <LessonsLearntForm
+                mode={formMode}
+                initialValues={selectedLesson ?? undefined}
+                onCancel={handleCloseForm}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </Stack>
   );
 };
