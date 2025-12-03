@@ -9,6 +9,9 @@ export interface ILlBpRcRepository {
   updateLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt>;
   
   fetchBestPractices(useCache?: boolean, context?: WebPartContext): Promise<IBestPractices[]>;
+  addBestPractices(item: IBestPractices, context?: WebPartContext): Promise<IBestPractices>;
+  updateBestPractices(item: IBestPractices, context?: WebPartContext): Promise<IBestPractices>;
+  
   fetchReusableComponents(useCache?: boolean, context?: WebPartContext): Promise<IReusableComponents[]>;
 }
 

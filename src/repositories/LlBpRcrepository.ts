@@ -1,9 +1,9 @@
 import genericService, { GenericService } from '../services/GenericServices';
 import IGenericService from '../services/IGenericServices';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { ILessonsLearnt } from '../models/Ll Bp Rc/LessonsLearnt';
-import { IBestPractices } from '../models/Ll Bp Rc/BestPractices';
-import { IReusableComponents } from '../models/Ll Bp Rc/ReusableComponents';
+import { ILessonsLearnt, LessonsLearntDataType } from '../models/Ll Bp Rc/LessonsLearnt';
+import { IBestPractices, BestPracticesDataType } from '../models/Ll Bp Rc/BestPractices';
+import { IReusableComponents, ReusableComponentsDataType } from '../models/Ll Bp Rc/ReusableComponents';
 import ErrorMessages from '../common/ErrorMessages';
 import ILlBpRcRepository from './repositoriesInterface/Ll Bp Rc/ILlBpRcRepository';
 import { SubSiteListNames } from '../common/Constants';
@@ -49,12 +49,18 @@ class LlBpRcrepository implements ILlBpRcRepository {
 				pageSize: 2000
 			});
 
-			const normalized = (items || []).map((it: any) => ({
+			const normalized = (items || [])
+				.filter((it: any) => {
+					const rawType = (it?.DataType ?? it?.datatype ?? '').toString().trim();
+					return !rawType || rawType === LessonsLearntDataType;
+				})
+				.map((it: any) => ({
 				ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
 				LlProblemFacedLearning: it?.LlProblemFacedLearning ?? it?.ProblemFacedLearning ?? it?.Title ?? '',
 				LlCategory: it?.LlCategory ?? it?.Category ?? '',
 				LlSolution: it?.LlSolution ?? it?.Solution ?? '',
-				LlRemarks: it?.LlRemarks ?? it?.Remarks ?? ''
+				LlRemarks: it?.LlRemarks ?? it?.Remarks ?? '',
+				DataType: it?.DataType ?? LessonsLearntDataType
 			})) as ILessonsLearnt[];
 
 			this.lessonsCache = normalized;
@@ -80,7 +86,8 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			LlProblemFacedLearning: (item.LlProblemFacedLearning ?? '').trim(),
 			LlCategory: (item.LlCategory ?? '').trim(),
 			LlSolution: (item.LlSolution ?? '').trim(),
-			LlRemarks: (item.LlRemarks ?? '').trim()
+			LlRemarks: (item.LlRemarks ?? '').trim(),
+			DataType: LessonsLearntDataType
 		};
 
 		const result = await this.service.saveItem<any>({
@@ -102,7 +109,8 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			LlProblemFacedLearning: payload.LlProblemFacedLearning,
 			LlCategory: payload.LlCategory,
 			LlSolution: payload.LlSolution,
-			LlRemarks: payload.LlRemarks
+			LlRemarks: payload.LlRemarks,
+			DataType: payload.DataType
 		};
 
 		this.invalidateLessonsCache();
@@ -124,7 +132,8 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			LlProblemFacedLearning: (item.LlProblemFacedLearning ?? '').trim(),
 			LlCategory: (item.LlCategory ?? '').trim(),
 			LlSolution: (item.LlSolution ?? '').trim(),
-			LlRemarks: (item.LlRemarks ?? '').trim()
+			LlRemarks: (item.LlRemarks ?? '').trim(),
+			DataType: LessonsLearntDataType
 		};
 
 		const result = await this.service.saveItem<any>({
@@ -145,7 +154,8 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			LlProblemFacedLearning: payload.LlProblemFacedLearning,
 			LlCategory: payload.LlCategory,
 			LlSolution: payload.LlSolution,
-			LlRemarks: payload.LlRemarks
+			LlRemarks: payload.LlRemarks,
+			DataType: payload.DataType
 		};
 	}
 
@@ -169,13 +179,19 @@ class LlBpRcrepository implements ILlBpRcRepository {
 				pageSize: 2000
 			});
 
-			const normalized = (items || []).map((it: any) => ({
-				ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
-				BestPracticesDescription: it?.BestPracticesDescription ?? it?.Description ?? it?.Title ?? '',
-				BpReferences: it?.BpReferences ?? it?.References ?? '',
-				BpResponsibility: it?.BpResponsibility ?? it?.Responsibility ?? '',
-				BpRemarks: it?.BpRemarks ?? it?.Remarks ?? ''
-			})) as IBestPractices[];
+			const normalized = (items || [])
+				.filter((it: any) => {
+					const rawType = (it?.DataType ?? it?.datatype ?? '').toString().trim();
+					return !rawType || rawType === BestPracticesDataType;
+				})
+				.map((it: any) => ({
+					ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
+					BpBestPracticesDescription: it?.BpBestPracticesDescription ?? it?.BestPracticesDescription ?? it?.Description ?? it?.Title ?? '',
+					BpReferences: it?.BpReferences ?? it?.References ?? '',
+					BpResponsibility: it?.BpResponsibility ?? it?.Responsibility ?? '',
+					BpRemarks: it?.BpRemarks ?? it?.Remarks ?? '',
+					DataType: it?.DataType ?? BestPracticesDataType
+				})) as IBestPractices[];
 
 			this.bestPracticesCache = normalized;
 			this.bestPracticesCacheTimestamp = now;
@@ -184,6 +200,95 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		} catch (error: any) {
 			throw new Error('Failed to fetch Best Practices: ' + (error?.message || error));
 		}
+	}
+
+	public async addBestPractices(item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> {
+		if (!context) {
+			throw new Error(ErrorMessages.WEBPART_CONTEXT_REQUIRED_OBJECTIVES);
+		}
+
+		if (!item) {
+			throw new Error('Best Practice item is required.');
+		}
+
+		const description = (item.BpBestPracticesDescription ?? '').trim();
+		const payload = {
+			Title: description || (item.BpResponsibility ?? '').trim() || 'Best Practice',
+			BpBestPracticesDescription: description,
+			BpReferences: (item.BpReferences ?? '').trim(),
+			BpResponsibility: (item.BpResponsibility ?? '').trim(),
+			BpRemarks: (item.BpRemarks ?? '').trim(),
+			DataType: BestPracticesDataType
+		};
+
+		const result = await this.service.saveItem<any>({
+			context,
+			listTitle: SubSiteListNames.LlBpRc,
+			item: payload
+		});
+
+		if (!result?.success) {
+			throw new Error(result?.error ?? 'Failed to add Best Practice.');
+		}
+
+		const savedIdRaw = result.itemId ?? (result.item?.Id ?? result.item?.ID ?? result.item?.id);
+		const savedId = typeof savedIdRaw === 'number' ? savedIdRaw : (savedIdRaw ? Number(savedIdRaw) : undefined);
+		const hasValidId = typeof savedId === 'number' && !isNaN(savedId);
+
+		const savedItem: IBestPractices = {
+			ID: hasValidId ? savedId : undefined,
+			BpBestPracticesDescription: payload.BpBestPracticesDescription,
+			BpReferences: payload.BpReferences,
+			BpResponsibility: payload.BpResponsibility,
+			BpRemarks: payload.BpRemarks,
+			DataType: payload.DataType
+		};
+
+		this.invalidateBestPracticesCache();
+
+		return savedItem;
+	}
+
+	public async updateBestPractices(item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> {
+		if (!context) {
+			throw new Error(ErrorMessages.WEBPART_CONTEXT_REQUIRED_OBJECTIVES);
+		}
+
+		if (!item?.ID) {
+			throw new Error('Best Practice ID is required for update.');
+		}
+
+		const description = (item.BpBestPracticesDescription ?? '').trim();
+		const payload = {
+			Title: description || (item.BpResponsibility ?? '').trim() || 'Best Practice',
+			BpBestPracticesDescription: description,
+			BpReferences: (item.BpReferences ?? '').trim(),
+			BpResponsibility: (item.BpResponsibility ?? '').trim(),
+			BpRemarks: (item.BpRemarks ?? '').trim(),
+			DataType: BestPracticesDataType
+		};
+
+		const result = await this.service.saveItem<any>({
+			context,
+			listTitle: SubSiteListNames.LlBpRc,
+			item: payload,
+			itemId: item.ID
+		});
+
+		if (!result?.success) {
+			throw new Error(result?.error ?? 'Failed to update Best Practice.');
+		}
+
+		this.invalidateBestPracticesCache();
+
+		return {
+			ID: item.ID,
+			BpBestPracticesDescription: payload.BpBestPracticesDescription,
+			BpReferences: payload.BpReferences,
+			BpResponsibility: payload.BpResponsibility,
+			BpRemarks: payload.BpRemarks,
+			DataType: payload.DataType
+		};
 	}
 
 	public async fetchReusableComponents(useCache: boolean = true, context?: WebPartContext): Promise<IReusableComponents[]> {
@@ -206,14 +311,20 @@ class LlBpRcrepository implements ILlBpRcRepository {
 				pageSize: 2000
 			});
 
-			const normalized = (items || []).map((it: any) => ({
-				ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
-				RcComponentName: it?.RcComponentName ?? it?.ComponentName ?? it?.Title ?? '',
-				RcLocation: it?.RcLocation ?? it?.Location ?? '',
-				RcPurposeMainFunctionality: it?.RcPurposeMainFunctionality ?? it?.Purpose ?? '',
-				RcResponsibility: it?.RcResponsibility ?? it?.Responsibility ?? '',
-				RcRemarks: it?.RcRemarks ?? it?.Remarks ?? ''
-			})) as IReusableComponents[];
+			const normalized = (items || [])
+				.filter((it: any) => {
+					const rawType = (it?.DataType ?? it?.datatype ?? '').toString().trim();
+					return !rawType || rawType === ReusableComponentsDataType;
+				})
+				.map((it: any) => ({
+					ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
+					RcComponentName: it?.RcComponentName ?? it?.ComponentName ?? it?.Title ?? '',
+					RcLocation: it?.RcLocation ?? it?.Location ?? '',
+					RcPurposeMainFunctionality: it?.RcPurposeMainFunctionality ?? it?.Purpose ?? '',
+					RcResponsibility: it?.RcResponsibility ?? it?.Responsibility ?? '',
+					RcRemarks: it?.RcRemarks ?? it?.Remarks ?? '',
+					DataType: it?.DataType ?? ReusableComponentsDataType
+				})) as IReusableComponents[];
 
 			this.reusableCache = normalized;
 			this.reusableCacheTimestamp = now;
@@ -227,6 +338,11 @@ class LlBpRcrepository implements ILlBpRcRepository {
 	private invalidateLessonsCache(): void {
 		this.lessonsCache = null;
 		this.lessonsCacheTimestamp = 0;
+	}
+
+	private invalidateBestPracticesCache(): void {
+		this.bestPracticesCache = null;
+		this.bestPracticesCacheTimestamp = 0;
 	}
 
 	public refresh(): void {
@@ -244,8 +360,12 @@ const defaultInstance = new LlBpRcrepository();
 
 export default defaultInstance;
 export const LlBpRcRepo = defaultInstance;
+
 export const fetchLessonsLearnt = async (useCache: boolean = false, context?: WebPartContext): Promise<ILessonsLearnt[]> => defaultInstance.fetchLessonsLearnt(useCache, context);
-export const fetchBestPractices = async (useCache: boolean = false, context?: WebPartContext): Promise<IBestPractices[]> => defaultInstance.fetchBestPractices(useCache, context);
-export const fetchReusableComponents = async (useCache: boolean = false, context?: WebPartContext): Promise<IReusableComponents[]> => defaultInstance.fetchReusableComponents(useCache, context);
 export const addLessonsLearnt = async (item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> => defaultInstance.addLessonsLearnt(item, context);
 export const updateLessonsLearnt = async (item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> => defaultInstance.updateLessonsLearnt(item, context);
+
+export const fetchBestPractices = async (useCache: boolean = false, context?: WebPartContext): Promise<IBestPractices[]> => defaultInstance.fetchBestPractices(useCache, context);
+export const fetchReusableComponents = async (useCache: boolean = false, context?: WebPartContext): Promise<IReusableComponents[]> => defaultInstance.fetchReusableComponents(useCache, context);
+export const addBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.addBestPractices(item, context);
+export const updateBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.updateBestPractices(item, context);

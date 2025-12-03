@@ -25,7 +25,8 @@ const fieldDefaults: LessonsLearntFormState = {
   LlProblemFacedLearning: '',
   LlCategory: '',
   LlSolution: '',
-  LlRemarks: ''
+  LlRemarks: '',
+  DataType: 'LessonsLearnt'
 };
 
 const formStackTokens: IStackTokens = { childrenGap: 8 };
@@ -43,7 +44,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
     LlProblemFacedLearning: '',
     LlCategory: '',
     LlSolution: '',
-    LlRemarks: ''
+    LlRemarks: '',
+    DataType: 'LessonsLearnt'
   });
   const isReadOnly = mode === 'view';
 
@@ -51,7 +53,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
     LlProblemFacedLearning: initialValues?.LlProblemFacedLearning ?? '',
     LlCategory: initialValues?.LlCategory ?? '',
     LlSolution: initialValues?.LlSolution ?? '',
-    LlRemarks: initialValues?.LlRemarks ?? ''
+    LlRemarks: initialValues?.LlRemarks ?? '',
+    DataType: initialValues?.DataType ?? 'LessonsLearnt'
   }), [initialValues]);
 
   const resetState = useCallback(() => {
@@ -60,7 +63,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
       LlProblemFacedLearning: '',
       LlCategory: '',
       LlSolution: '',
-      LlRemarks: ''
+      LlRemarks: '',
+      DataType: 'LessonsLearnt'
     });
   }, [createInitialState]);
 
@@ -73,7 +77,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
       LlProblemFacedLearning: state.LlProblemFacedLearning ? '' : 'Please describe the problem or learning.',
       LlCategory: state.LlCategory ? '' : 'Category is required.',
       LlSolution: state.LlSolution ? '' : 'Solution details are required.',
-      LlRemarks: ''
+      LlRemarks: '',
+      DataType: 'LessonsLearnt'
     };
     setErrors(nextErrors);
     return (
@@ -113,7 +118,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
         LlProblemFacedLearning: nextState.LlProblemFacedLearning.trim(),
         LlCategory: nextState.LlCategory.trim(),
         LlSolution: nextState.LlSolution.trim(),
-        LlRemarks: nextState.LlRemarks.trim()
+        LlRemarks: nextState.LlRemarks.trim(),
+        DataType: 'LessonsLearnt'
       });
     },
     [formState, isReadOnly, onCancel, onSubmit, validate]

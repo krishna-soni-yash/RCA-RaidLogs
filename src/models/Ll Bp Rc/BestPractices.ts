@@ -1,7 +1,10 @@
 export interface IBestPractices {
     ID?: number;
-    BestPracticesDescription?: string;
+    BpBestPracticesDescription?: string;
     BpReferences?: string;
     BpResponsibility?: string;
     BpRemarks?: string;
+    DataType?: string;
 }
+
+export const BestPracticesDataType = 'BestPractices';

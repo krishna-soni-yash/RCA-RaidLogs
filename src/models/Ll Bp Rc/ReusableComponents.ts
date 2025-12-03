@@ -5,4 +5,7 @@ export interface IReusableComponents {
     RcPurposeMainFunctionality?: string;
     RcResponsibility?: string;
     RcRemarks?: string;
+    DataType?: string;
 }
+
+export const ReusableComponentsDataType = 'ReusableComponents';
