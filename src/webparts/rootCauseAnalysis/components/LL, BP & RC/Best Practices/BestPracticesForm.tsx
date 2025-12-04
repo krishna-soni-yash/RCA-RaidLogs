@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DefaultButton,
   IStackTokens,
@@ -46,6 +46,29 @@ type BestPracticesFormErrors = {
   BpResponsibility: string;
   BpRemarks: string;
 };
+
+class PeoplePickerErrorBoundary extends React.Component<{ onError?: () => void; children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { onError?: () => void; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error('PeoplePicker render error caught by boundary', error, info);
+    this.props.onError?.();
+  }
+
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 const fieldDefaults: BestPracticesFormState = {
   BpBestPracticesDescription: '',
@@ -135,7 +158,11 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
   });
   const [selectedResponsibility, setSelectedResponsibility] = useState<PersonSelection[]>([]);
   const [peoplePickerKey, setPeoplePickerKey] = useState<number>(0);
+  const [peoplePickerFailed, setPeoplePickerFailed] = useState<boolean>(false);
   const isReadOnly = mode === 'view';
+  const peoplePickerWebUrl = useMemo(() => {
+    return (context as any)?.pageContext?.web?.absoluteUrl ?? window.location.origin;
+  }, [context]);
 
   const mapInitialResponsibility = useCallback((): PersonSelection[] => {
     const ids = toArray<any>(initialValues?.BpResponsibilityId);
@@ -208,11 +235,36 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
     const responsibility = mapInitialResponsibility();
     setSelectedResponsibility(responsibility);
     setPeoplePickerKey(prev => prev + 1);
+    setPeoplePickerFailed(false);
   }, [createInitialState, mapInitialResponsibility]);
 
   useEffect(() => {
     resetState();
   }, [resetState]);
+
+  useEffect(() => {
+    const handleWindowError = (ev: ErrorEvent) => {
+      const message = ev?.message || ev?.error?.message || '';
+      if (message && (message.indexOf('PeopleSearchService') !== -1 || message.indexOf('searchTenant') !== -1)) {
+        setPeoplePickerFailed(true);
+      }
+    };
+
+    const handleUnhandledRejection = (ev: PromiseRejectionEvent) => {
+      const reason = ev?.reason;
+      const message = typeof reason === 'string' ? reason : (reason?.message || '');
+      if (message && (message.indexOf('PeopleSearchService') !== -1 || message.indexOf('searchTenant') !== -1)) {
+        setPeoplePickerFailed(true);
+      }
+    };
+
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   const validate = useCallback((state: BestPracticesFormState, responsibility: PersonSelection[]) => {
     const hasResponsibility = responsibility.length > 0 && (
@@ -258,6 +310,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
 
     const mapped = mapPickerItemsToSelection(items);
     setSelectedResponsibility(mapped);
+    setPeoplePickerFailed(false);
 
     const primary = mapped[0];
     const display = displayFromSelection(mapped);
@@ -272,6 +325,37 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
 
     if (mapped.length > 0 && errors.BpResponsibility) {
       setErrors(prev => ({ ...prev, BpResponsibility: '' }));
+    }
+  }, [errors.BpResponsibility, isReadOnly]);
+
+  const handleManualResponsibilityInput = useCallback((_: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, value?: string) => {
+    if (isReadOnly) {
+      return;
+    }
+
+    const trimmed = (value ?? '').trim();
+    const containsAtSymbol = trimmed.indexOf('@') !== -1;
+    setFormState(prev => ({
+      ...prev,
+      BpResponsibility: trimmed,
+      BpResponsibilityId: undefined,
+      BpResponsibilityEmail: containsAtSymbol ? trimmed : undefined,
+      BpResponsibilityLoginName: trimmed || undefined
+    }));
+
+    if (trimmed) {
+      setSelectedResponsibility([
+        {
+          displayName: trimmed,
+          email: containsAtSymbol ? trimmed : undefined,
+          loginName: trimmed || undefined
+        }
+      ]);
+      if (errors.BpResponsibility) {
+        setErrors(prev => ({ ...prev, BpResponsibility: '' }));
+      }
+    } else {
+      setSelectedResponsibility([]);
     }
   }, [errors.BpResponsibility, isReadOnly]);
 
@@ -349,19 +433,44 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
         ) : (
           <div>
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>Responsibility<span style={{ color: '#a4262c' }}> *</span></label>
-            <PeoplePicker
-              key={`bp-responsibility-${peoplePickerKey}`}
-              context={context as any}
-              titleText=""
-              defaultSelectedUsers={defaultSelectedUsers}
-              showtooltip
-              personSelectionLimit={1}
-              showHiddenInUI={false}
-              principalTypes={[PrincipalType.User]}
-              resolveDelay={300}
-              ensureUser
-              onChange={handleResponsibilityChange}
-            />
+            {!peoplePickerFailed && context ? (
+              <PeoplePickerErrorBoundary onError={() => setPeoplePickerFailed(true)}>
+                <PeoplePicker
+                  key={`bp-responsibility-${peoplePickerKey}`}
+                  context={context as any}
+                  webAbsoluteUrl={peoplePickerWebUrl}
+                  titleText=""
+                  defaultSelectedUsers={defaultSelectedUsers}
+                  showtooltip
+                  personSelectionLimit={1}
+                  showHiddenInUI={false}
+                  principalTypes={[PrincipalType.User]}
+                  resolveDelay={300}
+                  ensureUser
+                  placeholder="Type a name or email..."
+                  onChange={handleResponsibilityChange}
+                />
+              </PeoplePickerErrorBoundary>
+            ) : (
+              <>
+                <TextField
+                  value={formState.BpResponsibility}
+                  onChange={handleManualResponsibilityInput}
+                  placeholder="Enter name or email manually"
+                />
+                <span style={{ color: '#605e5c', fontSize: 12, marginTop: 4, display: 'block' }}>
+                  People search is unavailable. Enter the responsible person manually.
+                </span>
+                <DefaultButton
+                  style={{ marginTop: 8 }}
+                  text="Retry people search"
+                  onClick={() => {
+                    setPeoplePickerFailed(false);
+                    setPeoplePickerKey(prev => prev + 1);
+                  }}
+                />
+              </>
+            )}
             {errors.BpResponsibility && (
               <span style={{ color: '#a4262c', fontSize: 12, marginTop: 4, display: 'block' }}>{errors.BpResponsibility}</span>
             )}
