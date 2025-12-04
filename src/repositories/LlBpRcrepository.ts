@@ -502,20 +502,15 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			email: item.BpResponsibilityEmail,
 			displayName: item.BpResponsibility
 		});
-		const responsibilityDisplay = this.pickFirstString([
-			resolvedResponsibility.displayName,
-			typeof item.BpResponsibility === 'string' ? item.BpResponsibility.trim() : undefined
-		]) ?? '';
+		
 		const payload: any = {
-			Title: description || responsibilityDisplay || 'Best Practice',
 			BpBestPracticesDescription: description,
 			BpReferences: (item.BpReferences ?? '').trim(),
-			BpResponsibility: responsibilityDisplay,
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
 		const responsibilityIds = this.assignMultiLookupId(payload, 'BpResponsibilityId', resolvedResponsibility.id, item.BpResponsibilityId, true);
-
+		payload.BpResponsibilityId = responsibilityIds;
 		const result = await this.service.saveItem<any>({
 			context,
 			listTitle: SubSiteListNames.LlBpRc,
@@ -533,7 +528,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			ID: item.ID,
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
-			BpResponsibility: payload.BpResponsibility,
+			BpResponsibility: resolvedResponsibility.displayName,
 			BpResponsibilityId: responsibilityIds ? (responsibilityIds.length === 1 ? responsibilityIds[0] : responsibilityIds) : undefined,
 			BpResponsibilityEmail: resolvedResponsibility.email,
 			BpResponsibilityLoginName: resolvedResponsibility.loginName,
@@ -626,22 +621,16 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			email: item.RcResponsibilityEmail,
 			displayName: item.RcResponsibility
 		});
-		const responsibilityDisplay = this.pickFirstString([
-			resolvedResponsibility.displayName,
-			typeof item.RcResponsibility === 'string' ? item.RcResponsibility.trim() : undefined
-		]) ?? '';
 
 		const payload: any = {
-			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || responsibilityDisplay || '').trim() || 'Reusable Component',
 			RcComponentName: (item.RcComponentName ?? '').trim(),
 			RcLocation: (item.RcLocation ?? '').trim(),
 			RcPurposeMainFunctionality: (item.RcPurposeMainFunctionality ?? '').trim(),
-			RcResponsibility: responsibilityDisplay,
 			RcRemarks: (item.RcRemarks ?? '').trim(),
 			DataType: ReusableComponentsDataType
 		};
 		const responsibilityIds = this.assignMultiLookupId(payload, 'RcResponsibilityId', resolvedResponsibility.id, item.RcResponsibilityId);
-
+		payload.RcResponsibilityId = responsibilityIds;
 		const result = await this.service.saveItem<any>({
 			context,
 			listTitle: SubSiteListNames.LlBpRc,
@@ -689,22 +678,16 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			email: item.RcResponsibilityEmail,
 			displayName: item.RcResponsibility
 		});
-		const responsibilityDisplay = this.pickFirstString([
-			resolvedResponsibility.displayName,
-			typeof item.RcResponsibility === 'string' ? item.RcResponsibility.trim() : undefined
-		]) ?? '';
 
 		const payload: any = {
-			Title: (item.RcComponentName || item.RcPurposeMainFunctionality || responsibilityDisplay || '').trim() || 'Reusable Component',
 			RcComponentName: (item.RcComponentName ?? '').trim(),
 			RcLocation: (item.RcLocation ?? '').trim(),
 			RcPurposeMainFunctionality: (item.RcPurposeMainFunctionality ?? '').trim(),
-			RcResponsibility: responsibilityDisplay,
 			RcRemarks: (item.RcRemarks ?? '').trim(),
 			DataType: ReusableComponentsDataType
 		};
 		const responsibilityIds = this.assignMultiLookupId(payload, 'RcResponsibilityId', resolvedResponsibility.id, item.RcResponsibilityId, true);
-
+		payload.RcResponsibilityId = responsibilityIds;
 		const result = await this.service.saveItem<any>({
 			context,
 			listTitle: SubSiteListNames.LlBpRc,
