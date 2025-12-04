@@ -59,6 +59,55 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		return undefined;
 	}
 
+	private normalizeIdArray(value: number | number[] | string | string[] | undefined | null): number[] {
+		const results: number[] = [];
+		if (value === undefined || value === null) {
+			return results;
+		}
+		const entries = this.toArray<any>(value as any);
+		for (const entry of entries) {
+			if (typeof entry === 'number' && !isNaN(entry)) {
+				results.push(entry);
+			} else if (typeof entry === 'string') {
+				const parsed = Number(entry.trim());
+				if (!isNaN(parsed)) {
+					results.push(parsed);
+				}
+			}
+		}
+		return results;
+	}
+
+	private assignMultiLookupId(
+		target: Record<string, any>,
+		fieldName: string,
+		resolvedId?: number,
+		originalValue?: number | number[] | string | string[] | null,
+		forceClear: boolean = false
+	): number[] | undefined {
+		const ids: number[] = [];
+		if (typeof resolvedId === 'number' && !isNaN(resolvedId)) {
+			ids.push(resolvedId);
+		} else {
+			ids.push(...this.normalizeIdArray(originalValue));
+		}
+		const distinctIds: number[] = [];
+		for (const id of ids) {
+			if (typeof id === 'number' && !isNaN(id) && distinctIds.indexOf(id) === -1) {
+				distinctIds.push(id);
+			}
+		}
+		if (distinctIds.length > 0) {
+			target[fieldName] = { results: distinctIds };
+			return distinctIds;
+		}
+		if (forceClear) {
+			target[fieldName] = { results: [] };
+			return [];
+		}
+		return undefined;
+	}
+
 	private normalizePersonField(item: any, fieldName: string): { displayName?: string; email?: string; loginName?: string; id?: number } {
 		if (!item) {
 			return {};
@@ -397,22 +446,15 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			email: item.BpResponsibilityEmail,
 			displayName: item.BpResponsibility
 		});
-		const responsibilityDisplay = this.pickFirstString([
-			resolvedResponsibility.displayName,
-			typeof item.BpResponsibility === 'string' ? item.BpResponsibility.trim() : undefined
-		]) ?? '';
+		
 		const payload: any = {
-			Title: description || responsibilityDisplay || 'Best Practice',
 			BpBestPracticesDescription: description,
 			BpReferences: (item.BpReferences ?? '').trim(),
-			BpResponsibility: responsibilityDisplay,
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
-		if (resolvedResponsibility.id !== undefined) {
-			payload.BpResponsibilityId = resolvedResponsibility.id;
-		}
-
+		const responsibilityIds = this.assignMultiLookupId(payload, 'BpResponsibilityId', resolvedResponsibility.id, item.BpResponsibilityId);
+		payload.BpResponsibilityId = responsibilityIds;
 		const result = await this.service.saveItem<any>({
 			context,
 			listTitle: SubSiteListNames.LlBpRc,
@@ -432,7 +474,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
 			BpResponsibility: payload.BpResponsibility,
-			BpResponsibilityId: payload.BpResponsibilityId,
+			BpResponsibilityId: responsibilityIds ? (responsibilityIds.length === 1 ? responsibilityIds[0] : responsibilityIds) : undefined,
 			BpResponsibilityEmail: resolvedResponsibility.email,
 			BpResponsibilityLoginName: resolvedResponsibility.loginName,
 			BpRemarks: payload.BpRemarks,
@@ -472,9 +514,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
-		if (resolvedResponsibility.id !== undefined) {
-			payload.BpResponsibilityId = resolvedResponsibility.id;
-		}
+		const responsibilityIds = this.assignMultiLookupId(payload, 'BpResponsibilityId', resolvedResponsibility.id, item.BpResponsibilityId, true);
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -494,7 +534,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
 			BpResponsibility: payload.BpResponsibility,
-			BpResponsibilityId: payload.BpResponsibilityId,
+			BpResponsibilityId: responsibilityIds ? (responsibilityIds.length === 1 ? responsibilityIds[0] : responsibilityIds) : undefined,
 			BpResponsibilityEmail: resolvedResponsibility.email,
 			BpResponsibilityLoginName: resolvedResponsibility.loginName,
 			BpRemarks: payload.BpRemarks,
@@ -600,9 +640,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcRemarks: (item.RcRemarks ?? '').trim(),
 			DataType: ReusableComponentsDataType
 		};
-		if (resolvedResponsibility.id !== undefined) {
-			payload.RcResponsibilityId = resolvedResponsibility.id;
-		}
+		const responsibilityIds = this.assignMultiLookupId(payload, 'RcResponsibilityId', resolvedResponsibility.id, item.RcResponsibilityId);
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -624,7 +662,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcLocation: payload.RcLocation,
 			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
 			RcResponsibility: payload.RcResponsibility,
-			RcResponsibilityId: payload.RcResponsibilityId,
+			RcResponsibilityId: responsibilityIds ? (responsibilityIds.length === 1 ? responsibilityIds[0] : responsibilityIds) : undefined,
 			RcResponsibilityEmail: resolvedResponsibility.email,
 			RcResponsibilityLoginName: resolvedResponsibility.loginName,
 			RcRemarks: payload.RcRemarks,
@@ -665,9 +703,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcRemarks: (item.RcRemarks ?? '').trim(),
 			DataType: ReusableComponentsDataType
 		};
-		if (resolvedResponsibility.id !== undefined) {
-			payload.RcResponsibilityId = resolvedResponsibility.id;
-		}
+		const responsibilityIds = this.assignMultiLookupId(payload, 'RcResponsibilityId', resolvedResponsibility.id, item.RcResponsibilityId, true);
 
 		const result = await this.service.saveItem<any>({
 			context,
@@ -688,7 +724,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcLocation: payload.RcLocation,
 			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
 			RcResponsibility: payload.RcResponsibility,
-			RcResponsibilityId: payload.RcResponsibilityId,
+			RcResponsibilityId: responsibilityIds ? (responsibilityIds.length === 1 ? responsibilityIds[0] : responsibilityIds) : undefined,
 			RcResponsibilityEmail: resolvedResponsibility.email,
 			RcResponsibilityLoginName: resolvedResponsibility.loginName,
 			RcRemarks: payload.RcRemarks,
