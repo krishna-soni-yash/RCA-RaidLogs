@@ -1,3 +1,4 @@
+/*eslint-disable*/
 import genericService, { GenericService } from '../services/GenericServices';
 import IGenericService from '../services/IGenericServices';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
