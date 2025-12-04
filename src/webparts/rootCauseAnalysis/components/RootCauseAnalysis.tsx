@@ -5,6 +5,7 @@ import type { IRootCauseAnalysisProps } from './IRootCauseAnalysisProps';
 import RCATable from './RootCauseAnalysisTables/RCATable';
 import Header from './Header/Header';
 import RaidLogs from './RaidLogs/RaidLogs';
+import LlBpRc from './LL, BP & RC/LlBpRc';
 
 
 export interface IRootCauseAnalysisState {
@@ -31,6 +32,8 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
           return <RCATable context={context} />
         case 'raidLogs':
           return <RaidLogs context={this.props.context} />;
+        case 'lessonsLearnt':
+          return <LlBpRc context={this.props.context} />;
         default:
           return <RCATable context={context} />
       }
