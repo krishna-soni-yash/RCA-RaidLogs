@@ -458,7 +458,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
 
     const nextErrors: BestPracticesFormErrors = {
       BpBestPracticesDescription: state.BpBestPracticesDescription.trim() ? '' : 'Description is required.',
-      BpReferences: '',
+      BpReferences: state.BpReferences.trim() ? '' : 'References are required.',
       BpResponsibility: hasResponsibility ? '' : 'Responsibility is required.',
       BpRemarks: ''
     };
@@ -628,6 +628,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
           onChange={isReadOnly ? undefined : handleChange('BpReferences')}
           multiline
           autoAdjustHeight
+          required
           errorMessage={errors.BpReferences}
           readOnly={isReadOnly}
         />
