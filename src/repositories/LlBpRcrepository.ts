@@ -473,7 +473,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			ID: hasValidId ? savedId : undefined,
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
-			BpResponsibility: payload.BpResponsibility,
+			BpResponsibility: resolvedResponsibility.displayName,
 			BpResponsibilityId: responsibilityIds ? (responsibilityIds.length === 1 ? responsibilityIds[0] : responsibilityIds) : undefined,
 			BpResponsibilityEmail: resolvedResponsibility.email,
 			BpResponsibilityLoginName: resolvedResponsibility.loginName,
