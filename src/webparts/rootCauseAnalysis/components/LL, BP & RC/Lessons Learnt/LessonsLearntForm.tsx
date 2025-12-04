@@ -176,7 +176,11 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = ({
         <Stack horizontal tokens={buttonStackTokens}>
           {!isReadOnly && (
             <>
-              <PrimaryButton type="submit" text={isSaving ? 'Saving…' : 'Save'}/>
+              <PrimaryButton
+                type="submit"
+                text={isSaving ? 'Saving…' : 'Save'}
+                disabled={!!isSaving}
+              />
               <DefaultButton type="button" text="Reset" onClick={handleReset} disabled={isSaving} />
             </>
           )}
