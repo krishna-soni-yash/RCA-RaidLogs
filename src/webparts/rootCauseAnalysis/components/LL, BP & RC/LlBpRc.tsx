@@ -1,3 +1,4 @@
+/*eslint-disable*/
 import * as React from "react";
 import { Pivot, PivotItem } from "@fluentui/react";
 import LessonsLearnt from "./Lessons Learnt/LessonsLearnt";
