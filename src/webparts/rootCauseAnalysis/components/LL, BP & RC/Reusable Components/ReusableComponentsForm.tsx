@@ -34,9 +34,9 @@ type ReusableComponentsFormState = {
   RcLocation: string;
   RcPurposeMainFunctionality: string;
   RcResponsibility: string;
-  RcResponsibilityId?: number;
-  RcResponsibilityEmail?: string;
-  RcResponsibilityLoginName?: string;
+  RcResponsibilityId?: number | number[];
+  RcResponsibilityEmail?: string | string[];
+  RcResponsibilityLoginName?: string | string[];
   RcRemarks: string;
   DataType: string;
 };
@@ -90,14 +90,6 @@ const displayFromSelection = (selection: PersonSelection[]): string =>
     .filter(Boolean)
     .join('; ');
 
-const toArray = <T,>(value?: T | T[]): T[] => {
-  if (value === undefined || value === null) {
-    return [];
-  }
-
-  return Array.isArray(value) ? value : [value];
-};
-
 const pickFirstString = (candidates: any[]): string | undefined => {
   for (const candidate of candidates) {
     if (typeof candidate === 'string') {
@@ -144,6 +136,170 @@ const mapPickerItemsToSelection = (items: any[]): PersonSelection[] => {
     .filter((person): person is PersonSelection => person !== null);
 };
 
+const extractNumberTokens = (value: any): number[] => {
+  const results: number[] = [];
+  const consume = (input: any): void => {
+    if (input === undefined || input === null) {
+      return;
+    }
+    if (Array.isArray(input)) {
+      input.forEach(consume);
+      return;
+    }
+    if (typeof input === 'number' && !isNaN(input)) {
+      results.push(input);
+      return;
+    }
+    if (typeof input === 'string') {
+      const sanitized = input.replace(/;#/g, ';');
+      sanitized
+        .split(/[;,\n]+/)
+        .map(part => part.trim())
+        .forEach(part => {
+          if (!part) {
+            return;
+          }
+          const parsed = Number(part);
+          if (!isNaN(parsed)) {
+            results.push(parsed);
+          }
+        });
+      return;
+    }
+    if (typeof input === 'object') {
+      const candidate = (input as any).Id ?? (input as any).ID ?? (input as any).id;
+      if (typeof candidate === 'number' && !isNaN(candidate)) {
+        results.push(candidate);
+      }
+      if (Array.isArray((input as any).results)) {
+        (input as any).results.forEach(consume);
+      }
+    }
+  };
+
+  consume(value);
+  return results;
+};
+
+const extractStringTokens = (value: any): string[] => {
+  const results: string[] = [];
+  const consume = (input: any): void => {
+    if (input === undefined || input === null) {
+      return;
+    }
+    if (Array.isArray(input)) {
+      input.forEach(consume);
+      return;
+    }
+    if (typeof input === 'string') {
+      const sanitized = input.replace(/;#/g, ';');
+      sanitized
+        .split(/[;,\n]+/)
+        .map(part => part.trim())
+        .filter(part => part.length > 0 && !/^\d+$/.test(part))
+        .forEach(part => results.push(part));
+      return;
+    }
+    if (typeof input === 'object') {
+      const candidateStrings = [
+        (input as any).displayName,
+        (input as any).DisplayName,
+        (input as any).Title,
+        (input as any).Name,
+        (input as any).LoginName,
+        (input as any).UserPrincipalName,
+        (input as any).Email,
+        (input as any).EMail
+      ];
+      candidateStrings.forEach(candidate => {
+        if (typeof candidate === 'string') {
+          const trimmed = candidate.trim();
+          if (trimmed.length > 0 && !/^\d+$/.test(trimmed)) {
+            results.push(trimmed);
+          }
+        }
+      });
+      if (Array.isArray((input as any).results)) {
+        (input as any).results.forEach(consume);
+      }
+      return;
+    }
+    const text = String(input).trim();
+    if (text.length > 0 && !/^\d+$/.test(text)) {
+      results.push(text);
+    }
+  };
+
+  consume(value);
+  return results;
+};
+
+const uniqueNumbers = (values: Array<number | undefined>): number[] => {
+  const seen = new Set<number>();
+  const unique: number[] = [];
+  values.forEach(value => {
+    if (typeof value === 'number' && !isNaN(value) && !seen.has(value)) {
+      seen.add(value);
+      unique.push(value);
+    }
+  });
+  return unique;
+};
+
+const uniqueStrings = (values: Array<string | undefined>): string[] => {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  values.forEach(value => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        const key = trimmed.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(trimmed);
+        }
+      }
+    }
+  });
+  return unique;
+};
+
+const collapseNumberValues = (values: Array<number | undefined>): number | number[] | undefined => {
+  const unique = uniqueNumbers(values);
+  if (unique.length === 0) {
+    return undefined;
+  }
+  return unique.length === 1 ? unique[0] : unique;
+};
+
+const collapseStringValues = (values: Array<string | undefined>): string | string[] | undefined => {
+  const unique = uniqueStrings(values);
+  if (unique.length === 0) {
+    return undefined;
+  }
+  return unique.length === 1 ? unique[0] : unique;
+};
+
+const parseManualResponsibilityInput = (input: string): PersonSelection[] => {
+  const tokens = extractStringTokens(input);
+  const seen = new Set<string>();
+  const selections: PersonSelection[] = [];
+  tokens.forEach(token => {
+    const key = token.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    const containsAt = token.indexOf('@') !== -1;
+    selections.push({
+      displayName: token,
+      email: containsAt ? token : undefined,
+      loginName: containsAt ? token : undefined
+    });
+  });
+  return selections;
+};
+
 const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
   initialValues,
   onSubmit,
@@ -169,12 +325,18 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
   }, [context]);
 
   const mapInitialResponsibility = useCallback((): PersonSelection[] => {
-    const ids = toArray<any>(initialValues?.RcResponsibilityId);
-    const emails = toArray<any>(initialValues?.RcResponsibilityEmail);
-    const logins = toArray<any>(initialValues?.RcResponsibilityLoginName);
-    const names = toArray<any>(initialValues?.RcResponsibility);
+    const idCandidates = extractNumberTokens(initialValues?.RcResponsibilityId);
+    const emailCandidates = extractStringTokens(initialValues?.RcResponsibilityEmail);
+    const loginCandidates = extractStringTokens(initialValues?.RcResponsibilityLoginName);
+    const nameCandidates = extractStringTokens(initialValues?.RcResponsibility);
 
-    const maxLen = Math.max(ids.length, emails.length, logins.length, names.length);
+    const maxLen = Math.max(
+      idCandidates.length,
+      emailCandidates.length,
+      loginCandidates.length,
+      nameCandidates.length
+    );
+
     if (maxLen === 0) {
       if (typeof initialValues?.RcResponsibility === 'string' && initialValues.RcResponsibility.trim().length) {
         return [{ displayName: initialValues.RcResponsibility.trim() }];
@@ -184,22 +346,19 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
 
     const selections: PersonSelection[] = [];
     for (let index = 0; index < maxLen; index += 1) {
-      const rawId = ids[index];
-      const rawEmail = emails[index];
-      const rawLogin = logins[index];
-      const rawName = names[index];
+      const numericId = idCandidates[index];
+      const email = emailCandidates[index];
+      const loginName = loginCandidates[index] ?? emailCandidates[index];
+      const displayName = nameCandidates[index] ?? email ?? loginName;
 
-      const numericId = typeof rawId === 'number'
-        ? rawId
-        : (typeof rawId === 'string' && rawId.trim().length ? Number(rawId) : undefined);
-
-      const email = typeof rawEmail === 'string' && rawEmail.trim().length ? rawEmail.trim() : undefined;
-      const loginName = typeof rawLogin === 'string' && rawLogin.trim().length ? rawLogin.trim() : undefined;
-      const displayName = typeof rawName === 'string' && rawName.trim().length ? rawName.trim() : undefined;
-
-      if (numericId || email || loginName || displayName) {
+      if (
+        (numericId !== undefined && !isNaN(numericId)) ||
+        (email && email.length > 0) ||
+        (loginName && loginName.length > 0) ||
+        (displayName && displayName.length > 0)
+      ) {
         selections.push({
-          id: numericId !== undefined && !isNaN(numericId) ? numericId : undefined,
+          id: typeof numericId === 'number' && !isNaN(numericId) ? numericId : undefined,
           email,
           loginName,
           displayName
@@ -207,21 +366,43 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
       }
     }
 
-    return selections;
+    if (selections.length > 0) {
+      return selections;
+    }
+
+    if (typeof initialValues?.RcResponsibility === 'string' && initialValues.RcResponsibility.trim().length) {
+      return [{ displayName: initialValues.RcResponsibility.trim() }];
+    }
+    return [];
   }, [initialValues?.RcResponsibility, initialValues?.RcResponsibilityEmail, initialValues?.RcResponsibilityId, initialValues?.RcResponsibilityLoginName]);
 
   const createInitialState = useCallback((): ReusableComponentsFormState => {
     const responsibility = mapInitialResponsibility();
-    const primary = responsibility[0];
+    const responsibilityDisplay = displayFromSelection(responsibility);
+    const collapsedIds = collapseNumberValues(responsibility.map(person => person.id));
+    const collapsedEmails = collapseStringValues(responsibility.map(person => person.email));
+    const collapsedLogins = collapseStringValues(
+      responsibility.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
+
+    const fallbackIds = collapsedIds ?? collapseNumberValues(extractNumberTokens(initialValues?.RcResponsibilityId));
+    const fallbackEmails = collapsedEmails ?? collapseStringValues(extractStringTokens(initialValues?.RcResponsibilityEmail));
+    const fallbackLogins = collapsedLogins ?? collapseStringValues(
+      extractStringTokens(
+        initialValues?.RcResponsibilityLoginName ??
+        initialValues?.RcResponsibilityEmail ??
+        initialValues?.RcResponsibility
+      )
+    );
 
     return {
       RcComponentName: initialValues?.RcComponentName ?? '',
       RcLocation: initialValues?.RcLocation ?? '',
       RcPurposeMainFunctionality: initialValues?.RcPurposeMainFunctionality ?? '',
-      RcResponsibility: displayFromSelection(responsibility),
-      RcResponsibilityId: primary?.id ?? (typeof initialValues?.RcResponsibilityId === 'number' ? initialValues?.RcResponsibilityId : undefined),
-      RcResponsibilityEmail: primary?.email ?? (typeof initialValues?.RcResponsibilityEmail === 'string' ? initialValues?.RcResponsibilityEmail : undefined),
-      RcResponsibilityLoginName: primary?.loginName ?? (typeof initialValues?.RcResponsibilityLoginName === 'string' ? initialValues?.RcResponsibilityLoginName : initialValues?.RcResponsibilityEmail as string | undefined),
+      RcResponsibility: responsibilityDisplay,
+      RcResponsibilityId: fallbackIds,
+      RcResponsibilityEmail: fallbackEmails,
+      RcResponsibilityLoginName: fallbackLogins ?? fallbackEmails,
       RcRemarks: initialValues?.RcRemarks ?? '',
       DataType: initialValues?.DataType ?? ReusableComponentsDataType
     };
@@ -319,15 +500,19 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
     setSelectedResponsibility(mapped);
     setPeoplePickerFailed(false);
 
-    const primary = mapped[0];
     const display = displayFromSelection(mapped);
+    const responsibilityIds = collapseNumberValues(mapped.map(person => person.id));
+    const responsibilityEmails = collapseStringValues(mapped.map(person => person.email));
+    const responsibilityLogins = collapseStringValues(
+      mapped.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
 
     setFormState(prev => ({
       ...prev,
       RcResponsibility: display,
-      RcResponsibilityId: primary?.id,
-      RcResponsibilityEmail: primary?.email,
-      RcResponsibilityLoginName: primary?.loginName ?? primary?.email
+      RcResponsibilityId: responsibilityIds,
+      RcResponsibilityEmail: responsibilityEmails,
+      RcResponsibilityLoginName: responsibilityLogins ?? responsibilityEmails
     }));
 
     if (mapped.length > 0 && errors.RcResponsibility) {
@@ -341,28 +526,44 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
     }
 
     const trimmed = (value ?? '').trim();
-    const containsAtSymbol = trimmed.indexOf('@') !== -1;
+    if (!trimmed) {
+      setFormState(prev => ({
+        ...prev,
+        RcResponsibility: '',
+        RcResponsibilityId: undefined,
+        RcResponsibilityEmail: undefined,
+        RcResponsibilityLoginName: undefined
+      }));
+      setSelectedResponsibility([]);
+      return;
+    }
+
+    const parsedSelections = parseManualResponsibilityInput(trimmed);
+    const hasParsed = parsedSelections.length > 0;
+    const effectiveSelections = hasParsed
+      ? parsedSelections
+      : [{
+        displayName: trimmed,
+        email: trimmed.indexOf('@') !== -1 ? trimmed : undefined,
+        loginName: trimmed.indexOf('@') !== -1 ? trimmed : undefined
+      }];
+    const display = displayFromSelection(effectiveSelections);
+    const emailValues = collapseStringValues(effectiveSelections.map(person => person.email));
+    const loginValues = collapseStringValues(
+      effectiveSelections.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
+
     setFormState(prev => ({
       ...prev,
-      RcResponsibility: trimmed,
+      RcResponsibility: display,
       RcResponsibilityId: undefined,
-      RcResponsibilityEmail: containsAtSymbol ? trimmed : undefined,
-      RcResponsibilityLoginName: trimmed || undefined
+      RcResponsibilityEmail: emailValues,
+      RcResponsibilityLoginName: loginValues ?? emailValues ?? display
     }));
 
-    if (trimmed) {
-      setSelectedResponsibility([
-        {
-          displayName: trimmed,
-          email: containsAtSymbol ? trimmed : undefined,
-          loginName: trimmed || undefined
-        }
-      ]);
-      if (errors.RcResponsibility) {
-        setErrors(prev => ({ ...prev, RcResponsibility: '' }));
-      }
-    } else {
-      setSelectedResponsibility([]);
+    setSelectedResponsibility(effectiveSelections);
+    if (errors.RcResponsibility) {
+      setErrors(prev => ({ ...prev, RcResponsibility: '' }));
     }
   }, [errors.RcResponsibility, isReadOnly]);
 
@@ -379,19 +580,20 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
       return;
     }
 
-    const primary = responsibilitySnapshot[0];
-    const responsibilityId = primary?.id;
-    const responsibilityEmail = primary?.email;
-    const responsibilityLogin = primary?.loginName ?? primary?.email;
+    const responsibilityIds = collapseNumberValues(responsibilitySnapshot.map(person => person.id));
+    const responsibilityEmails = collapseStringValues(responsibilitySnapshot.map(person => person.email));
+    const responsibilityLogins = collapseStringValues(
+      responsibilitySnapshot.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
 
     onSubmit?.({
       RcComponentName: nextState.RcComponentName.trim(),
       RcLocation: nextState.RcLocation.trim(),
       RcPurposeMainFunctionality: nextState.RcPurposeMainFunctionality.trim(),
       RcResponsibility: nextState.RcResponsibility.trim(),
-      RcResponsibilityId: responsibilityId,
-      RcResponsibilityEmail: responsibilityEmail,
-      RcResponsibilityLoginName: responsibilityLogin,
+      RcResponsibilityId: responsibilityIds,
+      RcResponsibilityEmail: responsibilityEmails,
+      RcResponsibilityLoginName: responsibilityLogins ?? responsibilityEmails,
       RcRemarks: nextState.RcRemarks.trim(),
       DataType: ReusableComponentsDataType
     });
@@ -404,9 +606,13 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
     resetState();
   }, [isReadOnly, resetState]);
 
-  const defaultSelectedUsers = selectedResponsibility
-    .map(person => person.email || person.loginName || person.displayName)
-    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+  const defaultSelectedUsers = uniqueStrings(
+    selectedResponsibility.map(person => person.email || person.loginName || person.displayName)
+  );
+  const personSelectionLimit = Math.max(
+    Math.max(defaultSelectedUsers.length, selectedResponsibility.length) + 5,
+    5
+  );
 
   return (
     <form className={styles.formWrapper} onSubmit={handleSubmit} noValidate>
@@ -455,7 +661,7 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = ({
                   titleText=""
                   defaultSelectedUsers={defaultSelectedUsers}
                   showtooltip
-                  personSelectionLimit={1}
+                  personSelectionLimit={personSelectionLimit}
                   showHiddenInUI={false}
                   principalTypes={[PrincipalType.User]}
                   resolveDelay={300}

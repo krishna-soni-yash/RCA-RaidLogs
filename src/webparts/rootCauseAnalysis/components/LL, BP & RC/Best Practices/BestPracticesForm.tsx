@@ -33,9 +33,9 @@ type BestPracticesFormState = {
   BpBestPracticesDescription: string;
   BpReferences: string;
   BpResponsibility: string;
-  BpResponsibilityId?: number;
-  BpResponsibilityEmail?: string;
-  BpResponsibilityLoginName?: string;
+  BpResponsibilityId?: number | number[];
+  BpResponsibilityEmail?: string | string[];
+  BpResponsibilityLoginName?: string | string[];
   BpRemarks: string;
   DataType: string;
 };
@@ -87,14 +87,6 @@ const displayFromSelection = (selection: PersonSelection[]): string =>
     .filter(Boolean)
     .join('; ');
 
-const toArray = <T,>(value?: T | T[]): T[] => {
-  if (value === undefined || value === null) {
-    return [];
-  }
-
-  return Array.isArray(value) ? value : [value];
-};
-
 const pickFirstString = (candidates: any[]): string | undefined => {
   for (const candidate of candidates) {
     if (typeof candidate === 'string') {
@@ -141,6 +133,170 @@ const mapPickerItemsToSelection = (items: any[]): PersonSelection[] => {
     .filter((person): person is PersonSelection => person !== null);
 };
 
+const extractNumberTokens = (value: any): number[] => {
+  const results: number[] = [];
+  const consume = (input: any): void => {
+    if (input === undefined || input === null) {
+      return;
+    }
+    if (Array.isArray(input)) {
+      input.forEach(consume);
+      return;
+    }
+    if (typeof input === 'number' && !isNaN(input)) {
+      results.push(input);
+      return;
+    }
+    if (typeof input === 'string') {
+      const sanitized = input.replace(/;#/g, ';');
+      sanitized
+        .split(/[;,\n]+/)
+        .map(part => part.trim())
+        .forEach(part => {
+          if (!part) {
+            return;
+          }
+          const parsed = Number(part);
+          if (!isNaN(parsed)) {
+            results.push(parsed);
+          }
+        });
+      return;
+    }
+    if (typeof input === 'object') {
+      const candidate = (input as any).Id ?? (input as any).ID ?? (input as any).id;
+      if (typeof candidate === 'number' && !isNaN(candidate)) {
+        results.push(candidate);
+      }
+      if (Array.isArray((input as any).results)) {
+        (input as any).results.forEach(consume);
+      }
+    }
+  };
+
+  consume(value);
+  return results;
+};
+
+const extractStringTokens = (value: any): string[] => {
+  const results: string[] = [];
+  const consume = (input: any): void => {
+    if (input === undefined || input === null) {
+      return;
+    }
+    if (Array.isArray(input)) {
+      input.forEach(consume);
+      return;
+    }
+    if (typeof input === 'string') {
+      const sanitized = input.replace(/;#/g, ';');
+      sanitized
+        .split(/[;,\n]+/)
+        .map(part => part.trim())
+        .filter(part => part.length > 0 && !/^\d+$/.test(part))
+        .forEach(part => results.push(part));
+      return;
+    }
+    if (typeof input === 'object') {
+      const candidateStrings = [
+        (input as any).displayName,
+        (input as any).DisplayName,
+        (input as any).Title,
+        (input as any).Name,
+        (input as any).LoginName,
+        (input as any).UserPrincipalName,
+        (input as any).Email,
+        (input as any).EMail
+      ];
+      candidateStrings.forEach(candidate => {
+        if (typeof candidate === 'string') {
+          const trimmed = candidate.trim();
+          if (trimmed.length > 0 && !/^\d+$/.test(trimmed)) {
+            results.push(trimmed);
+          }
+        }
+      });
+      if (Array.isArray((input as any).results)) {
+        (input as any).results.forEach(consume);
+      }
+      return;
+    }
+    const text = String(input).trim();
+    if (text.length > 0 && !/^\d+$/.test(text)) {
+      results.push(text);
+    }
+  };
+
+  consume(value);
+  return results;
+};
+
+const uniqueNumbers = (values: Array<number | undefined>): number[] => {
+  const seen = new Set<number>();
+  const unique: number[] = [];
+  values.forEach(value => {
+    if (typeof value === 'number' && !isNaN(value) && !seen.has(value)) {
+      seen.add(value);
+      unique.push(value);
+    }
+  });
+  return unique;
+};
+
+const uniqueStrings = (values: Array<string | undefined>): string[] => {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  values.forEach(value => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        const key = trimmed.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(trimmed);
+        }
+      }
+    }
+  });
+  return unique;
+};
+
+const collapseNumberValues = (values: Array<number | undefined>): number | number[] | undefined => {
+  const unique = uniqueNumbers(values);
+  if (unique.length === 0) {
+    return undefined;
+  }
+  return unique.length === 1 ? unique[0] : unique;
+};
+
+const collapseStringValues = (values: Array<string | undefined>): string | string[] | undefined => {
+  const unique = uniqueStrings(values);
+  if (unique.length === 0) {
+    return undefined;
+  }
+  return unique.length === 1 ? unique[0] : unique;
+};
+
+const parseManualResponsibilityInput = (input: string): PersonSelection[] => {
+  const tokens = extractStringTokens(input);
+  const seen = new Set<string>();
+  const selections: PersonSelection[] = [];
+  tokens.forEach(token => {
+    const key = token.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    const containsAt = token.indexOf('@') !== -1;
+    selections.push({
+      displayName: token,
+      email: containsAt ? token : undefined,
+      loginName: containsAt ? token : undefined
+    });
+  });
+  return selections;
+};
+
 const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
   initialValues,
   onSubmit,
@@ -165,12 +321,18 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
   }, [context]);
 
   const mapInitialResponsibility = useCallback((): PersonSelection[] => {
-    const ids = toArray<any>(initialValues?.BpResponsibilityId);
-    const emails = toArray<any>(initialValues?.BpResponsibilityEmail);
-    const logins = toArray<any>(initialValues?.BpResponsibilityLoginName);
-    const names = toArray<any>(initialValues?.BpResponsibility);
+    const idCandidates = extractNumberTokens(initialValues?.BpResponsibilityId);
+    const emailCandidates = extractStringTokens(initialValues?.BpResponsibilityEmail);
+    const loginCandidates = extractStringTokens(initialValues?.BpResponsibilityLoginName);
+    const nameCandidates = extractStringTokens(initialValues?.BpResponsibility);
 
-    const maxLen = Math.max(ids.length, emails.length, logins.length, names.length);
+    const maxLen = Math.max(
+      idCandidates.length,
+      emailCandidates.length,
+      loginCandidates.length,
+      nameCandidates.length
+    );
+
     if (maxLen === 0) {
       if (typeof initialValues?.BpResponsibility === 'string' && initialValues.BpResponsibility.trim().length) {
         return [{ displayName: initialValues.BpResponsibility.trim() }];
@@ -180,22 +342,19 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
 
     const selections: PersonSelection[] = [];
     for (let index = 0; index < maxLen; index += 1) {
-      const rawId = ids[index];
-      const rawEmail = emails[index];
-      const rawLogin = logins[index];
-      const rawName = names[index];
+      const numericId = idCandidates[index];
+      const email = emailCandidates[index];
+      const loginName = loginCandidates[index] ?? emailCandidates[index];
+      const displayName = nameCandidates[index] ?? email ?? loginName;
 
-      const numericId = typeof rawId === 'number'
-        ? rawId
-        : (typeof rawId === 'string' && rawId.trim().length ? Number(rawId) : undefined);
-
-      const email = typeof rawEmail === 'string' && rawEmail.trim().length ? rawEmail.trim() : undefined;
-      const loginName = typeof rawLogin === 'string' && rawLogin.trim().length ? rawLogin.trim() : undefined;
-      const displayName = typeof rawName === 'string' && rawName.trim().length ? rawName.trim() : undefined;
-
-      if (numericId || email || loginName || displayName) {
+      if (
+        (numericId !== undefined && !isNaN(numericId)) ||
+        (email && email.length > 0) ||
+        (loginName && loginName.length > 0) ||
+        (displayName && displayName.length > 0)
+      ) {
         selections.push({
-          id: numericId !== undefined && !isNaN(numericId) ? numericId : undefined,
+          id: typeof numericId === 'number' && !isNaN(numericId) ? numericId : undefined,
           email,
           loginName,
           displayName
@@ -203,20 +362,42 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
       }
     }
 
-    return selections;
+    if (selections.length > 0) {
+      return selections;
+    }
+
+    if (typeof initialValues?.BpResponsibility === 'string' && initialValues.BpResponsibility.trim().length) {
+      return [{ displayName: initialValues.BpResponsibility.trim() }];
+    }
+    return [];
   }, [initialValues?.BpResponsibility, initialValues?.BpResponsibilityEmail, initialValues?.BpResponsibilityId, initialValues?.BpResponsibilityLoginName]);
 
   const createInitialState = useCallback((): BestPracticesFormState => {
     const responsibility = mapInitialResponsibility();
-    const primary = responsibility[0];
+    const responsibilityDisplay = displayFromSelection(responsibility);
+    const collapsedIds = collapseNumberValues(responsibility.map(person => person.id));
+    const collapsedEmails = collapseStringValues(responsibility.map(person => person.email));
+    const collapsedLogins = collapseStringValues(
+      responsibility.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
+
+    const fallbackIds = collapsedIds ?? collapseNumberValues(extractNumberTokens(initialValues?.BpResponsibilityId));
+    const fallbackEmails = collapsedEmails ?? collapseStringValues(extractStringTokens(initialValues?.BpResponsibilityEmail));
+    const fallbackLogins = collapsedLogins ?? collapseStringValues(
+      extractStringTokens(
+        initialValues?.BpResponsibilityLoginName ??
+        initialValues?.BpResponsibilityEmail ??
+        initialValues?.BpResponsibility
+      )
+    );
 
     return {
       BpBestPracticesDescription: initialValues?.BpBestPracticesDescription ?? '',
       BpReferences: initialValues?.BpReferences ?? '',
-      BpResponsibility: displayFromSelection(responsibility),
-      BpResponsibilityId: primary?.id ?? (typeof initialValues?.BpResponsibilityId === 'number' ? initialValues?.BpResponsibilityId : undefined),
-      BpResponsibilityEmail: primary?.email ?? (typeof initialValues?.BpResponsibilityEmail === 'string' ? initialValues?.BpResponsibilityEmail : undefined),
-      BpResponsibilityLoginName: primary?.loginName ?? (typeof initialValues?.BpResponsibilityLoginName === 'string' ? initialValues?.BpResponsibilityLoginName : initialValues?.BpResponsibilityEmail as string | undefined),
+      BpResponsibility: responsibilityDisplay,
+      BpResponsibilityId: fallbackIds,
+      BpResponsibilityEmail: fallbackEmails,
+      BpResponsibilityLoginName: fallbackLogins ?? fallbackEmails,
       BpRemarks: initialValues?.BpRemarks ?? '',
       DataType: initialValues?.DataType ?? BestPracticesDataType
     };
@@ -312,15 +493,19 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
     setSelectedResponsibility(mapped);
     setPeoplePickerFailed(false);
 
-    const primary = mapped[0];
     const display = displayFromSelection(mapped);
+    const responsibilityIds = collapseNumberValues(mapped.map(person => person.id));
+    const responsibilityEmails = collapseStringValues(mapped.map(person => person.email));
+    const responsibilityLogins = collapseStringValues(
+      mapped.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
 
     setFormState(prev => ({
       ...prev,
       BpResponsibility: display,
-      BpResponsibilityId: primary?.id,
-      BpResponsibilityEmail: primary?.email,
-      BpResponsibilityLoginName: primary?.loginName ?? primary?.email
+      BpResponsibilityId: responsibilityIds,
+      BpResponsibilityEmail: responsibilityEmails,
+      BpResponsibilityLoginName: responsibilityLogins ?? responsibilityEmails
     }));
 
     if (mapped.length > 0 && errors.BpResponsibility) {
@@ -334,28 +519,44 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
     }
 
     const trimmed = (value ?? '').trim();
-    const containsAtSymbol = trimmed.indexOf('@') !== -1;
+    if (!trimmed) {
+      setFormState(prev => ({
+        ...prev,
+        BpResponsibility: '',
+        BpResponsibilityId: undefined,
+        BpResponsibilityEmail: undefined,
+        BpResponsibilityLoginName: undefined
+      }));
+      setSelectedResponsibility([]);
+      return;
+    }
+
+    const parsedSelections = parseManualResponsibilityInput(trimmed);
+    const hasParsed = parsedSelections.length > 0;
+    const effectiveSelections = hasParsed
+      ? parsedSelections
+      : [{
+        displayName: trimmed,
+        email: trimmed.indexOf('@') !== -1 ? trimmed : undefined,
+        loginName: trimmed.indexOf('@') !== -1 ? trimmed : undefined
+      }];
+    const display = displayFromSelection(effectiveSelections);
+    const emailValues = collapseStringValues(effectiveSelections.map(person => person.email));
+    const loginValues = collapseStringValues(
+      effectiveSelections.map(person => person.loginName ?? person.email ?? person.displayName)
+    );
+
     setFormState(prev => ({
       ...prev,
-      BpResponsibility: trimmed,
+      BpResponsibility: display,
       BpResponsibilityId: undefined,
-      BpResponsibilityEmail: containsAtSymbol ? trimmed : undefined,
-      BpResponsibilityLoginName: trimmed || undefined
+      BpResponsibilityEmail: emailValues,
+      BpResponsibilityLoginName: loginValues ?? emailValues ?? display
     }));
 
-    if (trimmed) {
-      setSelectedResponsibility([
-        {
-          displayName: trimmed,
-          email: containsAtSymbol ? trimmed : undefined,
-          loginName: trimmed || undefined
-        }
-      ]);
-      if (errors.BpResponsibility) {
-        setErrors(prev => ({ ...prev, BpResponsibility: '' }));
-      }
-    } else {
-      setSelectedResponsibility([]);
+    setSelectedResponsibility(effectiveSelections);
+    if (errors.BpResponsibility) {
+      setErrors(prev => ({ ...prev, BpResponsibility: '' }));
     }
   }, [errors.BpResponsibility, isReadOnly]);
 
@@ -372,18 +573,19 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
         return;
       }
 
-      const primary = responsibilitySnapshot[0];
-      const responsibilityId = primary?.id;
-      const responsibilityEmail = primary?.email;
-      const responsibilityLogin = primary?.loginName ?? primary?.email;
+      const responsibilityIds = collapseNumberValues(responsibilitySnapshot.map(person => person.id));
+      const responsibilityEmails = collapseStringValues(responsibilitySnapshot.map(person => person.email));
+      const responsibilityLogins = collapseStringValues(
+        responsibilitySnapshot.map(person => person.loginName ?? person.email ?? person.displayName)
+      );
 
       onSubmit?.({
         BpBestPracticesDescription: nextState.BpBestPracticesDescription.trim(),
         BpReferences: nextState.BpReferences.trim(),
         BpResponsibility: nextState.BpResponsibility.trim(),
-        BpResponsibilityId: responsibilityId,
-        BpResponsibilityEmail: responsibilityEmail,
-        BpResponsibilityLoginName: responsibilityLogin,
+        BpResponsibilityId: responsibilityIds,
+        BpResponsibilityEmail: responsibilityEmails,
+        BpResponsibilityLoginName: responsibilityLogins ?? responsibilityEmails,
         BpRemarks: nextState.BpRemarks.trim(),
         DataType: BestPracticesDataType
       });
@@ -398,9 +600,13 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
     resetState();
   }, [isReadOnly, resetState]);
 
-  const defaultSelectedUsers = selectedResponsibility
-    .map(person => person.email || person.loginName || person.displayName)
-    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+  const defaultSelectedUsers = uniqueStrings(
+    selectedResponsibility.map(person => person.email || person.loginName || person.displayName)
+  );
+  const personSelectionLimit = Math.max(
+    Math.max(defaultSelectedUsers.length, selectedResponsibility.length) + 5,
+    5
+  );
 
   return (
     <form className={styles.formWrapper} onSubmit={handleSubmit} noValidate>
@@ -442,7 +648,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = ({
                   titleText=""
                   defaultSelectedUsers={defaultSelectedUsers}
                   showtooltip
-                  personSelectionLimit={1}
+                  personSelectionLimit={personSelectionLimit}
                   showHiddenInUI={false}
                   principalTypes={[PrincipalType.User]}
                   resolveDelay={300}
