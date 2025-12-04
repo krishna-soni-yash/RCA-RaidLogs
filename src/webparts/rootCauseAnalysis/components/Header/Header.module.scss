@@ -22,7 +22,36 @@
   max-width: 100%;
   padding: 0.625rem 1rem;
   display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.headerContent {
+  display: flex;
   align-items: center;
+}
+
+.tabsContainer {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.tabs {
+  border-bottom: 1px solid var(--neutralLight);
+  
+  :global(.ms-Pivot-link) {
+    color: var(--neutralSecondary);
+    font-weight: 500;
+    
+    &:hover {
+      color: var(--indigoDark);
+    }
+    
+    &.is-selected {
+      color: var(--indigoDark);
+      border-bottom-color: var(--indigoDark);
+    }
+  }
 }
 
 .texts {

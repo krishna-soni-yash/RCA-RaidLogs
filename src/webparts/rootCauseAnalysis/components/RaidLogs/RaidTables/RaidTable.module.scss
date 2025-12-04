@@ -1,0 +1,255 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: white;
+}
+
+.detailsList {
+  :global(.ms-DetailsHeader) {
+    background: #f8f9fa;
+  }
+
+  :global(.ms-DetailsHeader-cell) {
+    font-weight: 600;
+    color: #333;
+    padding: 12px;
+    border-right: 1px solid #e0e0e0;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  :global(.ms-DetailsRow) {
+    &:hover {
+      background: #f8f9fa;
+    }
+  }
+
+  :global(.ms-DetailsRow-cell) {
+    padding: 12px;
+    border-right: 1px solid #e0e0e0;
+    font-size: 14px;
+    color: #333;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  :global(.ms-DetailsRow-cellMeasurer) {
+    border-bottom: 1px solid #e0e0e0;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.actionButton {
+  color: #666;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #0078d4;
+    background: #f3f2f1;
+  }
+
+  &.deleteButton:hover {
+    color: #dc3545;
+    background: #fdf2f3;
+  }
+}
+
+.editButton {
+  color: #0078d4;
+}
+
+.deleteButton {
+  color: #dc3545;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+.emptyStateContent {
+  text-align: center;
+  color: #999;
+}
+
+.emptyStateTitle {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #666;
+}
+
+.emptyStateSubtext {
+  font-size: 14px;
+  margin: 0;
+}
+
+.subText {
+  /* Match the standard table cell text styling */
+  font-size: 14px;
+  color: #333;
+  margin-top: 4px;
+}
+
+.historyButton {
+  color: #107C10; /* Fluent UI success green */
+
+  &:hover {
+    color: #107C10;
+    background: #e6f4ea;
+  }
+}
+
+// Custom expandable table styles
+.customTable {
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableHeader {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+  font-weight: 600;
+  color: #333;
+}
+
+.headerCell {
+  padding: 12px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.tableRow {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #f8f9fa;
+  }
+}
+
+.tableCell {
+  padding: 12px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.expandButton {
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #666;
+
+  &:hover {
+    background: #f3f2f1;
+    color: #0078d4;
+  }
+}
+
+.expandedContent {
+  background: #fafbfc;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 16px 24px;
+  margin-left: 40px;
+}
+
+.actionPlanTable {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: white;
+}
+
+.actionPlanHeader {
+  display: flex;
+  // background: #e8f4fd;
+  // border-bottom: 2px solid #0078d4;
+  border-bottom: 1px solid #9f9fa93d;
+  font-weight: 600;
+  // color: #0078d4;
+}
+
+.actionHeaderCell {
+  padding: 10px 12px;
+  border-right: 1px solid #d0e8f7;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.actionPlanRow {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #f8f9fa;
+  }
+}
+
+.actionCell {
+  padding: 10px 12px;
+  border-right: 1px solid #e0e0e0;
+  font-size: 13px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:last-child {
+    border-right: none;
+  }
+}
