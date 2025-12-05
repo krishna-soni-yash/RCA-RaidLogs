@@ -85,14 +85,6 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
       isResizable: true
     },
     {
-      key: 'responsibility',
-      name: 'Responsibility',
-      fieldName: 'RcResponsibility',
-      minWidth: 140,
-      maxWidth: 220,
-      isResizable: true
-    },
-    {
       key: 'remarks',
       name: 'Remarks',
       fieldName: 'RcRemarks',
