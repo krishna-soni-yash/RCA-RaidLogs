@@ -3,7 +3,7 @@ import genericService, { GenericService } from '../services/GenericServices';
 import IGenericService from '../services/IGenericServices';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ILessonsLearnt, LessonsLearntDataType } from '../models/Ll Bp Rc/LessonsLearnt';
-import { IBestPractices, BestPracticesDataType } from '../models/Ll Bp Rc/BestPractices';
+import { IBestPracticeAttachment, IBestPractices, BestPracticesDataType } from '../models/Ll Bp Rc/BestPractices';
 import { IReusableComponents, IReusableComponentAttachment, ReusableComponentsDataType } from '../models/Ll Bp Rc/ReusableComponents';
 import ErrorMessages from '../common/ErrorMessages';
 import ILlBpRcRepository from './repositoriesInterface/Ll Bp Rc/ILlBpRcRepository';
@@ -202,9 +202,13 @@ class LlBpRcrepository implements ILlBpRcRepository {
 						BpCategory: it?.BpCategory ?? it?.Category ?? '',
 						BpReferences: it?.BpReferences ?? it?.References ?? '',
 						BpRemarks: it?.BpRemarks ?? it?.Remarks ?? '',
-						DataType: it?.DataType ?? BestPracticesDataType
+						DataType: it?.DataType ?? BestPracticesDataType,
+						attachments: [],
+						newAttachments: []
 					};
 				}) as IBestPractices[];
+
+			await this.populateBestPracticeAttachments(normalized, context);
 
 			this.bestPracticesCache = normalized;
 			this.bestPracticesCacheTimestamp = now;
@@ -254,8 +258,20 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpCategory: payload.BpCategory,
 			BpReferences: payload.BpReferences,
 			BpRemarks: payload.BpRemarks,
-			DataType: payload.DataType
+			DataType: payload.DataType,
+			attachments: [],
+			newAttachments: []
 		};
+
+		if (hasValidId && context) {
+			const filesToUpload = this.extractBestPracticeNewAttachmentFiles(item);
+			let uploadedAttachments: IBestPracticeAttachment[] = [];
+			if (filesToUpload.length > 0) {
+				uploadedAttachments = await this.uploadBestPracticeAttachments(savedId as number, filesToUpload, context);
+			}
+			const liveAttachments = await this.getBestPracticeAttachments(savedId as number, context);
+			savedItem.attachments = liveAttachments.length > 0 ? liveAttachments : uploadedAttachments;
+		}
 
 		this.invalidateBestPracticesCache();
 
@@ -292,6 +308,15 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			throw new Error(result?.error ?? 'Failed to update Best Practice.');
 		}
 
+		const filesToUpload = this.extractBestPracticeNewAttachmentFiles(item);
+		let uploadedAttachments: IBestPracticeAttachment[] = [];
+		if (filesToUpload.length > 0) {
+			uploadedAttachments = await this.uploadBestPracticeAttachments(item.ID, filesToUpload, context);
+		}
+
+		const attachmentsFromServer = await this.getBestPracticeAttachments(item.ID, context);
+		const attachments = attachmentsFromServer.length > 0 ? attachmentsFromServer : uploadedAttachments;
+
 		this.invalidateBestPracticesCache();
 
 		return {
@@ -300,7 +325,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			BpCategory: payload.BpCategory,
 			BpReferences: payload.BpReferences,
 			BpRemarks: payload.BpRemarks,
-			DataType: payload.DataType
+			DataType: payload.DataType,
+			attachments,
+			newAttachments: []
 		};
 	}
 
@@ -498,6 +525,32 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		return files;
 	}
 
+	private extractBestPracticeNewAttachmentFiles(item?: IBestPractices | null): File[] {
+		if (!item) {
+			return [];
+		}
+
+		const files: File[] = [];
+
+		if (Array.isArray(item.newAttachments)) {
+			for (const maybeFile of item.newAttachments) {
+				if (this.isFileInstance(maybeFile)) {
+					files.push(maybeFile);
+				}
+			}
+		}
+
+		if (Array.isArray(item.attachments)) {
+			for (const maybeFile of item.attachments as unknown[]) {
+				if (this.isFileInstance(maybeFile)) {
+					files.push(maybeFile);
+				}
+			}
+		}
+
+		return files;
+	}
+
 	public async getReusableComponentAttachments(itemId: number, context?: WebPartContext): Promise<IReusableComponentAttachment[]> {
 		if (!context || !itemId) {
 			return [];
@@ -517,6 +570,29 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			})) as IReusableComponentAttachment[];
 		} catch (error) {
 			console.warn('LlBpRcrepository.getReusableComponentAttachments: failed to load attachments', { itemId, error });
+			return [];
+		}
+	}
+
+	public async getBestPracticeAttachments(itemId: number, context?: WebPartContext): Promise<IBestPracticeAttachment[]> {
+		if (!context || !itemId) {
+			return [];
+		}
+
+		try {
+			const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+			const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+			const files = await sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc)?.items?.getById?.(itemId)?.attachmentFiles?.();
+			if (!files) {
+				return [];
+			}
+
+			return (files as any[]).map((file: any) => ({
+				FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+				ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+			})) as IBestPracticeAttachment[];
+		} catch (error) {
+			console.warn('LlBpRcrepository.getBestPracticeAttachments: failed to load attachments', { itemId, error });
 			return [];
 		}
 	}
@@ -572,6 +648,96 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			console.error('LlBpRcrepository.uploadReusableComponentAttachments: failed to upload attachment(s)', { itemId, error });
 			throw error;
 		}
+	}
+
+	private async uploadBestPracticeAttachments(itemId: number, files: File[], context: WebPartContext): Promise<IBestPracticeAttachment[]> {
+		if (!context || !itemId || !Array.isArray(files) || files.length === 0) {
+			return [];
+		}
+
+		try {
+			const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+			const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+			const listRef = sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc);
+			const itemRef = listRef?.items?.getById?.(itemId);
+
+			if (!itemRef || typeof itemRef.attachmentFiles?.add !== 'function') {
+				throw new Error('Attachment API not available for Best Practices list.');
+			}
+
+			const uploaded: IBestPracticeAttachment[] = [];
+
+			for (const file of files) {
+				if (!this.isFileInstance(file)) {
+					continue;
+				}
+				try {
+					const result = await itemRef.attachmentFiles.add(file.name, file);
+					const data = result?.data ?? {};
+					const fileName = data?.FileName ?? data?.Name ?? file.name;
+					let serverRelativeUrl = data?.ServerRelativeUrl ?? data?.ServerRelativePath?.DecodedUrl ?? '';
+
+					if (!serverRelativeUrl) {
+						try {
+							const attachmentMeta = await itemRef.attachmentFiles.getByName(file.name)();
+							serverRelativeUrl = attachmentMeta?.ServerRelativeUrl ?? attachmentMeta?.ServerRelativePath?.DecodedUrl ?? '';
+						} catch (metaErr) {
+							console.warn('LlBpRcrepository.uploadBestPracticeAttachments: failed to resolve attachment metadata after upload', metaErr);
+						}
+					}
+
+					uploaded.push({
+						FileName: fileName,
+						ServerRelativeUrl: serverRelativeUrl
+					});
+				} catch (err) {
+					console.error('LlBpRcrepository.uploadBestPracticeAttachments: upload failed for file', file?.name, err);
+					throw err;
+				}
+			}
+
+			return uploaded;
+		} catch (error) {
+			console.error('LlBpRcrepository.uploadBestPracticeAttachments: failed to upload attachment(s)', { itemId, error });
+			throw error;
+		}
+	}
+
+	private async populateBestPracticeAttachments(items: IBestPractices[], context: WebPartContext): Promise<void> {
+		if (!Array.isArray(items) || items.length === 0) {
+			return;
+		}
+
+		const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+		const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+		const listRef = sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc);
+
+		await Promise.all(items.map(async (practice) => {
+			if (!practice?.ID) {
+				practice.attachments = [];
+				practice.newAttachments = [];
+				return;
+			}
+
+			if (!listRef?.items?.getById) {
+				practice.attachments = [];
+				practice.newAttachments = [];
+				return;
+			}
+
+			try {
+				const files = await listRef.items.getById(practice.ID).attachmentFiles();
+				practice.attachments = (files || []).map((file: any) => ({
+					FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+					ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+				})) as IBestPracticeAttachment[];
+				practice.newAttachments = [];
+			} catch (error) {
+				console.warn('LlBpRcrepository.populateBestPracticeAttachments: failed for item', practice.ID, error);
+				practice.attachments = [];
+				practice.newAttachments = [];
+			}
+		}));
 	}
 
 	private async populateReusableComponentAttachments(items: IReusableComponents[], context: WebPartContext): Promise<void> {
@@ -650,6 +816,7 @@ export const fetchBestPractices = async (useCache: boolean = false, context?: We
 export const fetchReusableComponents = async (useCache: boolean = false, context?: WebPartContext): Promise<IReusableComponents[]> => defaultInstance.fetchReusableComponents(useCache, context);
 export const addBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.addBestPractices(item, context);
 export const updateBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.updateBestPractices(item, context);
+export const getBestPracticeAttachments = async (itemId: number, context?: WebPartContext): Promise<IBestPracticeAttachment[]> => defaultInstance.getBestPracticeAttachments(itemId, context);
 export const addReusableComponents = async (item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> => defaultInstance.addReusableComponents(item, context);
 export const updateReusableComponents = async (item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> => defaultInstance.updateReusableComponents(item, context);
 export const getReusableComponentAttachments = async (itemId: number, context?: WebPartContext): Promise<IReusableComponentAttachment[]> => defaultInstance.getReusableComponentAttachments(itemId, context);

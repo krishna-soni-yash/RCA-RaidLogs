@@ -19,6 +19,7 @@ import { IBestPractices } from '../../../../../models/Ll Bp Rc/BestPractices';
 import {
   addBestPractices,
   fetchBestPractices,
+  getBestPracticeAttachments,
   updateBestPractices
 } from '../../../../../repositories/LlBpRcrepository';
 import BestPracticesForm from './BestPracticesForm';
@@ -101,26 +102,72 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
     setFormMode('view');
   }, []);
 
-  const handleViewItem = React.useCallback((item: IBestPractices) => {
-    setSelectedItem(item);
-    setFormMode('view');
+  const ensureBestPracticeAttachments = React.useCallback(async (item: IBestPractices): Promise<IBestPractices> => {
+    if (!item?.ID) {
+      return {
+        ...item,
+        attachments: item.attachments ?? [],
+        newAttachments: []
+      };
+    }
+
+    if (item.attachments && item.attachments.length > 0) {
+      return {
+        ...item,
+        newAttachments: item.newAttachments ?? []
+      };
+    }
+
+    try {
+      const attachments = await getBestPracticeAttachments(item.ID, context);
+      const enriched: IBestPractices = {
+        ...item,
+        attachments,
+        newAttachments: []
+      };
+      setItems(prev => prev.map(it => (it.ID === enriched.ID ? enriched : it)));
+      return enriched;
+    } catch (error) {
+      console.warn('BestPractices.ensureBestPracticeAttachments: failed to load attachments', item?.ID, error);
+      return {
+        ...item,
+        attachments: item.attachments ?? [],
+        newAttachments: item.newAttachments ?? []
+      };
+    }
+  }, [context]);
+
+  const openFormForItem = React.useCallback(async (item: IBestPractices | null, mode: 'view' | 'edit' | 'create') => {
+    if (mode === 'create' || !item) {
+      setSelectedItem(null);
+      setFormMode('create');
+      setFormError(null);
+      setShowForm(true);
+      return;
+    }
+
+    try {
+      const enriched = await ensureBestPracticeAttachments(item);
+      setSelectedItem(enriched);
+    } catch {
+      setSelectedItem(item);
+    }
+    setFormMode(mode);
     setFormError(null);
     setShowForm(true);
-  }, []);
+  }, [ensureBestPracticeAttachments]);
+
+  const handleViewItem = React.useCallback((item: IBestPractices) => {
+    void openFormForItem(item, 'view');
+  }, [openFormForItem]);
 
   const handleCreateClick = React.useCallback(() => {
-    setSelectedItem(null);
-    setFormMode('create');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    void openFormForItem(null, 'create');
+  }, [openFormForItem]);
 
   const handleEditItem = React.useCallback((item: IBestPractices) => {
-    setSelectedItem(item);
-    setFormMode('edit');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    void openFormForItem(item, 'edit');
+  }, [openFormForItem]);
 
   const onRenderItemColumn = React.useCallback((item: IBestPractices, _: number | undefined, column?: IColumn) => {
     if (!column) {
