@@ -183,6 +183,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 				select: [
 					'ID',
 					'BpBestPracticesDescription',
+					'BpCategory',
 					'BpReferences',
 					'BpRemarks',
 					'DataType'
@@ -198,6 +199,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 					return {
 						ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
 						BpBestPracticesDescription: it?.BpBestPracticesDescription ?? it?.BestPracticesDescription ?? it?.Description ?? it?.Title ?? '',
+						BpCategory: it?.BpCategory ?? it?.Category ?? '',
 						BpReferences: it?.BpReferences ?? it?.References ?? '',
 						BpRemarks: it?.BpRemarks ?? it?.Remarks ?? '',
 						DataType: it?.DataType ?? BestPracticesDataType
@@ -223,9 +225,11 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const description = (item.BpBestPracticesDescription ?? '').trim();
+		const category = (item.BpCategory ?? '').trim();
 
 		const payload: any = {
 			BpBestPracticesDescription: description,
+			BpCategory: category,
 			BpReferences: (item.BpReferences ?? '').trim(),
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
@@ -247,6 +251,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		const savedItem: IBestPractices = {
 			ID: hasValidId ? savedId : undefined,
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
+			BpCategory: payload.BpCategory,
 			BpReferences: payload.BpReferences,
 			BpRemarks: payload.BpRemarks,
 			DataType: payload.DataType
@@ -267,9 +272,11 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const description = (item.BpBestPracticesDescription ?? '').trim();
+		const category = (item.BpCategory ?? '').trim();
 
 		const payload: any = {
 			BpBestPracticesDescription: description,
+			BpCategory: category,
 			BpReferences: (item.BpReferences ?? '').trim(),
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
@@ -290,6 +297,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		return {
 			ID: item.ID,
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
+			BpCategory: payload.BpCategory,
 			BpReferences: payload.BpReferences,
 			BpRemarks: payload.BpRemarks,
 			DataType: payload.DataType

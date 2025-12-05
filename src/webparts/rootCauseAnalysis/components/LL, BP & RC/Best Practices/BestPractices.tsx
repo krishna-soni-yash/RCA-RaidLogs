@@ -68,6 +68,14 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
       isResizable: true
     },
     {
+      key: 'category',
+      name: 'Category',
+      fieldName: 'BpCategory',
+      minWidth: 120,
+      maxWidth: 180,
+      isResizable: true
+    },
+    {
       key: 'references',
       name: 'References',
       fieldName: 'BpReferences',

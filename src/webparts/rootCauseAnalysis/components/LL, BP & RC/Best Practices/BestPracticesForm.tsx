@@ -24,6 +24,7 @@ export interface IBestPracticesFormProps {
 
 type BestPracticesFormState = {
   BpBestPracticesDescription: string;
+  BpCategory: string;
   BpReferences: string;
   BpRemarks: string;
   DataType: string;
@@ -31,12 +32,14 @@ type BestPracticesFormState = {
 
 type BestPracticesFormErrors = {
   BpBestPracticesDescription: string;
+  BpCategory: string;
   BpReferences: string;
   BpRemarks: string;
 };
 
 const fieldDefaults: BestPracticesFormState = {
   BpBestPracticesDescription: '',
+  BpCategory: '',
   BpReferences: '',
   BpRemarks: '',
   DataType: BestPracticesDataType
@@ -56,6 +59,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
   const [formState, setFormState] = useState<BestPracticesFormState>({ ...fieldDefaults });
   const [errors, setErrors] = useState<BestPracticesFormErrors>({
     BpBestPracticesDescription: '',
+    BpCategory: '',
     BpReferences: '',
     BpRemarks: ''
   });
@@ -63,6 +67,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
 
   const createInitialState = useCallback((): BestPracticesFormState => ({
     BpBestPracticesDescription: initialValues?.BpBestPracticesDescription ?? '',
+    BpCategory: initialValues?.BpCategory ?? '',
     BpReferences: initialValues?.BpReferences ?? '',
     BpRemarks: initialValues?.BpRemarks ?? '',
     DataType: initialValues?.DataType ?? BestPracticesDataType
@@ -73,6 +78,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
     setFormState(nextState);
     setErrors({
       BpBestPracticesDescription: '',
+      BpCategory: '',
       BpReferences: '',
       BpRemarks: ''
     });
@@ -85,6 +91,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
   const validate = useCallback((state: BestPracticesFormState) => {
     const nextErrors: BestPracticesFormErrors = {
       BpBestPracticesDescription: state.BpBestPracticesDescription.trim() ? '' : 'Description is required.',
+      BpCategory: state.BpCategory.trim() ? '' : 'Category is required.',
       BpReferences: state.BpReferences.trim() ? '' : 'References are required.',
       BpRemarks: ''
     };
@@ -93,13 +100,14 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
 
     return (
       nextErrors.BpBestPracticesDescription === '' &&
+      nextErrors.BpCategory === '' &&
       nextErrors.BpReferences === '' &&
       nextErrors.BpRemarks === ''
     );
   }, []);
 
   const handleChange = useCallback(
-    (field: 'BpBestPracticesDescription' | 'BpReferences' | 'BpRemarks') => (_: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, value?: string) => {
+    (field: 'BpBestPracticesDescription' | 'BpCategory' | 'BpReferences' | 'BpRemarks') => (_: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, value?: string) => {
       if (isReadOnly) {
         return;
       }
@@ -126,6 +134,7 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
 
       onSubmit?.({
         BpBestPracticesDescription: nextState.BpBestPracticesDescription.trim(),
+        BpCategory: nextState.BpCategory.trim(),
         BpReferences: nextState.BpReferences.trim(),
         BpRemarks: nextState.BpRemarks.trim(),
         DataType: BestPracticesDataType
@@ -152,6 +161,14 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
           autoAdjustHeight
           required
           errorMessage={errors.BpBestPracticesDescription}
+          readOnly={isReadOnly}
+        />
+        <TextField
+          label="Category"
+          value={formState.BpCategory}
+          onChange={isReadOnly ? undefined : handleChange('BpCategory')}
+          required
+          errorMessage={errors.BpCategory}
           readOnly={isReadOnly}
         />
         <TextField
