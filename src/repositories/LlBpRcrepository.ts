@@ -395,15 +395,18 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcLocation: payload.RcLocation,
 			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
 			RcRemarks: payload.RcRemarks,
-			DataType: payload.DataType
+			DataType: payload.DataType,
+			attachments: payload.attachments || [],
 		};
 
 		if (hasValidId && context) {
 			const filesToUpload = this.extractNewAttachmentFiles(item);
+			let uploadedAttachments: IReusableComponentAttachment[] = [];
 			if (filesToUpload.length > 0) {
-				await this.uploadReusableComponentAttachments(savedId as number, filesToUpload, context);
+				uploadedAttachments = await this.uploadReusableComponentAttachments(savedId as number, filesToUpload, context);
 			}
-			savedItem.attachments = await this.getReusableComponentAttachments(savedId as number, context);
+			const liveAttachments = await this.getReusableComponentAttachments(savedId as number, context);
+			savedItem.attachments = liveAttachments.length > 0 ? liveAttachments : uploadedAttachments;
 		} else {
 			savedItem.attachments = [];
 		}
@@ -443,11 +446,13 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const filesToUpload = this.extractNewAttachmentFiles(item);
+		let uploadedAttachments: IReusableComponentAttachment[] = [];
 		if (filesToUpload.length > 0) {
-			await this.uploadReusableComponentAttachments(item.ID, filesToUpload, context);
+			uploadedAttachments = await this.uploadReusableComponentAttachments(item.ID, filesToUpload, context);
 		}
 
-		const attachments = await this.getReusableComponentAttachments(item.ID, context);
+		const attachmentsFromServer = await this.getReusableComponentAttachments(item.ID, context);
+		const attachments = attachmentsFromServer.length > 0 ? attachmentsFromServer : uploadedAttachments;
 
 		this.invalidateReusableCache();
 
@@ -493,7 +498,7 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		return files;
 	}
 
-	private async getReusableComponentAttachments(itemId: number, context: WebPartContext): Promise<IReusableComponentAttachment[]> {
+	public async getReusableComponentAttachments(itemId: number, context?: WebPartContext): Promise<IReusableComponentAttachment[]> {
 		if (!context || !itemId) {
 			return [];
 		}
@@ -516,9 +521,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 	}
 
-	private async uploadReusableComponentAttachments(itemId: number, files: File[], context: WebPartContext): Promise<void> {
+	private async uploadReusableComponentAttachments(itemId: number, files: File[], context: WebPartContext): Promise<IReusableComponentAttachment[]> {
 		if (!context || !itemId || !Array.isArray(files) || files.length === 0) {
-			return;
+			return [];
 		}
 
 		try {
@@ -531,12 +536,38 @@ class LlBpRcrepository implements ILlBpRcRepository {
 				throw new Error('Attachment API not available for Reusable Components list.');
 			}
 
+			const uploaded: IReusableComponentAttachment[] = [];
+
 			for (const file of files) {
 				if (!this.isFileInstance(file)) {
 					continue;
 				}
-				await itemRef.attachmentFiles.add(file.name, file);
+				try {
+					const result = await itemRef.attachmentFiles.add(file.name, file);
+					const data = result?.data ?? {};
+					const fileName = data?.FileName ?? data?.Name ?? file.name;
+					let serverRelativeUrl = data?.ServerRelativeUrl ?? data?.ServerRelativePath?.DecodedUrl ?? '';
+
+					if (!serverRelativeUrl) {
+						try {
+							const attachmentMeta = await itemRef.attachmentFiles.getByName(file.name)();
+							serverRelativeUrl = attachmentMeta?.ServerRelativeUrl ?? attachmentMeta?.ServerRelativePath?.DecodedUrl ?? '';
+						} catch (metaErr) {
+							console.warn('LlBpRcrepository.uploadReusableComponentAttachments: failed to resolve attachment metadata after upload', metaErr);
+						}
+					}
+
+					uploaded.push({
+						FileName: fileName,
+						ServerRelativeUrl: serverRelativeUrl
+					});
+				} catch (err) {
+					console.error('LlBpRcrepository.uploadReusableComponentAttachments: upload failed for file', file?.name, err);
+					throw err;
+				}
 			}
+
+			return uploaded;
 		} catch (error) {
 			console.error('LlBpRcrepository.uploadReusableComponentAttachments: failed to upload attachment(s)', { itemId, error });
 			throw error;
@@ -621,3 +652,4 @@ export const addBestPractices = async (item: IBestPractices, context?: WebPartCo
 export const updateBestPractices = async (item: IBestPractices, context?: WebPartContext): Promise<IBestPractices> => defaultInstance.updateBestPractices(item, context);
 export const addReusableComponents = async (item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> => defaultInstance.addReusableComponents(item, context);
 export const updateReusableComponents = async (item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents> => defaultInstance.updateReusableComponents(item, context);
+export const getReusableComponentAttachments = async (itemId: number, context?: WebPartContext): Promise<IReusableComponentAttachment[]> => defaultInstance.getReusableComponentAttachments(itemId, context);

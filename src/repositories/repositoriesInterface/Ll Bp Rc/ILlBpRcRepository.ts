@@ -1,7 +1,7 @@
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ILessonsLearnt } from '../../../models/Ll Bp Rc/LessonsLearnt';
 import { IBestPractices } from '../../../models/Ll Bp Rc/BestPractices';
-import { IReusableComponents } from '../../../models/Ll Bp Rc/ReusableComponents';
+import { IReusableComponentAttachment, IReusableComponents } from '../../../models/Ll Bp Rc/ReusableComponents';
 
 export interface ILlBpRcRepository {
   fetchLessonsLearnt(useCache?: boolean, context?: WebPartContext): Promise<ILessonsLearnt[]>;
@@ -15,6 +15,7 @@ export interface ILlBpRcRepository {
   fetchReusableComponents(useCache?: boolean, context?: WebPartContext): Promise<IReusableComponents[]>;
   addReusableComponents(item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents>;
   updateReusableComponents(item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents>;
+  getReusableComponentAttachments(itemId: number, context?: WebPartContext): Promise<IReusableComponentAttachment[]>;
 }
 
 export default ILlBpRcRepository;

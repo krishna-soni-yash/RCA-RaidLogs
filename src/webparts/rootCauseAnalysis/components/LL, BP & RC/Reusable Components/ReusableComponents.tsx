@@ -20,6 +20,7 @@ import { IReusableComponents } from '../../../../../models/Ll Bp Rc/ReusableComp
 import {
   addReusableComponents,
   fetchReusableComponents,
+  getReusableComponentAttachments,
   updateReusableComponents
 } from '../../../../../repositories/LlBpRcrepository';
 import ReusableComponentsForm from './ReusableComponentsForm';
@@ -102,26 +103,73 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
     setFormMode('view');
   }, []);
 
-  const handleViewItem = React.useCallback((item: IReusableComponents) => {
-    setSelectedComponent(item);
-    setFormMode('view');
+  const ensureComponentAttachments = React.useCallback(async (component: IReusableComponents): Promise<IReusableComponents> => {
+    if (!component?.ID) {
+      return {
+        ...component,
+        attachments: component?.attachments ?? [],
+        newAttachments: []
+      };
+    }
+
+    if (component.attachments && component.attachments.length > 0) {
+      return {
+        ...component,
+        newAttachments: component.newAttachments ?? []
+      };
+    }
+
+    try {
+      const attachments = await getReusableComponentAttachments(component.ID, context);
+      const enriched: IReusableComponents = {
+        ...component,
+        attachments,
+        newAttachments: []
+      };
+      setItems(prev => prev.map(it => (it.ID === enriched.ID ? enriched : it)));
+      return enriched;
+    } catch (err) {
+      console.warn('Failed to load reusable component attachments', component?.ID, err);
+      const fallback: IReusableComponents = {
+        ...component,
+        attachments: component.attachments ?? [],
+        newAttachments: component.newAttachments ?? []
+      };
+      return fallback;
+    }
+  }, [context]);
+
+  const openComponentForm = React.useCallback(async (item: IReusableComponents | null, mode: 'view' | 'edit' | 'create') => {
+    if (mode === 'create' || !item) {
+      setSelectedComponent(null);
+      setFormMode('create');
+      setFormError(null);
+      setShowForm(true);
+      return;
+    }
+
+    try {
+      const enriched = await ensureComponentAttachments(item);
+      setSelectedComponent(enriched);
+    } catch {
+      setSelectedComponent(item);
+    }
+    setFormMode(mode);
     setFormError(null);
     setShowForm(true);
-  }, []);
+  }, [ensureComponentAttachments]);
+
+  const handleViewItem = React.useCallback((item: IReusableComponents) => {
+    void openComponentForm(item, 'view');
+  }, [openComponentForm]);
 
   const handleCreateClick = React.useCallback(() => {
-    setSelectedComponent(null);
-    setFormMode('create');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    void openComponentForm(null, 'create');
+  }, [openComponentForm]);
 
   const handleEditItem = React.useCallback((item: IReusableComponents) => {
-    setSelectedComponent(item);
-    setFormMode('edit');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    void openComponentForm(item, 'edit');
+  }, [openComponentForm]);
 
   const onRenderItemColumn = React.useCallback((item: IReusableComponents, _: number | undefined, column?: IColumn) => {
     if (!column) {
