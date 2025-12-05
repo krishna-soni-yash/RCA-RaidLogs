@@ -604,15 +604,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 					'ID',
 					'BpBestPracticesDescription',
 					'BpReferences',
-					'BpResponsibility',
-					'BpResponsibilityId',
 					'BpRemarks',
-					'DataType',
-					'BpResponsibility/Id',
-					'BpResponsibility/Title',
-					'BpResponsibility/EMail'
-				],
-				expand: ['BpResponsibility']
+					'DataType'
+				]
 			});
 
 			const normalized = (items || [])
@@ -621,22 +615,10 @@ class LlBpRcrepository implements ILlBpRcRepository {
 					return !rawType || rawType === BestPracticesDataType;
 				})
 				.map((it: any) => {
-					const responsibilityInfo = this.normalizePersonField(it, 'BpResponsibility');
-					const responsibilityDisplay = responsibilityInfo.displayNames.length > 0
-						? responsibilityInfo.displayNames.join('; ')
-						: (typeof it?.BpResponsibility === 'string' ? it.BpResponsibility : (responsibilityInfo.displayName ?? ''));
-					const responsibilityIdValue = this.collapseNumberValues(responsibilityInfo.ids);
-					const responsibilityEmailValue = this.collapseStringValues(responsibilityInfo.emails);
-					const responsibilityLoginValue = this.collapseStringValues(responsibilityInfo.loginNames);
-
 					return {
 						ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
 						BpBestPracticesDescription: it?.BpBestPracticesDescription ?? it?.BestPracticesDescription ?? it?.Description ?? it?.Title ?? '',
 						BpReferences: it?.BpReferences ?? it?.References ?? '',
-						BpResponsibility: responsibilityDisplay,
-						BpResponsibilityId: responsibilityIdValue,
-						BpResponsibilityEmail: responsibilityEmailValue,
-						BpResponsibilityLoginName: responsibilityLoginValue,
 						BpRemarks: it?.BpRemarks ?? it?.Remarks ?? '',
 						DataType: it?.DataType ?? BestPracticesDataType
 					};
@@ -661,20 +643,13 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const description = (item.BpBestPracticesDescription ?? '').trim();
-		const resolvedResponsibility = await this.resolvePersonForSave(context, {
-			id: item.BpResponsibilityId,
-			loginName: item.BpResponsibilityLoginName,
-			email: item.BpResponsibilityEmail,
-			displayName: item.BpResponsibility
-		});
-		
+
 		const payload: any = {
 			BpBestPracticesDescription: description,
 			BpReferences: (item.BpReferences ?? '').trim(),
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
-		const responsibilityIds = this.assignMultiLookupId(payload, 'BpResponsibilityId', item.BpResponsibilityId, resolvedResponsibility.id);
 		const result = await this.service.saveItem<any>({
 			context,
 			listTitle: SubSiteListNames.LlBpRc,
@@ -689,41 +664,10 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		const savedId = typeof savedIdRaw === 'number' ? savedIdRaw : (savedIdRaw ? Number(savedIdRaw) : undefined);
 		const hasValidId = typeof savedId === 'number' && !isNaN(savedId);
 
-		const responsibilityIdCandidates: number[] = [];
-		if (Array.isArray(responsibilityIds)) {
-			responsibilityIdCandidates.push(...responsibilityIds);
-		}
-		responsibilityIdCandidates.push(...this.extractNumberTokens(item.BpResponsibilityId));
-		const responsibilityIdValue = this.collapseNumberValues(responsibilityIdCandidates);
-
-		const emailCandidates = this.extractStringTokens(item.BpResponsibilityEmail);
-		if (resolvedResponsibility.email) {
-			emailCandidates.push(resolvedResponsibility.email);
-		}
-		const responsibilityEmailValue = this.collapseStringValues(emailCandidates);
-
-		const loginCandidates = this.extractStringTokens(item.BpResponsibilityLoginName ?? item.BpResponsibilityEmail);
-		if (resolvedResponsibility.loginName) {
-			loginCandidates.push(resolvedResponsibility.loginName);
-		}
-		const responsibilityLoginValue = this.collapseStringValues(loginCandidates);
-
-		const responsibilityDisplayTokens = this.extractStringTokens([
-			item.BpResponsibility,
-			resolvedResponsibility.displayName
-		]);
-		const responsibilityDisplay = responsibilityDisplayTokens.length > 0
-			? responsibilityDisplayTokens.join('; ')
-			: (resolvedResponsibility.displayName ?? (typeof item.BpResponsibility === 'string' ? item.BpResponsibility : ''));
-
 		const savedItem: IBestPractices = {
 			ID: hasValidId ? savedId : undefined,
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
-			BpResponsibility: responsibilityDisplay,
-			BpResponsibilityId: responsibilityIdValue,
-			BpResponsibilityEmail: responsibilityEmailValue,
-			BpResponsibilityLoginName: responsibilityLoginValue,
 			BpRemarks: payload.BpRemarks,
 			DataType: payload.DataType
 		};
@@ -743,20 +687,13 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const description = (item.BpBestPracticesDescription ?? '').trim();
-		const resolvedResponsibility = await this.resolvePersonForSave(context, {
-			id: item.BpResponsibilityId,
-			loginName: item.BpResponsibilityLoginName,
-			email: item.BpResponsibilityEmail,
-			displayName: item.BpResponsibility
-		});
-		
+
 		const payload: any = {
 			BpBestPracticesDescription: description,
 			BpReferences: (item.BpReferences ?? '').trim(),
 			BpRemarks: (item.BpRemarks ?? '').trim(),
 			DataType: BestPracticesDataType
 		};
-		const responsibilityIds = this.assignMultiLookupId(payload, 'BpResponsibilityId', item.BpResponsibilityId, resolvedResponsibility.id, true);
 		const result = await this.service.saveItem<any>({
 			context,
 			listTitle: SubSiteListNames.LlBpRc,
@@ -770,41 +707,10 @@ class LlBpRcrepository implements ILlBpRcRepository {
 
 		this.invalidateBestPracticesCache();
 
-		const responsibilityIdCandidates: number[] = [];
-		if (Array.isArray(responsibilityIds)) {
-			responsibilityIdCandidates.push(...responsibilityIds);
-		}
-		responsibilityIdCandidates.push(...this.extractNumberTokens(item.BpResponsibilityId));
-		const responsibilityIdValue = this.collapseNumberValues(responsibilityIdCandidates);
-
-		const emailCandidates = this.extractStringTokens(item.BpResponsibilityEmail);
-		if (resolvedResponsibility.email) {
-			emailCandidates.push(resolvedResponsibility.email);
-		}
-		const responsibilityEmailValue = this.collapseStringValues(emailCandidates);
-
-		const loginCandidates = this.extractStringTokens(item.BpResponsibilityLoginName ?? item.BpResponsibilityEmail);
-		if (resolvedResponsibility.loginName) {
-			loginCandidates.push(resolvedResponsibility.loginName);
-		}
-		const responsibilityLoginValue = this.collapseStringValues(loginCandidates);
-
-		const responsibilityDisplayTokens = this.extractStringTokens([
-			item.BpResponsibility,
-			resolvedResponsibility.displayName
-		]);
-		const responsibilityDisplay = responsibilityDisplayTokens.length > 0
-			? responsibilityDisplayTokens.join('; ')
-			: (resolvedResponsibility.displayName ?? (typeof item.BpResponsibility === 'string' ? item.BpResponsibility : ''));
-
 		return {
 			ID: item.ID,
 			BpBestPracticesDescription: payload.BpBestPracticesDescription,
 			BpReferences: payload.BpReferences,
-			BpResponsibility: responsibilityDisplay,
-			BpResponsibilityId: responsibilityIdValue,
-			BpResponsibilityEmail: responsibilityEmailValue,
-			BpResponsibilityLoginName: responsibilityLoginValue,
 			BpRemarks: payload.BpRemarks,
 			DataType: payload.DataType
 		};
