@@ -1,3 +1,8 @@
+export interface IReusableComponentAttachment {
+    FileName: string;
+    ServerRelativeUrl: string;
+}
+
 export interface IReusableComponents {
     ID?: number;
     RcComponentName?: string;
@@ -5,6 +10,8 @@ export interface IReusableComponents {
     RcPurposeMainFunctionality?: string;
     RcRemarks?: string;
     DataType?: string;
+    attachments?: IReusableComponentAttachment[];
+    newAttachments?: File[];
 }
 
 export const ReusableComponentsDataType = 'ReusableComponents';

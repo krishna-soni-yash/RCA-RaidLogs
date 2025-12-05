@@ -13,6 +13,8 @@ export interface ILlBpRcRepository {
   updateBestPractices(item: IBestPractices, context?: WebPartContext): Promise<IBestPractices>;
   
   fetchReusableComponents(useCache?: boolean, context?: WebPartContext): Promise<IReusableComponents[]>;
+  addReusableComponents(item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents>;
+  updateReusableComponents(item: IReusableComponents, context?: WebPartContext): Promise<IReusableComponents>;
 }
 
 export default ILlBpRcRepository;

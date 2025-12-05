@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   DefaultButton,
   IStackTokens,
+  Label,
+  Link,
   PrimaryButton,
   Stack,
   TextField
@@ -11,7 +13,7 @@ import {
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 
 import styles from '../LlBpRc.module.scss';
-import { ReusableComponentsDataType, type IReusableComponents } from '../../../../../models/Ll Bp Rc/ReusableComponents';
+import { ReusableComponentsDataType, type IReusableComponentAttachment, type IReusableComponents } from '../../../../../models/Ll Bp Rc/ReusableComponents';
 
 export interface IReusableComponentsFormProps {
   initialValues?: Partial<IReusableComponents>;
@@ -47,6 +49,8 @@ const fieldDefaults: ReusableComponentsFormState = {
 
 const formStackTokens: IStackTokens = { childrenGap: 8 };
 const buttonStackTokens: IStackTokens = { childrenGap: 8 };
+const attachmentListTokens: IStackTokens = { childrenGap: 4 };
+const attachmentRowTokens: IStackTokens = { childrenGap: 8 };
 
 const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) => {
   const {
@@ -64,7 +68,10 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
     RcPurposeMainFunctionality: '',
     RcRemarks: ''
   });
+  const [existingAttachments, setExistingAttachments] = useState<IReusableComponentAttachment[]>([]);
+  const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const isReadOnly = mode === 'view';
+  const attachmentInputId = React.useMemo(() => `rc-attachments-${Math.random().toString(36).slice(2)}`, []);
 
   const createInitialState = useCallback((): ReusableComponentsFormState => ({
     RcComponentName: initialValues?.RcComponentName ?? '',
@@ -83,7 +90,9 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
       RcPurposeMainFunctionality: '',
       RcRemarks: ''
     });
-  }, [createInitialState]);
+    setExistingAttachments(Array.isArray(initialValues?.attachments) ? initialValues.attachments.map(att => ({ ...att })) : []);
+    setNewAttachments([]);
+  }, [createInitialState, initialValues]);
 
   useEffect(() => {
     resetState();
@@ -120,6 +129,54 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
     [errors, isReadOnly]
   );
 
+  const handleAttachmentsAdded = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) {
+      return;
+    }
+
+    const input = event.currentTarget;
+    const files: File[] = [];
+    if (input.files && input.files.length > 0) {
+      for (let index = 0; index < input.files.length; index++) {
+        const file = input.files.item(index);
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+    if (files.length === 0) {
+      return;
+    }
+
+    setNewAttachments(prev => {
+      const existingNames = new Set<string>([
+        ...prev.map(file => file.name),
+        ...existingAttachments.map(att => att.FileName)
+      ]);
+
+      const next = [...prev];
+      for (const file of files) {
+        if (!existingNames.has(file.name)) {
+          next.push(file);
+          existingNames.add(file.name);
+        }
+      }
+
+      return next;
+    });
+
+    // reset input to allow selecting the same file again if needed
+    input.value = '';
+  }, [existingAttachments, isReadOnly]);
+
+  const handleRemoveNewAttachment = useCallback((index: number) => {
+    if (isReadOnly) {
+      return;
+    }
+
+    setNewAttachments(prev => prev.filter((_, idx) => idx !== index));
+  }, [isReadOnly]);
+
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -134,14 +191,17 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
       }
 
       onSubmit?.({
+        ID: initialValues?.ID,
         RcComponentName: nextState.RcComponentName.trim(),
         RcLocation: nextState.RcLocation.trim(),
         RcPurposeMainFunctionality: nextState.RcPurposeMainFunctionality.trim(),
         RcRemarks: nextState.RcRemarks.trim(),
-        DataType: ReusableComponentsDataType
+        DataType: ReusableComponentsDataType,
+        attachments: existingAttachments.map(att => ({ ...att })),
+        newAttachments: [...newAttachments]
       });
     },
-    [formState, isReadOnly, onCancel, onSubmit, validate]
+    [existingAttachments, formState, initialValues, isReadOnly, newAttachments, onCancel, onSubmit, validate]
   );
 
   const handleReset = useCallback(() => {
@@ -189,6 +249,60 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
           errorMessage={errors.RcRemarks}
           readOnly={isReadOnly}
         />
+
+        <Stack tokens={attachmentListTokens}>
+          <Label htmlFor={attachmentInputId}>Attachments</Label>
+
+          {existingAttachments.length > 0 && (
+            <Stack tokens={attachmentListTokens}>
+              {existingAttachments.map((attachment, idx) => {
+                const key = `existing-${idx}-${attachment.ServerRelativeUrl || attachment.FileName || 'attachment'}`;
+                const label = attachment.FileName || attachment.ServerRelativeUrl || 'Attachment';
+                if (attachment.ServerRelativeUrl) {
+                  return (
+                    <Link key={key} href={attachment.ServerRelativeUrl} target="_blank" rel="noreferrer">
+                      {label}
+                    </Link>
+                  );
+                }
+                return (
+                  <span key={key}>{label}</span>
+                );
+              })}
+            </Stack>
+          )}
+
+          {newAttachments.length > 0 && (
+            <Stack tokens={attachmentListTokens}>
+              {newAttachments.map((file, idx) => (
+                <Stack key={`new-${idx}-${file.name}`} horizontal tokens={attachmentRowTokens} verticalAlign="center">
+                  <span style={{ flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+                  {!isReadOnly && (
+                    <DefaultButton
+                      type="button"
+                      text="Remove"
+                      onClick={() => handleRemoveNewAttachment(idx)}
+                    />
+                  )}
+                </Stack>
+              ))}
+            </Stack>
+          )}
+
+          {existingAttachments.length === 0 && newAttachments.length === 0 && (
+            <span>No attachments added.</span>
+          )}
+
+          {!isReadOnly && (
+            <input
+              id={attachmentInputId}
+              type="file"
+              multiple
+              onChange={handleAttachmentsAdded}
+              aria-label="Add attachments"
+            />
+          )}
+        </Stack>
 
         <Stack horizontal tokens={buttonStackTokens}>
           {!isReadOnly && (

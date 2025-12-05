@@ -4,7 +4,7 @@ import IGenericService from '../services/IGenericServices';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ILessonsLearnt, LessonsLearntDataType } from '../models/Ll Bp Rc/LessonsLearnt';
 import { IBestPractices, BestPracticesDataType } from '../models/Ll Bp Rc/BestPractices';
-import { IReusableComponents, ReusableComponentsDataType } from '../models/Ll Bp Rc/ReusableComponents';
+import { IReusableComponents, IReusableComponentAttachment, ReusableComponentsDataType } from '../models/Ll Bp Rc/ReusableComponents';
 import ErrorMessages from '../common/ErrorMessages';
 import ILlBpRcRepository from './repositoriesInterface/Ll Bp Rc/ILlBpRcRepository';
 import { SubSiteListNames } from '../common/Constants';
@@ -348,6 +348,8 @@ class LlBpRcrepository implements ILlBpRcRepository {
 					};
 				}) as IReusableComponents[];
 
+			await this.populateReusableComponentAttachments(normalized, context);
+
 			this.reusableCache = normalized;
 			this.reusableCacheTimestamp = now;
 
@@ -396,6 +398,18 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			DataType: payload.DataType
 		};
 
+		if (hasValidId && context) {
+			const filesToUpload = this.extractNewAttachmentFiles(item);
+			if (filesToUpload.length > 0) {
+				await this.uploadReusableComponentAttachments(savedId as number, filesToUpload, context);
+			}
+			savedItem.attachments = await this.getReusableComponentAttachments(savedId as number, context);
+		} else {
+			savedItem.attachments = [];
+		}
+
+		savedItem.newAttachments = [];
+
 		this.invalidateReusableCache();
 
 		return savedItem;
@@ -428,6 +442,13 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			throw new Error(result?.error ?? 'Failed to update Reusable Component.');
 		}
 
+		const filesToUpload = this.extractNewAttachmentFiles(item);
+		if (filesToUpload.length > 0) {
+			await this.uploadReusableComponentAttachments(item.ID, filesToUpload, context);
+		}
+
+		const attachments = await this.getReusableComponentAttachments(item.ID, context);
+
 		this.invalidateReusableCache();
 
 		return {
@@ -436,8 +457,127 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			RcLocation: payload.RcLocation,
 			RcPurposeMainFunctionality: payload.RcPurposeMainFunctionality,
 			RcRemarks: payload.RcRemarks,
-			DataType: payload.DataType
+			DataType: payload.DataType,
+			attachments,
+			newAttachments: []
 		};
+	}
+
+	private isFileInstance(value: unknown): value is File {
+		return typeof File !== 'undefined' && value instanceof File;
+	}
+
+	private extractNewAttachmentFiles(item?: IReusableComponents | null): File[] {
+		if (!item) {
+			return [];
+		}
+
+		const files: File[] = [];
+
+		if (Array.isArray(item.newAttachments)) {
+			for (const maybeFile of item.newAttachments) {
+				if (this.isFileInstance(maybeFile)) {
+					files.push(maybeFile);
+				}
+			}
+		}
+
+		if (Array.isArray(item.attachments)) {
+			for (const maybeFile of item.attachments as unknown[]) {
+				if (this.isFileInstance(maybeFile)) {
+					files.push(maybeFile);
+				}
+			}
+		}
+
+		return files;
+	}
+
+	private async getReusableComponentAttachments(itemId: number, context: WebPartContext): Promise<IReusableComponentAttachment[]> {
+		if (!context || !itemId) {
+			return [];
+		}
+
+		try {
+			const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+			const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+			const files = await sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc)?.items?.getById?.(itemId)?.attachmentFiles?.();
+			if (!files) {
+				return [];
+			}
+
+			return (files as any[]).map((file: any) => ({
+				FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+				ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+			})) as IReusableComponentAttachment[];
+		} catch (error) {
+			console.warn('LlBpRcrepository.getReusableComponentAttachments: failed to load attachments', { itemId, error });
+			return [];
+		}
+	}
+
+	private async uploadReusableComponentAttachments(itemId: number, files: File[], context: WebPartContext): Promise<void> {
+		if (!context || !itemId || !Array.isArray(files) || files.length === 0) {
+			return;
+		}
+
+		try {
+			const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+			const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+			const listRef = sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc);
+			const itemRef = listRef?.items?.getById?.(itemId);
+
+			if (!itemRef || typeof itemRef.attachmentFiles?.add !== 'function') {
+				throw new Error('Attachment API not available for Reusable Components list.');
+			}
+
+			for (const file of files) {
+				if (!this.isFileInstance(file)) {
+					continue;
+				}
+				await itemRef.attachmentFiles.add(file.name, file);
+			}
+		} catch (error) {
+			console.error('LlBpRcrepository.uploadReusableComponentAttachments: failed to upload attachment(s)', { itemId, error });
+			throw error;
+		}
+	}
+
+	private async populateReusableComponentAttachments(items: IReusableComponents[], context: WebPartContext): Promise<void> {
+		if (!Array.isArray(items) || items.length === 0) {
+			return;
+		}
+
+		const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+		const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+		const listRef = sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc);
+
+		await Promise.all(items.map(async (component) => {
+			if (!component?.ID) {
+				component.attachments = [];
+				component.newAttachments = [];
+				return;
+			}
+
+			if (!listRef?.items?.getById) {
+				component.attachments = [];
+				component.newAttachments = [];
+				return;
+			}
+
+			try {
+				const files = await listRef.items.getById(component.ID).attachmentFiles();
+				component.attachments = (files || []).map((file: any) => ({
+					FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+					ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+				})) as IReusableComponentAttachment[];
+				component.newAttachments = [];
+			} catch (error) {
+				console.warn('LlBpRcrepository.populateReusableComponentAttachments: failed for item', component.ID, error);
+				component.attachments = [];
+				component.newAttachments = [];
+			}
+		}));
 	}
 
 	private invalidateLessonsCache(): void {

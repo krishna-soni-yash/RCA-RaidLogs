@@ -59,7 +59,7 @@ const Header: React.FC<IHeaderProps> = ({
               itemKey="raidLogs"
             />
             <PivotItem 
-              headerText="Lessons Learnt, Best Practices & Reusable Components" 
+              headerText="LL, BP & RC" 
               itemKey="lessonsLearnt"
             />
           </Pivot>
