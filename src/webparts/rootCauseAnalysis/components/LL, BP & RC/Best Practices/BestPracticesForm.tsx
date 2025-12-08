@@ -66,6 +66,8 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
   const [existingAttachments, setExistingAttachments] = useState<IBestPracticeAttachment[]>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const isReadOnly = mode === 'view';
+  const isEditing = mode === 'edit';
+  const shouldShowReset = !isReadOnly && !isEditing;
   const attachmentInputId = React.useMemo(() => `bp-attachments-${Math.random().toString(36).slice(2)}`, []);
 
   const createInitialState = useCallback((): BestPracticesFormState => ({
@@ -286,18 +288,18 @@ const BestPracticesForm: React.FC<IBestPracticesFormProps> = (props) => {
           )}
         </Stack>
 
-        <Stack horizontal tokens={buttonStackTokens}>
-          {!isReadOnly && (
-            <>
-              <PrimaryButton
-                type="submit"
-                text={isSaving ? 'Saving…' : 'Save'}
-                disabled={!!isSaving}
-              />
+        {!isReadOnly && (
+          <Stack horizontal tokens={buttonStackTokens}>
+            <PrimaryButton
+              type="submit"
+              text={isSaving ? 'Saving…' : 'Save'}
+              disabled={!!isSaving}
+            />
+            {shouldShowReset && (
               <DefaultButton type="button" text="Reset" onClick={handleReset} disabled={isSaving} />
-            </>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        )}
       </Stack>
     </form>
   );

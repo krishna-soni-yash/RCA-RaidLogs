@@ -1,3 +1,8 @@
+export interface ILessonsLearntAttachment {
+    FileName: string;
+    ServerRelativeUrl: string;
+}
+
 export interface ILessonsLearnt {
     ID?: number;
     LlProblemFacedLearning?: string;
@@ -5,6 +10,8 @@ export interface ILessonsLearnt {
     LlSolution?: string;
     LlRemarks?: string;
     DataType?: string;
+    attachments?: ILessonsLearntAttachment[];
+    newAttachments?: File[];
 }
 
 export const LessonsLearntDataType = 'LessonsLearnt';
