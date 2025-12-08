@@ -190,10 +190,11 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
 
       return (
         <div>
-          <IconButton iconProps={{ iconName: 'View' }} ariaLabel="View" onClick={onView} />
-          {isProjectManager && (
-            <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
-          )}
+          <IconButton
+            iconProps={{ iconName: isProjectManager ? 'Edit' : 'View' }}
+            ariaLabel={isProjectManager ? 'Edit' : 'View'}
+            onClick={isProjectManager ? onEdit : onView}
+          />
         </div>
       );
     }
