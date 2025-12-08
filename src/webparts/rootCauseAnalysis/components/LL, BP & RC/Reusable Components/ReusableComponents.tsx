@@ -17,9 +17,12 @@ import {
 
 import styles from '../LlBpRc.module.scss';
 import { IReusableComponents } from '../../../../../models/Ll Bp Rc/ReusableComponents';
+import PpoApproversContext from '../../PpoApproversContext';
+import { Current_User_Role } from '../../../../../common/Constants';
 import {
   addReusableComponents,
   fetchReusableComponents,
+  getReusableComponentAttachments,
   updateReusableComponents
 } from '../../../../../repositories/LlBpRcrepository';
 import ReusableComponentsForm from './ReusableComponentsForm';
@@ -31,6 +34,9 @@ interface IReusableComponentsProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => {
+  const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
+    || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<IReusableComponents[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -85,14 +91,6 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
       isResizable: true
     },
     {
-      key: 'responsibility',
-      name: 'Responsibility',
-      fieldName: 'RcResponsibility',
-      minWidth: 140,
-      maxWidth: 220,
-      isResizable: true
-    },
-    {
       key: 'remarks',
       name: 'Remarks',
       fieldName: 'RcRemarks',
@@ -110,26 +108,79 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
     setFormMode('view');
   }, []);
 
-  const handleViewItem = React.useCallback((item: IReusableComponents) => {
-    setSelectedComponent(item);
-    setFormMode('view');
+  const ensureComponentAttachments = React.useCallback(async (component: IReusableComponents): Promise<IReusableComponents> => {
+    if (!component?.ID) {
+      return {
+        ...component,
+        attachments: component?.attachments ?? [],
+        newAttachments: []
+      };
+    }
+
+    if (component.attachments && component.attachments.length > 0) {
+      return {
+        ...component,
+        newAttachments: component.newAttachments ?? []
+      };
+    }
+
+    try {
+      const attachments = await getReusableComponentAttachments(component.ID, context);
+      const enriched: IReusableComponents = {
+        ...component,
+        attachments,
+        newAttachments: []
+      };
+      setItems(prev => prev.map(it => (it.ID === enriched.ID ? enriched : it)));
+      return enriched;
+    } catch (err) {
+      console.warn('Failed to load reusable component attachments', component?.ID, err);
+      const fallback: IReusableComponents = {
+        ...component,
+        attachments: component.attachments ?? [],
+        newAttachments: component.newAttachments ?? []
+      };
+      return fallback;
+    }
+  }, [context]);
+
+  const openComponentForm = React.useCallback(async (item: IReusableComponents | null, mode: 'view' | 'edit' | 'create') => {
+    if (mode === 'create' || !item) {
+      setSelectedComponent(null);
+      setFormMode('create');
+      setFormError(null);
+      setShowForm(true);
+      return;
+    }
+
+    try {
+      const enriched = await ensureComponentAttachments(item);
+      setSelectedComponent(enriched);
+    } catch {
+      setSelectedComponent(item);
+    }
+    setFormMode(mode);
     setFormError(null);
     setShowForm(true);
-  }, []);
+  }, [ensureComponentAttachments]);
+
+  const handleViewItem = React.useCallback((item: IReusableComponents) => {
+    void openComponentForm(item, 'view');
+  }, [openComponentForm]);
 
   const handleCreateClick = React.useCallback(() => {
-    setSelectedComponent(null);
-    setFormMode('create');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    if (!isProjectManager) {
+      return;
+    }
+    void openComponentForm(null, 'create');
+  }, [isProjectManager, openComponentForm]);
 
   const handleEditItem = React.useCallback((item: IReusableComponents) => {
-    setSelectedComponent(item);
-    setFormMode('edit');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    if (!isProjectManager) {
+      return;
+    }
+    void openComponentForm(item, 'edit');
+  }, [isProjectManager, openComponentForm]);
 
   const onRenderItemColumn = React.useCallback((item: IReusableComponents, _: number | undefined, column?: IColumn) => {
     if (!column) {
@@ -149,8 +200,11 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
 
       return (
         <div>
-          <IconButton iconProps={{ iconName: 'View' }} ariaLabel="View" onClick={onView} />
-          <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          <IconButton
+            iconProps={{ iconName: isProjectManager ? 'Edit' : 'View' }}
+            ariaLabel={isProjectManager ? 'Edit' : 'View'}
+            onClick={isProjectManager ? onEdit : onView}
+          />
         </div>
       );
     }
@@ -162,7 +216,7 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, [handleEditItem, handleViewItem]);
+  }, [handleEditItem, handleViewItem, isProjectManager]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -261,11 +315,13 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
 
   return (
     <div>
-      <PrimaryButton
-        text="Add Reusable Component"
-        onClick={handleCreateClick}
-        style={{ marginTop: '8px' }}
-      />
+      {isProjectManager && (
+        <PrimaryButton
+          text="Add Reusable Component"
+          onClick={handleCreateClick}
+          style={{ marginTop: '8px' }}
+        />
+      )}
       <Stack tokens={stackTokens} className={styles.formWrapper}>
         {successMessage && (
           <MessageBar

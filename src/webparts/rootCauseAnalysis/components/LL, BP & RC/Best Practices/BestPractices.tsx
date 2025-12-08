@@ -16,9 +16,12 @@ import {
 } from '@fluentui/react';
 import styles from '../LlBpRc.module.scss';
 import { IBestPractices } from '../../../../../models/Ll Bp Rc/BestPractices';
+import PpoApproversContext from '../../PpoApproversContext';
+import { Current_User_Role } from '../../../../../common/Constants';
 import {
   addBestPractices,
   fetchBestPractices,
+  getBestPracticeAttachments,
   updateBestPractices
 } from '../../../../../repositories/LlBpRcrepository';
 import BestPracticesForm from './BestPracticesForm';
@@ -30,6 +33,9 @@ interface IBestPracticesProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
+  const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
+    || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<IBestPractices[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -68,19 +74,11 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
       isResizable: true
     },
     {
-      key: 'references',
-      name: 'References',
-      fieldName: 'BpReferences',
-      minWidth: 150,
-      maxWidth: 220,
-      isResizable: true
-    },
-    {
-      key: 'responsibility',
-      name: 'Responsibility',
-      fieldName: 'BpResponsibility',
-      minWidth: 150,
-      maxWidth: 220,
+      key: 'category',
+      name: 'Category',
+      fieldName: 'BpCategory',
+      minWidth: 120,
+      maxWidth: 180,
       isResizable: true
     },
     {
@@ -101,26 +99,78 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
     setFormMode('view');
   }, []);
 
-  const handleViewItem = React.useCallback((item: IBestPractices) => {
-    setSelectedItem(item);
-    setFormMode('view');
+  const ensureBestPracticeAttachments = React.useCallback(async (item: IBestPractices): Promise<IBestPractices> => {
+    if (!item?.ID) {
+      return {
+        ...item,
+        attachments: item.attachments ?? [],
+        newAttachments: []
+      };
+    }
+
+    if (item.attachments && item.attachments.length > 0) {
+      return {
+        ...item,
+        newAttachments: item.newAttachments ?? []
+      };
+    }
+
+    try {
+      const attachments = await getBestPracticeAttachments(item.ID, context);
+      const enriched: IBestPractices = {
+        ...item,
+        attachments,
+        newAttachments: []
+      };
+      setItems(prev => prev.map(it => (it.ID === enriched.ID ? enriched : it)));
+      return enriched;
+    } catch (error) {
+      console.warn('BestPractices.ensureBestPracticeAttachments: failed to load attachments', item?.ID, error);
+      return {
+        ...item,
+        attachments: item.attachments ?? [],
+        newAttachments: item.newAttachments ?? []
+      };
+    }
+  }, [context]);
+
+  const openFormForItem = React.useCallback(async (item: IBestPractices | null, mode: 'view' | 'edit' | 'create') => {
+    if (mode === 'create' || !item) {
+      setSelectedItem(null);
+      setFormMode('create');
+      setFormError(null);
+      setShowForm(true);
+      return;
+    }
+
+    try {
+      const enriched = await ensureBestPracticeAttachments(item);
+      setSelectedItem(enriched);
+    } catch {
+      setSelectedItem(item);
+    }
+    setFormMode(mode);
     setFormError(null);
     setShowForm(true);
-  }, []);
+  }, [ensureBestPracticeAttachments]);
+
+  const handleViewItem = React.useCallback((item: IBestPractices) => {
+    void openFormForItem(item, 'view');
+  }, [openFormForItem]);
 
   const handleCreateClick = React.useCallback(() => {
-    setSelectedItem(null);
-    setFormMode('create');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    if (!isProjectManager) {
+      return;
+    }
+    void openFormForItem(null, 'create');
+  }, [isProjectManager, openFormForItem]);
 
   const handleEditItem = React.useCallback((item: IBestPractices) => {
-    setSelectedItem(item);
-    setFormMode('edit');
-    setFormError(null);
-    setShowForm(true);
-  }, []);
+    if (!isProjectManager) {
+      return;
+    }
+    void openFormForItem(item, 'edit');
+  }, [isProjectManager, openFormForItem]);
 
   const onRenderItemColumn = React.useCallback((item: IBestPractices, _: number | undefined, column?: IColumn) => {
     if (!column) {
@@ -140,8 +190,11 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
 
       return (
         <div>
-          <IconButton iconProps={{ iconName: 'View' }} ariaLabel="View" onClick={onView} />
-          <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          <IconButton
+            iconProps={{ iconName: isProjectManager ? 'Edit' : 'View' }}
+            ariaLabel={isProjectManager ? 'Edit' : 'View'}
+            onClick={isProjectManager ? onEdit : onView}
+          />
         </div>
       );
     }
@@ -153,7 +206,7 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, [handleEditItem, handleViewItem]);
+  }, [handleEditItem, handleViewItem, isProjectManager]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -253,11 +306,13 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
 
   return (
     <div>
-      <PrimaryButton
-        text="Add Best Practice"
-        onClick={handleCreateClick}
-        style={{ marginTop: '8px' }}
-      />
+      {isProjectManager && (
+        <PrimaryButton
+          text="Add Best Practice"
+          onClick={handleCreateClick}
+          style={{ marginTop: '8px' }}
+        />
+      )}
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (

@@ -279,7 +279,6 @@ export class GenericService implements IGenericService {
                     if (recentId !== undefined) {
                       const parsed = Number(recentId);
                       if (!isNaN(parsed)) {
-                        console.log('GenericService.saveItem: Resolved item ID from recent items fallback:', parsed);
                         return parsed;
                       }
                     }
