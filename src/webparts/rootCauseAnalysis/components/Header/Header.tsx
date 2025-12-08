@@ -1,6 +1,6 @@
 /* eslint-disable */
 import * as React from 'react';
-//import PpoApproversContext from '../PpoApproversContext';
+import PpoApproversContext from '../PpoApproversContext';
 import styles from './Header.module.scss';
 import { 
   Text,
@@ -23,10 +23,8 @@ const Header: React.FC<IHeaderProps> = ({
   activeTab = "rootCauseAnalysis",
   onTabChange
 }) => {
-//   const { approvers } = React.useContext(PpoApproversContext);
-//   const contextTitle = (approvers && approvers.length > 0)
-//     ? ((approvers[0] as any).Title ?? approvers[0].LinkTitle ?? title)
-//     : title;
+  const { approver } = React.useContext(PpoApproversContext);
+  const contextTitle = approver?.InternalProjectName || approver?.Title || title;
   const stackTokens: IStackTokens = { childrenGap: 6 };
 
   const handleTabChange = (item?: PivotItem): void => {
@@ -41,7 +39,7 @@ const Header: React.FC<IHeaderProps> = ({
         <Stack horizontal verticalAlign="center" tokens={stackTokens} className={styles.headerContent}>
           <Icon iconName="Bullseye" className={styles.headerIcon} />
           <div className={styles.texts}>
-            <Text className={styles.title}>{title}</Text>
+            <Text className={styles.title}>{contextTitle}</Text>
           </div>
         </Stack>
         <div className={styles.tabsContainer}>
@@ -59,7 +57,7 @@ const Header: React.FC<IHeaderProps> = ({
               itemKey="raidLogs"
             />
             <PivotItem 
-              headerText="Lessons Learnt, Best Practices & Reusable Components" 
+              headerText="LL, BP & RC" 
               itemKey="lessonsLearnt"
             />
           </Pivot>

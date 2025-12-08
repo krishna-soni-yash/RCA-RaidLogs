@@ -16,6 +16,8 @@ import {
 } from '@fluentui/react';
 import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
+import PpoApproversContext from '../../PpoApproversContext';
+import { Current_User_Role } from '../../../../../common/Constants';
 import { addLessonsLearnt, fetchLessonsLearnt, updateLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
 import LessonsLearntForm from './LessonsLearntForm';
 
@@ -26,6 +28,9 @@ interface ILessonsLearntProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
+  const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
+    || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<ILessonsLearnt[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -105,18 +110,24 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
   }, []);
 
   const handleCreateClick = React.useCallback(() => {
+    if (!isProjectManager) {
+      return;
+    }
     setSelectedLesson(null);
     setFormMode('create');
     setFormError(null);
     setShowLessonsLearntForm(true);
-  }, []);
+  }, [isProjectManager]);
 
   const handleEditItem = React.useCallback((lesson: ILessonsLearnt) => {
+    if (!isProjectManager) {
+      return;
+    }
     setSelectedLesson(lesson);
     setFormMode('edit');
     setFormError(null);
     setShowLessonsLearntForm(true);
-  }, []);
+  }, [isProjectManager]);
 
   const onRenderItemColumn = React.useCallback((item: ILessonsLearnt, _: number | undefined, column?: IColumn) => {
     if (!column) {
@@ -136,8 +147,11 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
 
       return (
         <div>
-          <IconButton iconProps={{ iconName: 'View' }} ariaLabel="View" onClick={onView} />
-          <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          <IconButton
+            iconProps={{ iconName: isProjectManager ? 'Edit' : 'View' }}
+            ariaLabel={isProjectManager ? 'Edit' : 'View'}
+            onClick={isProjectManager ? onEdit : onView}
+          />
         </div>
       );
     }
@@ -149,7 +163,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, [handleEditItem, handleViewItem]);
+  }, [handleEditItem, handleViewItem, isProjectManager]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -249,11 +263,13 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
 
   return (
     <div>
-      <PrimaryButton
-        text="Add Lessons Learnt"
-        onClick={handleCreateClick}
-        style={{ marginTop: '8px' }}
-      />
+      {isProjectManager && (
+        <PrimaryButton
+          text="Add Lessons Learnt"
+          onClick={handleCreateClick}
+          style={{ marginTop: '8px' }}
+        />
+      )}
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (

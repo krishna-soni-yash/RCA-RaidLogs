@@ -1,13 +1,16 @@
+export interface IBestPracticeAttachment {
+    FileName: string;
+    ServerRelativeUrl: string;
+}
+
 export interface IBestPractices {
     ID?: number;
     BpBestPracticesDescription?: string;
-    BpReferences?: string;
-    BpResponsibility?: string;
-    BpResponsibilityId?: number | number[];
-    BpResponsibilityEmail?: string | string[];
-    BpResponsibilityLoginName?: string | string[];
+    BpCategory?: string;
     BpRemarks?: string;
     DataType?: string;
+    attachments?: IBestPracticeAttachment[];
+    newAttachments?: File[];
 }
 
 export const BestPracticesDataType = 'BestPractices';
