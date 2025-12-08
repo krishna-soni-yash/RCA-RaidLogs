@@ -33,8 +33,9 @@ interface IBestPracticesProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
-  const { currentUserRole } = React.useContext(PpoApproversContext);
-  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager;
+  const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
+    || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<IBestPractices[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);

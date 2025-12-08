@@ -26,7 +26,8 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
     if (candidateProjectNames.length === 0) {
       return {
         approver: null,
-        currentUserRole: Current_User_Role.None
+        currentUserRole: Current_User_Role.None,
+        currentUserRoles: []
       };
     }
 
@@ -65,23 +66,28 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
         filter,
         pageSize: 5
       });
-      console.log('PPO Approvers items fetched:', items);
       if (!items || items.length === 0) {
         return {
           approver: null,
-          currentUserRole: Current_User_Role.None
+          currentUserRole: Current_User_Role.None,
+          currentUserRoles: []
         };
       }
 
       const matchedItem = this.pickBestMatch(items, candidateProjectNames);
       const approver = this.mapApprover(matchedItem);
-      const currentUserRole = this.resolveCurrentUserRole(context, approver);
-      return { approver, currentUserRole };
+      const roleResolution = this.resolveCurrentUserRoles(context, approver);
+      return {
+        approver,
+        currentUserRole: roleResolution.primaryRole,
+        currentUserRoles: roleResolution.roles
+      };
     } catch (error: any) {
       console.error(ErrorMessages.FAILED_TO_FETCH_PPOAPPROVERS, error);
       return {
         approver: null,
-        currentUserRole: Current_User_Role.None
+        currentUserRole: Current_User_Role.None,
+        currentUserRoles: []
       };
     }
   }
@@ -148,29 +154,40 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
     };
   }
 
-  private resolveCurrentUserRole(context: WebPartContext, approver: IPPOApprovers | null): Current_User_Role {
+  private resolveCurrentUserRoles(context: WebPartContext, approver: IPPOApprovers | null): { roles: Current_User_Role[]; primaryRole: Current_User_Role } {
     if (!approver) {
-      return Current_User_Role.None;
+      return { roles: [], primaryRole: Current_User_Role.None };
     }
 
     const currentUserEmail = (context.pageContext?.user?.email || '').trim().toLowerCase();
     if (!currentUserEmail) {
-      return Current_User_Role.None;
+      return { roles: [], primaryRole: Current_User_Role.None };
+    }
+
+    const roles: Current_User_Role[] = [];
+
+    if (this.hasMatchingUser(approver.ProjectManager, currentUserEmail)) {
+      roles.push(Current_User_Role.ProjectManager);
     }
 
     if (this.hasMatchingUser(approver.BUH, currentUserEmail)) {
-      return Current_User_Role.BUH;
-    }
-
-    if (this.hasMatchingUser(approver.ProjectManager, currentUserEmail)) {
-      return Current_User_Role.ProjectManager;
+      roles.push(Current_User_Role.BUH);
     }
 
     if (this.hasMatchingUser(approver.Reviewer, currentUserEmail)) {
-      return Current_User_Role.Reviewer;
+      roles.push(Current_User_Role.Reviewer);
     }
 
-    return Current_User_Role.None;
+    let primaryRole = Current_User_Role.None;
+    if (roles.length > 0) {
+      if (roles.indexOf(Current_User_Role.ProjectManager) !== -1) {
+        primaryRole = Current_User_Role.ProjectManager;
+      } else {
+        primaryRole = roles[0];
+      }
+    }
+
+    return { roles, primaryRole };
   }
 
   private hasMatchingUser(users: IPPOApproverUser[] | null, targetEmail: string): boolean {

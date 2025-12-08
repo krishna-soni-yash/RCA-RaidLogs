@@ -34,8 +34,9 @@ interface IReusableComponentsProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => {
-  const { currentUserRole } = React.useContext(PpoApproversContext);
-  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager;
+  const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
+    || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<IReusableComponents[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);

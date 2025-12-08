@@ -5,6 +5,7 @@ import { IPPOApprovers } from '../../models/PPOApprovers';
 export interface IPPOApproverResult {
 	approver: IPPOApprovers | null;
 	currentUserRole: Current_User_Role;
+	currentUserRoles: Current_User_Role[];
 }
 
 export default interface IPPOApproversRepository {

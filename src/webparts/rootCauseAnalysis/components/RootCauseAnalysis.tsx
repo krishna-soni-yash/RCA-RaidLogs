@@ -15,6 +15,7 @@ export interface IRootCauseAnalysisState {
   activeTab: string;
   approver: IPPOApprovers | null;
   currentUserRole: Current_User_Role;
+  currentUserRoles: Current_User_Role[];
   isLoadingApprover: boolean;
 }
 
@@ -28,6 +29,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
       activeTab: 'raidLogs',
       approver: null,
       currentUserRole: Current_User_Role.None,
+      currentUserRoles: [],
       isLoadingApprover: false
     };
   }
@@ -53,6 +55,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
       this.setState({
         approver: result.approver,
         currentUserRole: result.currentUserRole,
+        currentUserRoles: result.currentUserRoles || [],
         isLoadingApprover: false
       });
     } catch (error) {
@@ -60,6 +63,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
       this.setState({
         approver: null,
         currentUserRole: Current_User_Role.None,
+        currentUserRoles: [],
         isLoadingApprover: false
       });
     }
@@ -67,7 +71,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
 
   public render(): React.ReactElement<IRootCauseAnalysisProps> {
     const { context, hasTeamsContext } = this.props;
-    const { approver, currentUserRole, isLoadingApprover } = this.state;
+    const { approver, currentUserRole, currentUserRoles, isLoadingApprover } = this.state;
     
     const renderContent = (): React.ReactElement => {
       switch (this.state.activeTab) {
@@ -87,6 +91,7 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
       <PpoApproversContext.Provider value={{
         approver,
         currentUserRole,
+        currentUserRoles,
         isLoading: isLoadingApprover,
         reload: this.loadPpoApprovers
       }}>
