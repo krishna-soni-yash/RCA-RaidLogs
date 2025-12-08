@@ -17,6 +17,13 @@ export class SubSiteListNames {
   public static LlBpRc: string = "LlBpRc";
 }
 
+export enum Current_User_Role {
+  ProjectManager = "ProjectManager",
+  Reviewer = "Reviewer",
+  BUH = "BUH",
+  None = "None"
+}
+
 //RCA Site Configuration
 
 export class SiteConfiguration {
