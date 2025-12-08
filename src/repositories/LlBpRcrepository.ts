@@ -2,7 +2,7 @@
 import genericService, { GenericService } from '../services/GenericServices';
 import IGenericService from '../services/IGenericServices';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { ILessonsLearnt, LessonsLearntDataType } from '../models/Ll Bp Rc/LessonsLearnt';
+import { ILessonsLearnt, ILessonsLearntAttachment, LessonsLearntDataType } from '../models/Ll Bp Rc/LessonsLearnt';
 import { IBestPracticeAttachment, IBestPractices, BestPracticesDataType } from '../models/Ll Bp Rc/BestPractices';
 import { IReusableComponents, IReusableComponentAttachment, ReusableComponentsDataType } from '../models/Ll Bp Rc/ReusableComponents';
 import ErrorMessages from '../common/ErrorMessages';
@@ -63,8 +63,12 @@ class LlBpRcrepository implements ILlBpRcRepository {
 				LlCategory: it?.LlCategory ?? it?.Category ?? '',
 				LlSolution: it?.LlSolution ?? it?.Solution ?? '',
 				LlRemarks: it?.LlRemarks ?? it?.Remarks ?? '',
-				DataType: it?.DataType ?? LessonsLearntDataType
+				DataType: it?.DataType ?? LessonsLearntDataType,
+				attachments: [],
+				newAttachments: []
 			})) as ILessonsLearnt[];
+
+			await this.populateLessonsLearntAttachments(normalized, context);
 
 			this.lessonsCache = normalized;
 			this.lessonsCacheTimestamp = now;
@@ -113,8 +117,20 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			LlCategory: payload.LlCategory,
 			LlSolution: payload.LlSolution,
 			LlRemarks: payload.LlRemarks,
-			DataType: payload.DataType
+			DataType: payload.DataType,
+			attachments: [],
+			newAttachments: []
 		};
+
+		if (hasValidId && context) {
+			const filesToUpload = this.extractLessonsLearntNewAttachmentFiles(item);
+			let uploadedAttachments: ILessonsLearntAttachment[] = [];
+			if (filesToUpload.length > 0) {
+				uploadedAttachments = await this.uploadLessonsLearntAttachments(savedId as number, filesToUpload, context);
+			}
+			const attachmentsFromServer = await this.getLessonsLearntAttachments(savedId as number, context);
+			savedItem.attachments = attachmentsFromServer.length > 0 ? attachmentsFromServer : uploadedAttachments;
+		}
 
 		this.invalidateLessonsCache();
 
@@ -150,6 +166,15 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			throw new Error(result?.error ?? 'Failed to update Lessons Learnt.');
 		}
 
+		const filesToUpload = this.extractLessonsLearntNewAttachmentFiles(item);
+		let uploadedAttachments: ILessonsLearntAttachment[] = [];
+		if (filesToUpload.length > 0) {
+			uploadedAttachments = await this.uploadLessonsLearntAttachments(item.ID, filesToUpload, context);
+		}
+
+		const attachmentsFromServer = await this.getLessonsLearntAttachments(item.ID, context);
+		const attachments = attachmentsFromServer.length > 0 ? attachmentsFromServer : uploadedAttachments;
+
 		this.invalidateLessonsCache();
 
 		return {
@@ -158,7 +183,9 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			LlCategory: payload.LlCategory,
 			LlSolution: payload.LlSolution,
 			LlRemarks: payload.LlRemarks,
-			DataType: payload.DataType
+			DataType: payload.DataType,
+			attachments,
+			newAttachments: []
 		};
 	}
 
@@ -519,6 +546,32 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		return files;
 	}
 
+	private extractLessonsLearntNewAttachmentFiles(item?: ILessonsLearnt | null): File[] {
+		if (!item) {
+			return [];
+		}
+
+		const files: File[] = [];
+
+		if (Array.isArray(item.newAttachments)) {
+			for (const maybeFile of item.newAttachments) {
+				if (this.isFileInstance(maybeFile)) {
+					files.push(maybeFile);
+				}
+			}
+		}
+
+		if (Array.isArray(item.attachments)) {
+			for (const maybeFile of item.attachments as unknown[]) {
+				if (this.isFileInstance(maybeFile)) {
+					files.push(maybeFile);
+				}
+			}
+		}
+
+		return files;
+	}
+
 	private extractBestPracticeNewAttachmentFiles(item?: IBestPractices | null): File[] {
 		if (!item) {
 			return [];
@@ -543,6 +596,29 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		return files;
+	}
+
+	public async getLessonsLearntAttachments(itemId: number, context?: WebPartContext): Promise<ILessonsLearntAttachment[]> {
+		if (!context || !itemId) {
+			return [];
+		}
+
+		try {
+			const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+			const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+			const files = await sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc)?.items?.getById?.(itemId)?.attachmentFiles?.();
+			if (!files) {
+				return [];
+			}
+
+			return (files as any[]).map((file: any) => ({
+				FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+				ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+			})) as ILessonsLearntAttachment[];
+		} catch (error) {
+			console.warn('LlBpRcrepository.getLessonsLearntAttachments: failed to load attachments', { itemId, error });
+			return [];
+		}
 	}
 
 	public async getReusableComponentAttachments(itemId: number, context?: WebPartContext): Promise<IReusableComponentAttachment[]> {
@@ -588,6 +664,59 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		} catch (error) {
 			console.warn('LlBpRcrepository.getBestPracticeAttachments: failed to load attachments', { itemId, error });
 			return [];
+		}
+	}
+
+	private async uploadLessonsLearntAttachments(itemId: number, files: File[], context: WebPartContext): Promise<ILessonsLearntAttachment[]> {
+		if (!context || !itemId || !Array.isArray(files) || files.length === 0) {
+			return [];
+		}
+
+		try {
+			const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+			const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+			const listRef = sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc);
+			const itemRef = listRef?.items?.getById?.(itemId);
+
+			if (!itemRef || typeof itemRef.attachmentFiles?.add !== 'function') {
+				throw new Error('Attachment API not available for Lessons Learnt list.');
+			}
+
+			const uploaded: ILessonsLearntAttachment[] = [];
+
+			for (const file of files) {
+				if (!this.isFileInstance(file)) {
+					continue;
+				}
+				try {
+					const result = await itemRef.attachmentFiles.add(file.name, file);
+					const data = result?.data ?? {};
+					const fileName = data?.FileName ?? data?.Name ?? file.name;
+					let serverRelativeUrl = data?.ServerRelativeUrl ?? data?.ServerRelativePath?.DecodedUrl ?? '';
+
+					if (!serverRelativeUrl) {
+						try {
+							const attachmentMeta = await itemRef.attachmentFiles.getByName(file.name)();
+							serverRelativeUrl = attachmentMeta?.ServerRelativeUrl ?? attachmentMeta?.ServerRelativePath?.DecodedUrl ?? '';
+						} catch (metaErr) {
+							console.warn('LlBpRcrepository.uploadLessonsLearntAttachments: failed to resolve attachment metadata after upload', metaErr);
+						}
+					}
+
+					uploaded.push({
+						FileName: fileName,
+						ServerRelativeUrl: serverRelativeUrl
+					});
+				} catch (err) {
+					console.error('LlBpRcrepository.uploadLessonsLearntAttachments: upload failed for file', file?.name, err);
+					throw err;
+				}
+			}
+
+			return uploaded;
+		} catch (error) {
+			console.error('LlBpRcrepository.uploadLessonsLearntAttachments: failed to upload attachment(s)', { itemId, error });
+			throw error;
 		}
 	}
 
@@ -695,6 +824,43 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			console.error('LlBpRcrepository.uploadBestPracticeAttachments: failed to upload attachment(s)', { itemId, error });
 			throw error;
 		}
+	}
+
+	private async populateLessonsLearntAttachments(items: ILessonsLearnt[], context: WebPartContext): Promise<void> {
+		if (!Array.isArray(items) || items.length === 0) {
+			return;
+		}
+
+		const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.LlBpRc, context);
+		const sp = await this.service.getSpInstanceForSite(targetSiteUrl, context);
+		const listRef = sp?.web?.lists?.getByTitle?.(SubSiteListNames.LlBpRc);
+
+		await Promise.all(items.map(async (lesson) => {
+			if (!lesson?.ID) {
+				lesson.attachments = [];
+				lesson.newAttachments = [];
+				return;
+			}
+
+			if (!listRef?.items?.getById) {
+				lesson.attachments = [];
+				lesson.newAttachments = [];
+				return;
+			}
+
+			try {
+				const files = await listRef.items.getById(lesson.ID).attachmentFiles();
+				lesson.attachments = (files || []).map((file: any) => ({
+					FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+					ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+				})) as ILessonsLearntAttachment[];
+				lesson.newAttachments = [];
+			} catch (error) {
+				console.warn('LlBpRcrepository.populateLessonsLearntAttachments: failed for item', lesson.ID, error);
+				lesson.attachments = [];
+				lesson.newAttachments = [];
+			}
+		}));
 	}
 
 	private async populateBestPracticeAttachments(items: IBestPractices[], context: WebPartContext): Promise<void> {
@@ -805,6 +971,7 @@ export const LlBpRcRepo = defaultInstance;
 export const fetchLessonsLearnt = async (useCache: boolean = false, context?: WebPartContext): Promise<ILessonsLearnt[]> => defaultInstance.fetchLessonsLearnt(useCache, context);
 export const addLessonsLearnt = async (item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> => defaultInstance.addLessonsLearnt(item, context);
 export const updateLessonsLearnt = async (item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt> => defaultInstance.updateLessonsLearnt(item, context);
+export const getLessonsLearntAttachments = async (itemId: number, context?: WebPartContext): Promise<ILessonsLearntAttachment[]> => defaultInstance.getLessonsLearntAttachments(itemId, context);
 
 export const fetchBestPractices = async (useCache: boolean = false, context?: WebPartContext): Promise<IBestPractices[]> => defaultInstance.fetchBestPractices(useCache, context);
 export const fetchReusableComponents = async (useCache: boolean = false, context?: WebPartContext): Promise<IReusableComponents[]> => defaultInstance.fetchReusableComponents(useCache, context);

@@ -1,5 +1,5 @@
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { ILessonsLearnt } from '../../../models/Ll Bp Rc/LessonsLearnt';
+import { ILessonsLearnt, ILessonsLearntAttachment } from '../../../models/Ll Bp Rc/LessonsLearnt';
 import { IBestPracticeAttachment, IBestPractices } from '../../../models/Ll Bp Rc/BestPractices';
 import { IReusableComponentAttachment, IReusableComponents } from '../../../models/Ll Bp Rc/ReusableComponents';
 
@@ -7,6 +7,7 @@ export interface ILlBpRcRepository {
   fetchLessonsLearnt(useCache?: boolean, context?: WebPartContext): Promise<ILessonsLearnt[]>;
   addLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt>;
   updateLessonsLearnt(item: ILessonsLearnt, context?: WebPartContext): Promise<ILessonsLearnt>;
+  getLessonsLearntAttachments(itemId: number, context?: WebPartContext): Promise<ILessonsLearntAttachment[]>;
   
   fetchBestPractices(useCache?: boolean, context?: WebPartContext): Promise<IBestPractices[]>;
   addBestPractices(item: IBestPractices, context?: WebPartContext): Promise<IBestPractices>;

@@ -18,7 +18,12 @@ import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
 import PpoApproversContext from '../../PpoApproversContext';
 import { Current_User_Role } from '../../../../../common/Constants';
-import { addLessonsLearnt, fetchLessonsLearnt, updateLessonsLearnt } from '../../../../../repositories/LlBpRcrepository';
+import {
+  addLessonsLearnt,
+  fetchLessonsLearnt,
+  getLessonsLearntAttachments,
+  updateLessonsLearnt
+} from '../../../../../repositories/LlBpRcrepository';
 import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
@@ -102,32 +107,78 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     setFormMode('view');
   }, []);
 
-  const handleViewItem = React.useCallback((lesson: ILessonsLearnt) => {
-    setSelectedLesson(lesson);
-    setFormMode('view');
+  const ensureLessonAttachments = React.useCallback(async (lesson: ILessonsLearnt): Promise<ILessonsLearnt> => {
+    if (!lesson?.ID) {
+      return {
+        ...lesson,
+        attachments: lesson.attachments ?? [],
+        newAttachments: []
+      };
+    }
+
+    if (lesson.attachments && lesson.attachments.length > 0) {
+      return {
+        ...lesson,
+        newAttachments: lesson.newAttachments ?? []
+      };
+    }
+
+    try {
+      const attachments = await getLessonsLearntAttachments(lesson.ID, context);
+      const enriched: ILessonsLearnt = {
+        ...lesson,
+        attachments,
+        newAttachments: []
+      };
+      setItems(prev => prev.map(it => (it.ID === enriched.ID ? enriched : it)));
+      return enriched;
+    } catch (error) {
+      console.warn('LessonsLearnt.ensureLessonAttachments: failed to load attachments', lesson?.ID, error);
+      return {
+        ...lesson,
+        attachments: lesson.attachments ?? [],
+        newAttachments: lesson.newAttachments ?? []
+      };
+    }
+  }, [context]);
+
+  const openFormForLesson = React.useCallback(async (lesson: ILessonsLearnt | null, modeToSet: 'view' | 'edit' | 'create') => {
+    if (modeToSet === 'create' || !lesson) {
+      setSelectedLesson(null);
+      setFormMode('create');
+      setFormError(null);
+      setShowLessonsLearntForm(true);
+      return;
+    }
+
+    try {
+      const enriched = await ensureLessonAttachments(lesson);
+      setSelectedLesson(enriched);
+    } catch {
+      setSelectedLesson(lesson);
+    }
+    setFormMode(modeToSet);
     setFormError(null);
     setShowLessonsLearntForm(true);
-  }, []);
+  }, [ensureLessonAttachments]);
+
+  const handleViewItem = React.useCallback((lesson: ILessonsLearnt) => {
+    void openFormForLesson(lesson, 'view');
+  }, [openFormForLesson]);
 
   const handleCreateClick = React.useCallback(() => {
     if (!isProjectManager) {
       return;
     }
-    setSelectedLesson(null);
-    setFormMode('create');
-    setFormError(null);
-    setShowLessonsLearntForm(true);
-  }, [isProjectManager]);
+    void openFormForLesson(null, 'create');
+  }, [isProjectManager, openFormForLesson]);
 
   const handleEditItem = React.useCallback((lesson: ILessonsLearnt) => {
     if (!isProjectManager) {
       return;
     }
-    setSelectedLesson(lesson);
-    setFormMode('edit');
-    setFormError(null);
-    setShowLessonsLearntForm(true);
-  }, [isProjectManager]);
+    void openFormForLesson(lesson, 'edit');
+  }, [isProjectManager, openFormForLesson]);
 
   const onRenderItemColumn = React.useCallback((item: ILessonsLearnt, _: number | undefined, column?: IColumn) => {
     if (!column) {

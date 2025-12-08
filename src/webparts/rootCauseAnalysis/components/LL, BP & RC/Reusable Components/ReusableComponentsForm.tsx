@@ -71,6 +71,8 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
   const [existingAttachments, setExistingAttachments] = useState<IReusableComponentAttachment[]>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const isReadOnly = mode === 'view';
+  const isEditing = mode === 'edit';
+  const shouldShowReset = !isReadOnly && !isEditing;
   const attachmentInputId = React.useMemo(() => `rc-attachments-${Math.random().toString(36).slice(2)}`, []);
 
   const createInitialState = useCallback((): ReusableComponentsFormState => ({
@@ -304,18 +306,18 @@ const ReusableComponentsForm: React.FC<IReusableComponentsFormProps> = (props) =
           )}
         </Stack>
 
-        <Stack horizontal tokens={buttonStackTokens}>
-          {!isReadOnly && (
-            <>
-              <PrimaryButton
-                type="submit"
-                text={isSaving ? 'Saving…' : 'Save'}
-                disabled={!!isSaving}
-              />
+        {!isReadOnly && (
+          <Stack horizontal tokens={buttonStackTokens}>
+            <PrimaryButton
+              type="submit"
+              text={isSaving ? 'Saving…' : 'Save'}
+              disabled={!!isSaving}
+            />
+            {shouldShowReset && (
               <DefaultButton type="button" text="Reset" onClick={handleReset} disabled={isSaving} />
-            </>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        )}
       </Stack>
     </form>
   );
