@@ -73,6 +73,8 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = (props) => {
   const [existingAttachments, setExistingAttachments] = useState<ILessonsLearntAttachment[]>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const isReadOnly = mode === 'view';
+  const isEditing = mode === 'edit';
+  const shouldShowReset = !isReadOnly && !isEditing;
   const attachmentInputId = useMemo(() => `ll-attachments-${Math.random().toString(36).slice(2)}`, []);
 
   const createInitialState = useCallback((): LessonsLearntFormState => ({
@@ -307,18 +309,18 @@ const LessonsLearntForm: React.FC<ILessonsLearntFormProps> = (props) => {
           )}
         </Stack>
 
-        <Stack horizontal tokens={buttonStackTokens}>
-          {!isReadOnly && (
-            <>
-              <PrimaryButton
-                type="submit"
-                text={isSaving ? 'Saving…' : 'Save'}
-                disabled={!!isSaving}
-              />
+        {!isReadOnly && (
+          <Stack horizontal tokens={buttonStackTokens}>
+            <PrimaryButton
+              type="submit"
+              text={isSaving ? 'Saving…' : 'Save'}
+              disabled={!!isSaving}
+            />
+            {shouldShowReset && (
               <DefaultButton type="button" text="Reset" onClick={handleReset} disabled={isSaving} />
-            </>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        )}
       </Stack>
     </form>
   );
