@@ -16,6 +16,8 @@ import {
 } from '@fluentui/react';
 import styles from '../LlBpRc.module.scss';
 import { IBestPractices } from '../../../../../models/Ll Bp Rc/BestPractices';
+import PpoApproversContext from '../../PpoApproversContext';
+import { Current_User_Role } from '../../../../../common/Constants';
 import {
   addBestPractices,
   fetchBestPractices,
@@ -31,6 +33,8 @@ interface IBestPracticesProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
+  const { currentUserRole } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager;
   const [items, setItems] = React.useState<IBestPractices[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -154,12 +158,18 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
   }, [openFormForItem]);
 
   const handleCreateClick = React.useCallback(() => {
+    if (!isProjectManager) {
+      return;
+    }
     void openFormForItem(null, 'create');
-  }, [openFormForItem]);
+  }, [isProjectManager, openFormForItem]);
 
   const handleEditItem = React.useCallback((item: IBestPractices) => {
+    if (!isProjectManager) {
+      return;
+    }
     void openFormForItem(item, 'edit');
-  }, [openFormForItem]);
+  }, [isProjectManager, openFormForItem]);
 
   const onRenderItemColumn = React.useCallback((item: IBestPractices, _: number | undefined, column?: IColumn) => {
     if (!column) {
@@ -180,7 +190,9 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
       return (
         <div>
           <IconButton iconProps={{ iconName: 'View' }} ariaLabel="View" onClick={onView} />
-          <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          {isProjectManager && (
+            <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          )}
         </div>
       );
     }
@@ -192,7 +204,7 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, [handleEditItem, handleViewItem]);
+  }, [handleEditItem, handleViewItem, isProjectManager]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -292,11 +304,13 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
 
   return (
     <div>
-      <PrimaryButton
-        text="Add Best Practice"
-        onClick={handleCreateClick}
-        style={{ marginTop: '8px' }}
-      />
+      {isProjectManager && (
+        <PrimaryButton
+          text="Add Best Practice"
+          onClick={handleCreateClick}
+          style={{ marginTop: '8px' }}
+        />
+      )}
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (

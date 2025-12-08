@@ -17,6 +17,8 @@ import {
 
 import styles from '../LlBpRc.module.scss';
 import { IReusableComponents } from '../../../../../models/Ll Bp Rc/ReusableComponents';
+import PpoApproversContext from '../../PpoApproversContext';
+import { Current_User_Role } from '../../../../../common/Constants';
 import {
   addReusableComponents,
   fetchReusableComponents,
@@ -32,6 +34,8 @@ interface IReusableComponentsProps {
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
 const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => {
+  const { currentUserRole } = React.useContext(PpoApproversContext);
+  const isProjectManager = currentUserRole === Current_User_Role.ProjectManager;
   const [items, setItems] = React.useState<IReusableComponents[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -164,12 +168,18 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
   }, [openComponentForm]);
 
   const handleCreateClick = React.useCallback(() => {
+    if (!isProjectManager) {
+      return;
+    }
     void openComponentForm(null, 'create');
-  }, [openComponentForm]);
+  }, [isProjectManager, openComponentForm]);
 
   const handleEditItem = React.useCallback((item: IReusableComponents) => {
+    if (!isProjectManager) {
+      return;
+    }
     void openComponentForm(item, 'edit');
-  }, [openComponentForm]);
+  }, [isProjectManager, openComponentForm]);
 
   const onRenderItemColumn = React.useCallback((item: IReusableComponents, _: number | undefined, column?: IColumn) => {
     if (!column) {
@@ -190,7 +200,9 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
       return (
         <div>
           <IconButton iconProps={{ iconName: 'View' }} ariaLabel="View" onClick={onView} />
-          <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          {isProjectManager && (
+            <IconButton iconProps={{ iconName: 'Edit' }} ariaLabel="Edit" onClick={onEdit} />
+          )}
         </div>
       );
     }
@@ -202,7 +214,7 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
     }
 
     return <span>{typeof rawValue === 'string' ? rawValue : String(rawValue)}</span>;
-  }, [handleEditItem, handleViewItem]);
+  }, [handleEditItem, handleViewItem, isProjectManager]);
 
   React.useEffect(() => {
     let isDisposed = false;
@@ -301,11 +313,13 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
 
   return (
     <div>
-      <PrimaryButton
-        text="Add Reusable Component"
-        onClick={handleCreateClick}
-        style={{ marginTop: '8px' }}
-      />
+      {isProjectManager && (
+        <PrimaryButton
+          text="Add Reusable Component"
+          onClick={handleCreateClick}
+          style={{ marginTop: '8px' }}
+        />
+      )}
       <Stack tokens={stackTokens} className={styles.formWrapper}>
         {successMessage && (
           <MessageBar

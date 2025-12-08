@@ -49,20 +49,23 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
           'Reviewer/ID',
           'Reviewer/Title',
           'Reviewer/EMail',
+          'Reviewer/Name',
           'BUH/Id',
           'BUH/ID',
           'BUH/Title',
           'BUH/EMail',
+          'BUH/Name',
           'ProjectManager/Id',
           'ProjectManager/ID',
           'ProjectManager/Title',
-          'ProjectManager/EMail'
+          'ProjectManager/EMail',
+          'ProjectManager/Name'
         ],
         expand: ['Reviewer', 'BUH', 'ProjectManager'],
         filter,
         pageSize: 5
       });
-
+      console.log('PPO Approvers items fetched:', items);
       if (!items || items.length === 0) {
         return {
           approver: null,
@@ -73,7 +76,6 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
       const matchedItem = this.pickBestMatch(items, candidateProjectNames);
       const approver = this.mapApprover(matchedItem);
       const currentUserRole = this.resolveCurrentUserRole(context, approver);
-
       return { approver, currentUserRole };
     } catch (error: any) {
       console.error(ErrorMessages.FAILED_TO_FETCH_PPOAPPROVERS, error);
@@ -93,15 +95,42 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
       ID: Number(item.Id || item.ID || 0),
       Title: item.Title || '',
       InternalProjectName: item.InternalProjectName || '',
-      Reviewer: this.mapUser(item.Reviewer),
-      BUH: this.mapUser(item.BUH),
-      ProjectManager: this.mapUser(item.ProjectManager)
+      Reviewer: this.mapUsers(item.Reviewer),
+      BUH: this.mapUsers(item.BUH),
+      ProjectManager: this.mapUsers(item.ProjectManager)
     };
 
     return approver;
   }
 
-  private mapUser(user: any): IPPOApproverUser | null {
+  private mapUsers(value: any): IPPOApproverUser[] | null {
+    const users: IPPOApproverUser[] = [];
+
+    if (!value) {
+      return null;
+    }
+
+    let source: any[] = [];
+
+    if (Array.isArray(value)) {
+      source = value;
+    } else if (value.results && Array.isArray(value.results)) {
+      source = value.results;
+    } else {
+      source = [value];
+    }
+
+    for (let i = 0; i < source.length; i++) {
+      const mapped = this.mapSingleUser(source[i]);
+      if (mapped) {
+        users.push(mapped);
+      }
+    }
+
+    return users.length > 0 ? users : null;
+  }
+
+  private mapSingleUser(user: any): IPPOApproverUser | null {
     if (!user) {
       return null;
     }
@@ -129,28 +158,38 @@ export default class PPOApproversRepository implements IPPOApproversRepositoryIn
       return Current_User_Role.None;
     }
 
-    const buhEmail = approver.BUH && approver.BUH.email
-      ? approver.BUH.email.toLowerCase()
-      : '';
-    if (buhEmail === currentUserEmail) {
+    if (this.hasMatchingUser(approver.BUH, currentUserEmail)) {
       return Current_User_Role.BUH;
     }
 
-    const projectManagerEmail = approver.ProjectManager && approver.ProjectManager.email
-      ? approver.ProjectManager.email.toLowerCase()
-      : '';
-    if (projectManagerEmail === currentUserEmail) {
+    if (this.hasMatchingUser(approver.ProjectManager, currentUserEmail)) {
       return Current_User_Role.ProjectManager;
     }
 
-    const reviewerEmail = approver.Reviewer && approver.Reviewer.email
-      ? approver.Reviewer.email.toLowerCase()
-      : '';
-    if (reviewerEmail === currentUserEmail) {
+    if (this.hasMatchingUser(approver.Reviewer, currentUserEmail)) {
       return Current_User_Role.Reviewer;
     }
 
     return Current_User_Role.None;
+  }
+
+  private hasMatchingUser(users: IPPOApproverUser[] | null, targetEmail: string): boolean {
+    if (!users || users.length === 0 || !targetEmail) {
+      return false;
+    }
+
+    for (let i = 0; i < users.length; i++) {
+      const candidate = users[i];
+      if (!candidate || !candidate.email) {
+        continue;
+      }
+
+      if (candidate.email.toLowerCase() === targetEmail) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private pickBestMatch(items: any[], candidates: string[]): any {

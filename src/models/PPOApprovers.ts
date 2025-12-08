@@ -9,7 +9,7 @@ export interface IPPOApprovers {
     ID: number;
     Title: string;
     InternalProjectName: string;
-    Reviewer: IPPOApproverUser | null;
-    BUH: IPPOApproverUser | null;
-    ProjectManager: IPPOApproverUser | null;
+    Reviewer: IPPOApproverUser[] | null;
+    BUH: IPPOApproverUser[] | null;
+    ProjectManager: IPPOApproverUser[] | null;
 }
