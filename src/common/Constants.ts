@@ -13,7 +13,7 @@ export default class ParentListNames {
 export class SubSiteListNames {
   public static ProjectMetrics: string = "ProjectMetrics";
   public static ProjectMetricLogs: string = "ProjectMetricLogs";
-  public static RootCauseAnalysis: string = "Root Cause Analysis";
+  public static RootCauseAnalysis: string = "RootCauseAnalysis";
   public static LlBpRc: string = "LlBpRc";
 }
 
