@@ -93,7 +93,7 @@ export class RCARepository implements IRCARepository {
 
                 PerformanceBeforeActionPlan: it?.PerformanceBeforeActionPlan || '',
                 PerformanceAfterActionPlan: it?.PerformanceAfterActionPlan || '',
-                QuantitativeOrStatisticalEffecti: it?.QuantitativeOrStatisticalEffecti || '',
+                QuantitativeOrStatisticalEffecti: it?.Quantitative_x0020_Or_x0020_Stat || '',
                 Remarks: it?.Remarks || '',
                 RelatedSubMetric: it?.RelatedSubMetric || '',
                 attachments: []
