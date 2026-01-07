@@ -251,6 +251,10 @@ export class RCARepository implements IRCARepository {
             if (item.PlannedClosureDatePreventive !== undefined) payload.PlannedClosureDatePreventive = item.PlannedClosureDatePreventive;
             if (item.ActualClosureDatePreventive !== undefined) payload.ActualClosureDatePreventive = item.ActualClosureDatePreventive;
             if (item.RelatedSubMetric !== undefined) payload.RelatedSubMetric = item.RelatedSubMetric;
+            if (item.PerformanceBeforeActionPlan !== undefined) payload.PerformanceBeforeActionPlan = item.PerformanceBeforeActionPlan;
+            if (item.PerformanceAfterActionPlan !== undefined) payload.PerformanceAfterActionPlan = item.PerformanceAfterActionPlan;
+            if (item.QuantitativeOrStatisticalEffecti !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = item.QuantitativeOrStatisticalEffecti;
+            if (item.Remarks !== undefined) payload.Remarks = item.Remarks;
 
             const result = await this.service.saveItem<IRCAList>({
                 context,
@@ -393,6 +397,10 @@ export class RCARepository implements IRCARepository {
             if (item.PlannedClosureDatePreventive !== undefined) payload.PlannedClosureDatePreventive = item.PlannedClosureDatePreventive;
             if (item.ActualClosureDatePreventive !== undefined) payload.ActualClosureDatePreventive = item.ActualClosureDatePreventive;
             if (item.RelatedSubMetric !== undefined) payload.RelatedSubMetric = item.RelatedSubMetric;
+            if (item.PerformanceBeforeActionPlan !== undefined) payload.PerformanceBeforeActionPlan = item.PerformanceBeforeActionPlan;
+            if (item.PerformanceAfterActionPlan !== undefined) payload.PerformanceAfterActionPlan = item.PerformanceAfterActionPlan;
+            if (item.QuantitativeOrStatisticalEffecti !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = item.QuantitativeOrStatisticalEffecti;
+            if (item.Remarks !== undefined) payload.Remarks = item.Remarks;
 
             await this.service.updateItem({
                 context,
