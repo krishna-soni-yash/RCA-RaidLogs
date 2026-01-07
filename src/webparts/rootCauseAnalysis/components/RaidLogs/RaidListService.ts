@@ -4,6 +4,7 @@ import { IGenericService } from '../../../../services/IGenericServices';
 import { IRaidItem, RaidType, IRaidAction } from './interfaces/IRaidItem';
 import { LIST_NAMES } from '../../../../common/Constants';
 import { IExtendedRaidItem } from './interfaces/IRaidService';
+import RaidLogEmailTriggerService from '../../../../services/RaidLogEmailTriggerService';
 
 export interface ISharePointListItem {
   Id?: number;
@@ -72,12 +73,75 @@ export class RaidListService {
   private context: WebPartContext;
   private listName: string;
   private enablePeoplePickerFields: boolean = true;
+  private emailTriggerService: RaidLogEmailTriggerService;
 
   constructor(context: WebPartContext, listName: string = LIST_NAMES.RAID_LOGS) {
     this.context = context;
     this.genericService = GenericServiceInstance;
     this.genericService.init(undefined, context);
     this.listName = listName;
+    this.emailTriggerService = new RaidLogEmailTriggerService(context);
+  }
+
+  private normalizeUserEmails(users: any): string[] {
+    if (!users) return [];
+
+    const emails: string[] = [];
+    const push = (val: any) => {
+      if (!val) return;
+      const s = String(val).trim();
+      const m = s.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+      if (m) emails.push(m[0].toLowerCase());
+    };
+
+    if (Array.isArray(users)) {
+      for (let i = 0; i < users.length; i++) {
+        const u = users[i];
+        if (!u) continue;
+        if (typeof u === 'string') {
+          const parts = u.split(/;|,/).map(p => p.trim()).filter(Boolean);
+          for (let j = 0; j < parts.length; j++) {
+            const seg = parts[j].split('|').map(s => s.trim());
+            if (seg.length > 1) push(seg[1]); else push(seg[0]);
+          }
+        } else if (typeof u === 'object') {
+          push(u.email || u.Email || u.EMail || u.loginName || u.LoginName || u.id);
+        } else {
+          push(u);
+        }
+      }
+    } else if (typeof users === 'string') {
+      const parts = users.split(/;|,/).map(p => p.trim()).filter(Boolean);
+      for (let i = 0; i < parts.length; i++) {
+        const seg = parts[i].split('|').map(s => s.trim());
+        if (seg.length > 1) push(seg[1]); else push(seg[0]);
+      }
+    } else if (typeof users === 'object') {
+      push(users.email || users.Email || users.EMail || users.loginName || users.LoginName || users.id);
+    } else {
+      push(users);
+    }
+
+    // dedupe
+    const seen: { [k: string]: boolean } = {};
+    const res: string[] = [];
+    for (let i = 0; i < emails.length; i++) {
+      const e = emails[i];
+      if (!seen[e]) { seen[e] = true; res.push(e); }
+    }
+    return res;
+  }
+
+  private arraysEqualIgnoreOrder(a: string[], b: string[]): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    const sa = a.slice().sort();
+    const sb = b.slice().sort();
+    for (let i = 0; i < sa.length; i++) {
+      if (sa[i] !== sb[i]) return false;
+    }
+    return true;
   }
 
   private createQueryOptions(additionalOptions?: Partial<IListQueryOptions>): IListQueryOptions {
@@ -452,7 +516,7 @@ export class RaidListService {
     }
   }
 
-  async createRaidItem(raidItem: Omit<IRaidItem, 'id'>): Promise<IExtendedRaidItem | null> {
+  async createRaidItem(raidItem: Omit<IRaidItem, 'id'>, options?: { skipEmailTrigger?: boolean }): Promise<IExtendedRaidItem | null> {
     try {
       const spItem = await this.convertToSharePointItem({ ...raidItem, id: 0 });
       // Clean the item using RaidLogs-specific cleaning function
@@ -483,7 +547,28 @@ export class RaidListService {
         }
 
         if (createdSpItem) {
-          return this.convertFromSharePointItem(createdSpItem);
+          const convertedItem = this.convertFromSharePointItem(createdSpItem);
+
+          // Preserve original responsibility/byWhom values from the input raidItem
+          // so we can retain email address information that may be lost after
+          // the SharePoint round-trip (which often only returns ids/displayName).
+          if (convertedItem) {
+            try {
+              // If the original input (the parameter to createRaidItem) had responsibility/byWhom
+              // prefer those values for email extraction in the email trigger.
+              (convertedItem as any).responsibility = (raidItem as any).responsibility || convertedItem.responsibility;
+              (convertedItem as any).byWhom = (raidItem as any).byWhom || convertedItem.byWhom;
+
+              if (!options || !options.skipEmailTrigger) {
+                await this.emailTriggerService.createEmailTrigger(convertedItem);
+              }
+            } catch (emailError) {
+              console.error('Failed to create email trigger, but RAID item was created successfully:', emailError);
+              // Continue execution - don't fail the RAID item creation if email trigger fails
+            }
+          }
+
+          return convertedItem;
         }
       }
 
@@ -504,6 +589,13 @@ export class RaidListService {
       if (!raidItem.raidId) {
         return null;
       }
+
+      const bothActionsHaveSameResponsibility = ((): boolean => {
+        if (!mitigationAction || !contingencyAction) return false;
+        const mitEmails = this.normalizeUserEmails(mitigationAction.responsibility);
+        const conEmails = this.normalizeUserEmails(contingencyAction.responsibility);
+        return mitEmails.length > 0 && this.arraysEqualIgnoreOrder(mitEmails, conEmails);
+      })();
 
       if (mitigationAction) {
         const mitigationItem: Omit<IRaidItem, 'id'> = {
@@ -535,7 +627,8 @@ export class RaidListService {
           status: contingencyAction.status
         };
 
-        const createdContingency = await this.createRaidItem(contingencyItem);
+        // If both actions share same responsibility, skip creating a duplicate email trigger for the second item
+        const createdContingency = await this.createRaidItem(contingencyItem, { skipEmailTrigger: bothActionsHaveSameResponsibility });
         if (createdContingency) {
           createdItems.push(createdContingency);
         } else {

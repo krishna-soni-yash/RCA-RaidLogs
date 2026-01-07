@@ -34,6 +34,17 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
     };
   }
   public componentDidMount(): void {
+    // If URL contains RCAId (or variants), activate the Causal Analysis tab so RCATable mounts
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get('RCAId') || params.get('RcaId') || params.get('rcaid') || params.get('RCAid') || params.get('rcaId');
+      if (raw) {
+        this.setState({ activeTab: 'rootCauseAnalysis' });
+      }
+    } catch {
+      // ignore
+    }
+
     void this.loadPpoApprovers();
   }
   private handleTabChange = (tabKey: string): void => {

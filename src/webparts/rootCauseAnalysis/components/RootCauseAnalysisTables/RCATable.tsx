@@ -155,6 +155,66 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	useEffect(() => {
 		fetchRCAItems();
 	}, [context, handleFormSubmit]);
+
+	// If an RCAId (or variants) query parameter is present, open that item in the edit dialog
+	useEffect(() => {
+		const tryOpenFromQuery = async (): Promise<void> => {
+			try {
+				const params = new URLSearchParams(window.location.search);
+				const raw = params.get('RCAId') || params.get('RcaId') || params.get('rcaid') || params.get('RCAid') || params.get('rcaId');
+				if (!raw) return;
+
+				const value = raw;
+				let found: any | undefined = undefined;
+
+				for (let idx = 0; idx < RCAItems.length; idx++) {
+					const it = RCAItems[idx];
+					if (String(it.ID) === value) {
+						found = it;
+						break;
+					}
+				}
+
+				// If not found in current list, try fetching fresh (in case items not yet loaded)
+				if (!found && !isNaN(Number(value))) {
+					try {
+						const refreshed = await getRCAItems(false, context);
+						if (refreshed && refreshed.length > 0) {
+							for (let idx = 0; idx < refreshed.length; idx++) {
+								const it = refreshed[idx];
+								if (String(it.ID) === value) { found = it; break; }
+							}
+							// update local state so UI shows the item in list
+							setRCAItems(refreshed);
+						}
+					} catch (e) {
+						// ignore
+					}
+				}
+
+				if (found) {
+					setSelectedItem(found);
+					setIsEditing(true);
+					setIsDialogOpen(true);
+
+					// Remove query param so modal doesn't reopen on refresh
+					const newUrl = new URL(window.location.href);
+					newUrl.searchParams.delete('RCAId');
+					newUrl.searchParams.delete('RcaId');
+					newUrl.searchParams.delete('rcaid');
+					newUrl.searchParams.delete('RCAid');
+					newUrl.searchParams.delete('rcaId');
+					window.history.replaceState(null, '', newUrl.toString());
+				}
+			} catch (err) {
+				console.error('Error opening RCA item from query param:', err);
+			}
+		};
+
+		if (RCAItems && RCAItems.length > 0) {
+			void tryOpenFromQuery();
+		}
+	}, [RCAItems, context]);
 	 const fetchRCAItems = async () => {
 		const genericServiceInstance: IGenericService = new GenericService(undefined, context);
 		genericServiceInstance.init(undefined, context);
