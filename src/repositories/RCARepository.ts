@@ -77,17 +77,17 @@ export class RCARepository implements IRCARepository {
                 RCATypeOfAction: it?.RCATypeOfAction || '',
 
                 ActionPlanCorrection: it?.ActionPlanCorrection || '',
-                ResponsibilityCorrection: it?.ResponsibilityCorrection?.EMail.toString() || '',
+                ResponsibilityCorrection: it?.ResponsibilityCorrection?.EMail?.toString() || '',
                 PlannedClosureDateCorrection: it?.PlannedClosureDateCorrection || '',
                 ActualClosureDateCorrection: it?.ActualClosureDateCorrection || '',
 
                 ActionPlanCorrective: it?.ActionPlanCorrective || '',
-                ResponsibilityCorrective: it?.ResponsibilityCorrective?.EMail.toString() || '',
+                ResponsibilityCorrective: it?.ResponsibilityCorrective?.EMail?.toString() || '',
                 PlannedClosureDateCorrective: it?.PlannedClosureDateCorrective || '',
                 ActualClosureDateCorrective: it?.ActualClosureDateCorrective || '',
 
                 ActionPlanPreventive: it?.ActionPlanPreventive || '',
-                ResponsibilityPreventive: it?.ResponsibilityPreventive?.EMail.toString() || '',
+                ResponsibilityPreventive: it?.ResponsibilityPreventive?.EMail?.toString() || '',
                 PlannedClosureDatePreventive: it?.PlannedClosureDatePreventive || '',
                 ActualClosureDatePreventive: it?.ActualClosureDatePreventive || '',
 
