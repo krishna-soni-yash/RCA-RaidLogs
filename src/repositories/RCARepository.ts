@@ -5,6 +5,7 @@ import { IRCAList } from '../models/IRCAList';
 import ErrorMessages from '../common/ErrorMessages';
 import { SubSiteListNames, selectedFields, expandFields } from '../common/Constants';
 import IRCARepository from '../repositories/repositoriesInterface/IRCARepository';
+import RCAEmailTriggerService from '../services/RCAEmailTriggerService';
 import '@pnp/sp/webs';
 import '@pnp/sp/lists';
 import '@pnp/sp/items';
@@ -252,6 +253,20 @@ export class RCARepository implements IRCARepository {
             if (item.ActualClosureDatePreventive !== undefined) payload.ActualClosureDatePreventive = item.ActualClosureDatePreventive;
             if (item.RelatedSubMetric !== undefined) payload.RelatedSubMetric = item.RelatedSubMetric;
 
+            // map performance / quantitative / remarks fields for update
+            if (item.PerformanceBeforeActionPlan !== undefined) payload.PerformanceBeforeActionPlan = item.PerformanceBeforeActionPlan;
+            if (item.PerformanceAfterActionPlan !== undefined) payload.PerformanceAfterActionPlan = item.PerformanceAfterActionPlan;
+            if ((item as any).Quantitative_x0020_Or_x0020_Stat !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = (item as any).Quantitative_x0020_Or_x0020_Stat;
+            else if ((item as any).QuantitativeOrStatisticalEffecti !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = (item as any).QuantitativeOrStatisticalEffecti;
+            if (item.Remarks !== undefined) payload.Remarks = item.Remarks;
+            // map performance / quantitative / remarks fields
+            if (item.PerformanceBeforeActionPlan !== undefined) payload.PerformanceBeforeActionPlan = item.PerformanceBeforeActionPlan;
+            if (item.PerformanceAfterActionPlan !== undefined) payload.PerformanceAfterActionPlan = item.PerformanceAfterActionPlan;
+            // support both possible property names coming from form/repo
+            if ((item as any).Quantitative_x0020_Or_x0020_Stat !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = (item as any).Quantitative_x0020_Or_x0020_Stat;
+            else if ((item as any).QuantitativeOrStatisticalEffecti !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = (item as any).QuantitativeOrStatisticalEffecti;
+            if (item.Remarks !== undefined) payload.Remarks = item.Remarks;
+
             const result = await this.service.saveItem<IRCAList>({
                 context,
                 listTitle: SubSiteListNames.RootCauseAnalysis,
@@ -260,6 +275,18 @@ export class RCARepository implements IRCARepository {
                 expand: expandFields
             });
             this.refresh();
+
+            // Attempt to create RCAEmailTrigger entry (best-effort, do not block save)
+            try {
+                const createdId = (result && result.itemId) ? result.itemId : (result && result.item && (result.item.ID));
+                const emailService = new RCAEmailTriggerService(context);
+                const createdItemForEmail: any = item;
+                createdItemForEmail.ID = createdId;
+                // fire-and-forget but await to surface errors in logs
+                await emailService.createEmailTrigger(createdItemForEmail);
+            } catch (e) {
+                console.warn('Failed to create RCAEmailTrigger entry:', e);
+            }
 
             return result;
         } catch (error: any) {
