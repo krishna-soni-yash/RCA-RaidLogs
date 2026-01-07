@@ -13,7 +13,15 @@ export default class ParentListNames {
 export class SubSiteListNames {
   public static ProjectMetrics: string = "ProjectMetrics";
   public static ProjectMetricLogs: string = "ProjectMetricLogs";
-  public static RootCauseAnalysis: string = "Root Cause Analysis";
+  public static RootCauseAnalysis: string = "RootCauseAnalysis";
+  public static LlBpRc: string = "LlBpRc";
+}
+
+export enum Current_User_Role {
+  ProjectManager = "ProjectManager",
+  Reviewer = "Reviewer",
+  BUH = "BUH",
+  None = "None"
 }
 
 //RCA Site Configuration
@@ -48,7 +56,7 @@ export const RCACOLUMNS: (IColumnConfig)[] = [
   { key: 'actionType', name: 'Type of Action', fieldName: 'RCATypeOfAction', minWidth: 100, maxWidth: 140, isResizable: true },
   { key: 'performanceBefore', name: 'Performance before action plan', fieldName: 'PerformanceBeforeActionPlan', minWidth: 120, maxWidth: 180, isResizable: true },
   { key: 'performanceAfter', name: 'Performance after action plan', fieldName: 'PerformanceAfterActionPlan', minWidth: 120, maxWidth: 180, isResizable: true },
-  { key: 'quantitativeEffectiveness', name: 'Quantitative / Statistical effectiveness', fieldName: 'QuantitativeOrStatisticalEffecti', minWidth: 140, maxWidth: 200, isResizable: true },
+  { key: 'quantitativeEffectiveness', name: 'Quantitative / Statistical effectiveness', fieldName: 'Quantitative_x0020_Or_x0020_Stat', minWidth: 140, maxWidth: 200, isResizable: true },
   { key: 'remarks', name: 'Remarks', fieldName: 'Remarks', minWidth: 100, maxWidth: 180, isResizable: true }
 ];
 export const selectedFields = [
@@ -88,7 +96,7 @@ export const selectedFields = [
   'ActualClosureDatePreventive',
   'PerformanceBeforeActionPlan',    
   'PerformanceAfterActionPlan',  
-  'QuantitativeOrStatisticalEffecti',
+  'Quantitative_x0020_Or_x0020_Stat',
   'Remarks',
 ];
 export const expandFields = [

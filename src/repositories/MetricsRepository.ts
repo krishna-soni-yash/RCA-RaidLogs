@@ -137,55 +137,60 @@ export class MetricsRepository implements IProjectMetricsRepository {
       genericServiceInstance.init(undefined, context);
       // const selectFields: string[] = ['Id', 'LinkTitle','ProjectType','IsActive'];
       //const listConfig = await getListConfigurationBasedOnMetricLogs(context);
-      
+
       this.ActiveVersion = await this.getApprovedProjectlogs(true, context);
       if (this.ActiveVersion && this.ActiveVersion.length > 0) {
         this.VersionId = this.ActiveVersion[0].ID;
       }
-      const items = await this.service.fetchAllItems<any>({
-        context,
-        listTitle: SubSiteListNames.ProjectMetrics,
-        //select: selectFields,
-        pageSize: 2000,
-        filter: 'IsActive eq 1 and VersionId eq ' + (this.VersionId) + '',
-        // filter: 'IsActive eq true and ProjectType in (' + (selectedProjectTypes?.map(pt => `'${pt}'`).join(',') || '') + ')',
+      if (this.VersionId || this.VersionId != undefined) {
+        const items = await this.service.fetchAllItems<any>({
+          context,
+          listTitle: SubSiteListNames.ProjectMetrics,
+          //select: selectFields,
+          pageSize: 2000,
+          filter: 'IsActive eq 1 and VersionId eq ' + (this.VersionId) + '',
+          // filter: 'IsActive eq true and ProjectType in (' + (selectedProjectTypes?.map(pt => `'${pt}'`).join(',') || '') + ')',
 
-      });
+        });
 
-      const normalized = (items || []).map((it: any) => ({
-        ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
-        LinkTitle: it?.LinkTitle ?? it?.Title ?? '',
-        ProjectType: it?.ProjectType?.Title ?? '',
-        // Metrics: it?.NameOfMetrics ?? '',
-        PerformanceGoals: it?.PerformanceGoals ?? '',
-        UnitOfMeasure: it?.UnitOfMeasure ?? '',
-        MetricFormulae: it?.MetricFormulae ?? '',
-        AssociatedPPM: it?.AssociatedPPM ?? '',
-        Goal: it?.Goal ?? '',
-        USL: it?.USL ?? '',
-        LSL: it?.LSL ?? '',
-        Priority: it?.Priority ?? '',
-        DataInput: it?.DataInput ?? '',
-        DataSource: it?.DataSource ?? '',
-        DataCollectionFrequency: it?.DataCollectionFrequency ?? '',
-        DataAnalysisFrequency: it?.DataAnalysisFrequency ?? '',
-        BaselineAndRevisionFrequency: it?.BaselineAndRevisionFrequency ?? '',
-        Statistical: it?.Statistical ?? '',
-        Quantitative: it?.Quantitative ?? '',
-        InterpretationGuidelines: it?.InterpretationGuidelines ?? '',
-        CausalAnalysisTrigger: it?.CausalAnalysisTrigger ?? '',
-        ProbabilityOfSuccessThreshold: it?.ProbabilityOfSuccessThreshold ?? '',
-        Process: it?.Process ?? '',
-        BG: it?.BG ?? '',
-        PG: it?.PG ?? '',
-        MetricsFormulae: it?.MetricsFormulae ?? '',
-        Metrics: it?.Metrics ?? '',
-      })) as unknown as IMetrics[];
+        const normalized = (items || []).map((it: any) => ({
+          ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
+          LinkTitle: it?.LinkTitle ?? it?.Title ?? '',
+          ProjectType: it?.ProjectType?.Title ?? '',
+          // Metrics: it?.NameOfMetrics ?? '',
+          PerformanceGoals: it?.PerformanceGoals ?? '',
+          UnitOfMeasure: it?.UnitOfMeasure ?? '',
+          MetricFormulae: it?.MetricFormulae ?? '',
+          AssociatedPPM: it?.AssociatedPPM ?? '',
+          Goal: it?.Goal ?? '',
+          USL: it?.USL ?? '',
+          LSL: it?.LSL ?? '',
+          Priority: it?.Priority ?? '',
+          DataInput: it?.DataInput ?? '',
+          DataSource: it?.DataSource ?? '',
+          DataCollectionFrequency: it?.DataCollectionFrequency ?? '',
+          DataAnalysisFrequency: it?.DataAnalysisFrequency ?? '',
+          BaselineAndRevisionFrequency: it?.BaselineAndRevisionFrequency ?? '',
+          Statistical: it?.Statistical ?? '',
+          Quantitative: it?.Quantitative ?? '',
+          InterpretationGuidelines: it?.InterpretationGuidelines ?? '',
+          CausalAnalysisTrigger: it?.CausalAnalysisTrigger ?? '',
+          ProbabilityOfSuccessThreshold: it?.ProbabilityOfSuccessThreshold ?? '',
+          Process: it?.Process ?? '',
+          BG: it?.BG ?? '',
+          PG: it?.PG ?? '',
+          MetricsFormulae: it?.MetricsFormulae ?? '',
+          Metrics: it?.Metrics ?? '',
+        })) as unknown as IMetrics[];
 
-      this.cache = normalized;
-      this.cacheTimestamp = now;
+        this.cache = normalized;
+        this.cacheTimestamp = now;
 
-      return this.cache;
+        return this.cache;
+      }
+      else {
+        return [];
+      }
     } catch (error: any) {
       throw new Error('Failed to fetch ProjectType: ' + (error?.message || error));
     }
@@ -207,9 +212,9 @@ export class MetricsRepository implements IProjectMetricsRepository {
       genericServiceInstance.init(undefined, context);
       // const selectFields: string[] = ['Id', 'LinkTitle','ProjectType','IsActive'];
       //const listConfig = await getListConfigurationBasedOnMetricLogs(context);
-      
+
       // Ensure we have the active version id available
-     
+
 
       const items = await this.service.fetchAllItems<any>({
         context,
