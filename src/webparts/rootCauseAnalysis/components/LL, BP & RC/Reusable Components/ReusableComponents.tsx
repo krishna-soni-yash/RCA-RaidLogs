@@ -29,11 +29,12 @@ import ReusableComponentsForm from './ReusableComponentsForm';
 
 interface IReusableComponentsProps {
   context: WebPartContext;
+  openItemId?: string | null;
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
-const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => {
+const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
@@ -252,6 +253,39 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context }) => 
       isDisposed = true;
     };
   }, [context]);
+
+  React.useEffect(() => {
+    if (!openItemId) return;
+    if (!items || items.length === 0) return;
+
+    const val = String(openItemId);
+    let found: IReusableComponents | undefined = undefined;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (String(it.ID) === val || String((it as any).Id) === val) {
+        found = it;
+        break;
+      }
+    }
+    if (!found) return;
+
+    (async () => {
+      try {
+        await ensureComponentAttachments(found);
+      } catch (e) {
+        // ignore
+      }
+      void openComponentForm(found, 'edit');
+
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('LlBpRcId');
+        window.history.replaceState(null, '', newUrl.toString());
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [openItemId, items, ensureComponentAttachments, openComponentForm]);
 
   React.useEffect(() => {
     return () => {

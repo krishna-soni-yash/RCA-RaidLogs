@@ -28,11 +28,12 @@ import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
   context: WebPartContext;
+  openItemId?: string | null;
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
 
-const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
+const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
@@ -251,6 +252,41 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
       isDisposed = true;
     };
   }, [context]);
+
+  // If an openItemId is provided via query param, try to open that item in edit mode
+  React.useEffect(() => {
+    if (!openItemId) return;
+    if (!items || items.length === 0) return;
+
+    const val = String(openItemId);
+    let found: ILessonsLearnt | undefined = undefined;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (String(it.ID) === val || String((it as any).Id) === val) {
+        found = it;
+        break;
+      }
+    }
+    if (!found) return;
+
+    (async () => {
+      try {
+        await ensureLessonAttachments(found);
+      } catch (e) {
+        // ignore
+      }
+      void openFormForLesson(found, 'edit');
+
+      // Remove query param so modal doesn't reopen on refresh
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('LlBpRcId');
+        window.history.replaceState(null, '', newUrl.toString());
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [openItemId, items, ensureLessonAttachments, openFormForLesson]);
 
   React.useEffect(() => {
     return () => {
