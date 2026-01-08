@@ -397,6 +397,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
             // await fetchRCAItems();
           } catch (e: any) {
             console.error('Failed to save RCA item', e);
+            showMessage('Failed to save RCA item. Please try again later.', 'error');
 
           }
         }
