@@ -201,9 +201,7 @@ export class RaidListService {
     if (this.enablePeoplePickerFields) {
       try {
         if (raidItem.responsibility) {
-          console.log('🔄 Converting responsibility field:', raidItem.responsibility);
           const responsibilityValue = await this.convertUserFieldForSharePointAsync(raidItem.responsibility, this.context);
-          console.log('✅ Converted responsibility to:', responsibilityValue);
           if (responsibilityValue !== null && responsibilityValue !== undefined) {
             // Always use Id suffix for people picker fields
             spItem.ResponsibilityId = responsibilityValue;
@@ -216,9 +214,7 @@ export class RaidListService {
 
       try {
         if (raidItem.byWhom) {
-          console.log('🔄 Converting byWhom field:', raidItem.byWhom);
           const byWhomValue = await this.convertUserFieldForSharePointAsync(raidItem.byWhom, this.context);
-          console.log('✅ Converted byWhom to:', byWhomValue);
           if (byWhomValue !== null && byWhomValue !== undefined) {
             // Always use Id suffix for people picker fields
             spItem.ByWhomId = byWhomValue;
