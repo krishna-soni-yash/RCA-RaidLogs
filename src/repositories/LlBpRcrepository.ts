@@ -6,6 +6,7 @@ import { ILessonsLearnt, ILessonsLearntAttachment, LessonsLearntDataType } from 
 import { IBestPracticeAttachment, IBestPractices, BestPracticesDataType } from '../models/Ll Bp Rc/BestPractices';
 import { IReusableComponents, IReusableComponentAttachment, ReusableComponentsDataType } from '../models/Ll Bp Rc/ReusableComponents';
 import ErrorMessages from '../common/ErrorMessages';
+import LlBpRcEmailTriggerService from '../services/LlBpRcEmailTriggerService';
 import ILlBpRcRepository from './repositoriesInterface/Ll Bp Rc/ILlBpRcRepository';
 import { SubSiteListNames } from '../common/Constants';
 
@@ -131,6 +132,15 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			const attachmentsFromServer = await this.getLessonsLearntAttachments(savedId as number, context);
 			savedItem.attachments = attachmentsFromServer.length > 0 ? attachmentsFromServer : uploadedAttachments;
 		}
+
+				// Create related email trigger entry in root site list
+				try {
+					const emailService = new LlBpRcEmailTriggerService(context);
+					// Fire-and-forget; log failures but don't block save
+					await emailService.createEmailTrigger(savedItem, LessonsLearntDataType);
+				} catch (e) {
+					console.warn('Failed to create LLBPRC email trigger for LessonsLearnt', e);
+				}
 
 		this.invalidateLessonsCache();
 
@@ -296,6 +306,14 @@ class LlBpRcrepository implements ILlBpRcRepository {
 			savedItem.attachments = liveAttachments.length > 0 ? liveAttachments : uploadedAttachments;
 		}
 
+				// Create related email trigger entry in root site list
+				try {
+					const emailService = new LlBpRcEmailTriggerService(context);
+					await emailService.createEmailTrigger(savedItem, BestPracticesDataType);
+				} catch (e) {
+					console.warn('Failed to create LLBPRC email trigger for BestPractices', e);
+				}
+
 		this.invalidateBestPracticesCache();
 
 		return savedItem;
@@ -460,6 +478,14 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		savedItem.newAttachments = [];
+
+				// Create related email trigger entry in root site list
+				try {
+					const emailService = new LlBpRcEmailTriggerService(context);
+					await emailService.createEmailTrigger(savedItem, ReusableComponentsDataType);
+				} catch (e) {
+					console.warn('Failed to create LLBPRC email trigger for ReusableComponents', e);
+				}
 
 		this.invalidateReusableCache();
 

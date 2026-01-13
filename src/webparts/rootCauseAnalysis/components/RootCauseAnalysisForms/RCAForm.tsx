@@ -358,7 +358,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
 
     if (form.performanceBefore !== undefined) item.PerformanceBeforeActionPlan = form.performanceBefore;
     if (form.performanceAfter !== undefined) item.PerformanceAfterActionPlan = form.performanceAfter;
-    if (form.quantitativeEffectiveness !== undefined) item.QuantitativeOrStatisticalEffecti = form.quantitativeEffectiveness;
+    if (form.quantitativeEffectiveness !== undefined) item.Quantitative_x0020_Or_x0020_Stat = form.quantitativeEffectiveness;
     if (form.remarks !== undefined) item.Remarks = form.remarks;
 
     // determine repository id from initialData when editing

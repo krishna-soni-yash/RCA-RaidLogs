@@ -112,6 +112,71 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
     filterItems();
   }, [filterItems]);
 
+  // If a RaidlogId (or variants) query parameter is present, open that item in the edit modal
+  React.useEffect(() => {
+    const tryOpenFromQuery = async (): Promise<void> => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('RaidlogId') || params.get('RaidLogId') || params.get('raidlogid') || params.get('RAIDId') || params.get('worklogId');
+        if (!raw) return;
+
+        // Try to find item by SP Id first (use explicit loops to avoid lib target issues)
+        const value = raw;
+        let found: IExtendedRaidItem | undefined = undefined;
+
+        for (let idx = 0; idx < items.length; idx++) {
+          const it = items[idx];
+          if (String(it.id) === value) {
+            found = it;
+            break;
+          }
+        }
+
+        // If not found, try matching raidId (for Risk groups)
+        if (!found) {
+          for (let idx = 0; idx < items.length; idx++) {
+            const it = items[idx];
+            if (it.raidId === value) {
+              found = it;
+              break;
+            }
+          }
+        }
+
+        // If still not found, try fetching by id from service (in case items not yet loaded)
+        if (!found && !isNaN(Number(value))) {
+          try {
+            const fetched = await raidService.getRaidItemById(Number(value));
+            if (fetched) {
+              found = fetched as IExtendedRaidItem;
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (found) {
+          await editItem(found);
+
+          // Remove query params so modal doesn't reopen on refresh
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('RaidlogId');
+          newUrl.searchParams.delete('RaidLogId');
+          newUrl.searchParams.delete('raidlogid');
+          newUrl.searchParams.delete('RAIDId');
+          newUrl.searchParams.delete('worklogId');
+          window.history.replaceState(null, '', newUrl.toString());
+        }
+      } catch (err) {
+        console.error('Error opening item from query param:', err);
+      }
+    };
+
+    if (items && items.length > 0) {
+      void tryOpenFromQuery();
+    }
+  }, [items]);
+
   const handleTabChange = (item?: PivotItem): void => {
     if (item) {
       const newTab = (item.props.itemKey as RaidType) || 'Risk';

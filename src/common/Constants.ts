@@ -5,9 +5,12 @@ export default class ParentListNames {
   public static ObjectivesMaster: string = "ObjectivesMaster";
   public static PPOApprovers: string = "PPOApprovers";
   public static ProjectType: string = "ProjectType";
-  public static AssociatedPPM: string = "AssociatedPPM"
+  public static AssociatedPPM: string = "AssociatedPPM";
   public static Metrics: string = "Metrics";
   public static MetricsMailSender: string = "MetricsMailSender";
+  public static RAIDLogEmailTrigger: string = "RAIDLogEmailTrigger";
+  public static LLBPRCEmailTrigger: string = "LLBPRCEmailTrigger";
+  public static RCAEmailTrigger: string = "RCAEmailTrigger";
 }
 
 export class SubSiteListNames {
