@@ -59,7 +59,6 @@ export class RaidLogEmailTriggerService {
       });
 
       if (result.success) {
-        console.log('Email trigger created successfully for RAID item:', raidItem.id);
         return true;
       } else {
         console.error('Failed to create email trigger:', result.error);
