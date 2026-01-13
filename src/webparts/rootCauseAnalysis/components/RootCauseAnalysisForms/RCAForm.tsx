@@ -253,6 +253,12 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
     if (!form.causeCategory || String(form.causeCategory).trim() === '') {
       nextErrors['causeCategory'] = 'Cause category is required.';
     }
+    if (!form.source || String(form.source).trim() === '') {
+      nextErrors['source'] = 'Source is required.';
+    }
+    if (!form.priority || String(form.priority).trim() === '') {
+      nextErrors['priority'] = 'Priority is required.';
+    }
     // require causes and root causes
     if (!form.causes || String(form.causes).trim() === '') {
       nextErrors['causes'] = 'Cause(s) is required.';
@@ -647,6 +653,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
           <div style={{ flex: 1 }}>
             <Dropdown
               label="Cause Category"
+              required
               options={causeCategoryOptions}
               selectedKey={form.causeCategory || undefined}
               onChange={(_, o) => {
@@ -655,25 +662,35 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
                 setErrors(prev => { const next = { ...prev }; delete next['causeCategory']; return next; });
               }}
             />
-            {errors['causeCategory'] && <div style={{ color: 'red', fontSize: 12, marginTop: 6 }}>{errors['causeCategory']}</div>}
+            {errors['causeCategory'] && <div style={{ color: 'rgb(164, 38, 44)', fontSize: 12, marginTop: 6 }}>{errors['causeCategory']}</div>}
           </div>
 
           <div style={{ flex: 1 }}>
             <Dropdown
               label="Source"
+              required
               options={sourceOptions}
               selectedKey={form.source || undefined}
-              onChange={(_, o) => update('source', o?.key)}
+              onChange={(_, o) => {
+                update('source', o?.key);
+                setErrors(prev => { const next = { ...prev }; delete next['source']; return next; });
+              }}
             />
+            {errors['source'] && <div style={{ color: 'rgb(164, 38, 44)', fontSize: 12, marginTop: 6 }}>{errors['source']}</div>}
           </div>
 
           <div style={{ flex: 1 }}>
             <Dropdown
               label="Priority"
+              required
               options={priorityOptions}
               selectedKey={form.priority || undefined}
-              onChange={(_, o) => update('priority', o?.key)}
+              onChange={(_, o) => {
+                update('priority', o?.key);
+                setErrors(prev => { const next = { ...prev }; delete next['priority']; return next; });
+              }}
             />
+            {errors['priority'] && <div style={{ color: 'rgb(164, 38, 44)', fontSize: 12, marginTop: 6 }}>{errors['priority']}</div>}
           </div>
         </div>
 
