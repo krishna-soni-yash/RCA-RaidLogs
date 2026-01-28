@@ -693,7 +693,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
             {errors['priority'] && <div style={{ color: 'rgb(164, 38, 44)', fontSize: 12, marginTop: 6 }}>{errors['priority']}</div>}
           </div>
         </div>
-
+{/* added expanded Related Metric and Sub-metric dropdowns */}
         {/* Related Metric (attachments link removed — attachments moved to bottom) */}
         <div>
           <Dropdown
