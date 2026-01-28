@@ -49,7 +49,7 @@ const Header: React.FC<IHeaderProps> = ({
             className={styles.tabs}
           >
             <PivotItem 
-              headerText="Causual Analysis" 
+              headerText="Causal Analysis" 
               itemKey="rootCauseAnalysis"
             />
             <PivotItem 
