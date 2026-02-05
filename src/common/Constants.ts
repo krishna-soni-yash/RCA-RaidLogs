@@ -78,6 +78,7 @@ export const selectedFields = [
   'ResponsibilityCorrection/Id',
   'ResponsibilityCorrection/Title',
   'ResponsibilityCorrection/EMail',
+  'ResponsibilityCorrectionId',
   
   'PlannedClosureDateCorrection', 
   'ActualClosureDateCorrection',
@@ -86,6 +87,7 @@ export const selectedFields = [
   'ResponsibilityCorrective/Id',
   'ResponsibilityCorrective/Title',
   'ResponsibilityCorrective/EMail',
+  'ResponsibilityCorrectiveId',
 
   'PlannedClosureDateCorrective',
   'ActualClosureDateCorrective',
@@ -94,6 +96,7 @@ export const selectedFields = [
   'ResponsibilityPreventive/Id', 
   'ResponsibilityPreventive/Title',
   'ResponsibilityPreventive/EMail',
+  'ResponsibilityPreventiveId',
 
   'PlannedClosureDatePreventive', 
   'ActualClosureDatePreventive',

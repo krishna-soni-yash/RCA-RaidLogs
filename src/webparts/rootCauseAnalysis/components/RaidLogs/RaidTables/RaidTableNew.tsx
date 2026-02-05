@@ -1,9 +1,23 @@
 import * as React from 'react';
-import { DetailsList, IColumn, SelectionMode, IconButton, DetailsRow } from '@fluentui/react';
+import { DetailsList, IColumn, SelectionMode, IconButton, DetailsRow, DefaultButton, mergeStyleSets } from '@fluentui/react';
 import styles from './RaidTable.module.scss';
 import { RaidType, IPersonPickerUser } from '../interfaces/IRaidItem';
 import { IExtendedRaidItem } from '../interfaces/IRaidService';
 import { formatDateShort } from '../../../../../common/DateUtils';
+
+const classNames = mergeStyleSets({
+  paginationBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: '0 4px'
+  },
+  paginationControls: {
+    display: 'flex',
+    columnGap: 8
+  }
+});
 
 export interface IRaidTableProps {
   items: IExtendedRaidItem[];
@@ -619,25 +633,20 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
         />
 
         {items.length > PAGE_SIZE && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              aria-label="Previous page"
-              style={{ marginRight: 8 }}
-            >
-              Prev
-            </button>
-            <span style={{ marginRight: 8 }}>Page {currentPage} of {totalPages}</span>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              aria-label="Next page"
-            >
-              Next
-            </button>
+          <div className={classNames.paginationBar}>
+            <span style={{ fontSize: 12 }}>Page {currentPage} of {totalPages}</span>
+            <div className={classNames.paginationControls}>
+              <DefaultButton
+                text="Previous"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              />
+              <DefaultButton
+                text="Next"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              />
+            </div>
           </div>
         )}
 
@@ -662,25 +671,20 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
       />
 
       {items.length > PAGE_SIZE && (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            aria-label="Previous page"
-            style={{ marginRight: 8 }}
-          >
-            Prev
-          </button>
-          <span style={{ marginRight: 8 }}>Page {currentPage} of {totalPages}</span>
-          <button
-            type="button"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            aria-label="Next page"
-          >
-            Next
-          </button>
+        <div className={classNames.paginationBar}>
+          <span style={{ fontSize: 12 }}>Page {currentPage} of {totalPages}</span>
+          <div className={classNames.paginationControls}>
+            <DefaultButton
+              text="Previous"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            />
+            <DefaultButton
+              text="Next"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            />
+          </div>
         </div>
       )}
     </div>
