@@ -190,6 +190,21 @@ const formatResponsibilityValue = (input: any): string => {
 	return unique.join(', ');
 };
 
+// Format various date inputs (Date, string, number) to MM/DD/YYYY for UI display
+const formatDateMMDDYYYY = (input: any): string => {
+	if (input === null || input === undefined || input === '') return '';
+	let dt: Date;
+	if (input instanceof Date) dt = input;
+	else if (typeof input === 'number') dt = new Date(input);
+	else dt = new Date(String(input));
+	if (isNaN(dt.getTime())) return '';
+	const monthNum = dt.getMonth() + 1;
+	const dayNum = dt.getDate();
+	const mm = (monthNum < 10 ? '0' : '') + String(monthNum);
+	const dd = (dayNum < 10 ? '0' : '') + String(dayNum);
+	const yyyy = dt.getFullYear();
+	return `${mm}/${dd}/${yyyy}`;
+};
 const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, className }) => {
 	// prefer passed columns, then RCACOLUMNS, then fallback dynamic columns
 	const cols = columns && columns.length ? columns : RCACOLUMNS;
@@ -486,8 +501,8 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 			const actionPlan = it[`ActionPlan${suffix}`] ?? '';
 			const responsibility = formatResponsibilityValue(it[`Responsibility${suffix}`]);
-			const planned = it[`PlannedClosureDate${suffix}`] ?? '';
-			const actual = it[`ActualClosureDate${suffix}`] ?? '';
+			const planned = formatDateMMDDYYYY(it[`PlannedClosureDate${suffix}`] ?? '');
+			const actual = formatDateMMDDYYYY(it[`ActualClosureDate${suffix}`] ?? '');
 
 			return {
 				key: `${suffix}-${idx}`,
