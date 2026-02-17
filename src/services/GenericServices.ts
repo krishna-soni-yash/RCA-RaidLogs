@@ -131,7 +131,8 @@ export class GenericService implements IGenericService {
       throw new Error(ErrorMessages.PNP_INSTANCE_NOT_INITIALIZED);
     }
 
-    const effectivePageSize = Math.min(Math.max(1, pageSize), 5000);
+    // Keep page size under 5000 to avoid threshold issues
+    const effectivePageSize = Math.min(Math.max(1, pageSize), 4999);
     const list = targetSp.web.lists.getByTitle(listTitle);
 
     const buildItemsQuery = () => {
@@ -150,14 +151,44 @@ export class GenericService implements IGenericService {
       return q;
     };
 
-    const fetchItems = async (): Promise<T[]> => {
+    // Implement proper pagination to handle more than 5000 items
+    const fetchAllPages = async (): Promise<T[]> => {
       return this.withRetry(async () => {
-        const q = buildItemsQuery();
-        return await q();
+        const allItems: T[] = [];
+        let hasNext = true;
+        let currentQuery = buildItemsQuery();
+
+        while (hasNext) {
+          try {
+            // Use getPaged() for pagination support
+            const pagedResult = await currentQuery.getPaged();
+            
+            if (pagedResult.results && pagedResult.results.length > 0) {
+              allItems.push(...pagedResult.results);
+            }
+
+            // Check if there are more pages
+            hasNext = pagedResult.hasNext;
+            
+            if (hasNext && pagedResult.getNext) {
+              // Get the next page
+              currentQuery = pagedResult.getNext();
+            } else {
+              hasNext = false;
+            }
+          } catch (error: any) {
+            // If getPaged is not supported or fails, fall back to single query
+            console.warn('Pagination failed, falling back to single query:', error);
+            const results = await buildItemsQuery()();
+            return results || [];
+          }
+        }
+
+        return allItems;
       }, maxRetries, retryDelayMs);
     };
 
-    const results = await fetchItems();
+    const results = await fetchAllPages();
     return results || [];
   }
 
