@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
-import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
+import { useState, useEffect, useCallback } from 'react';
+import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
+import raidStyles from '../RaidLogs/RaidLogs.module.scss';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
 import { RCACOLUMNS } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
@@ -9,9 +10,6 @@ import IGenericService from '../../../../services/IGenericServices';
 import { getRCAItems, RCARepository } from '../../../../repositories/RCARepository';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import IRCARepository from '../../../../repositories/repositoriesInterface/IRCARepository';
-
-
-
 export interface IColumnConfig {
 	key: string;
 	name: string;
@@ -20,8 +18,6 @@ export interface IColumnConfig {
 	maxWidth: number;
 	isResizable?: boolean;
 	onRender?: (item: any) => React.ReactNode;
-
-
 }
 
 
@@ -38,7 +34,8 @@ interface RCATableProps {
 }
 
 
-// add styles for better UI alignment and visual polish
+const PAGE_SIZE = 8;
+
 const classNames = mergeStyleSets({
 	container: {
 		padding: 12,
@@ -103,11 +100,111 @@ const classNames = mergeStyleSets({
 			//'.ms-DetailsHeader-cell': { paddingRight: 8 },
 			//'.ms-DetailsRow-cell': { padding: '6px 6px', fontSize: 13 }
 		}
+	},
+	paginationBar: {
+		display: 'flex',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginTop: 12,
+		padding: '0 4px'
+	},
+	paginationControls: {
+		display: 'flex',
+		columnGap: 8
 	}
 });
 
 
 
+const getModifiedTimestamp = (entry: Partial<IRCAList> | undefined): number => {
+	if (!entry) return 0;
+	const raw: any = (entry as any).Modified ?? (entry as any).modified ?? (entry as any).LastModified ?? (entry as any).lastModified;
+	if (raw instanceof Date) {
+		return raw.getTime();
+	}
+	if (typeof raw === 'string' || typeof raw === 'number') {
+		const parsed = new Date(raw);
+		const time = parsed.getTime();
+		return isNaN(time) ? 0 : time;
+	}
+	return 0;
+};
+
+const formatResponsibilityValue = (input: any): string => {
+	const results: string[] = [];
+	const collect = (value: any): void => {
+		if (value === null || value === undefined) {
+			return;
+		}
+		if (Array.isArray(value)) {
+			value.forEach(collect);
+			return;
+		}
+		if (typeof value === 'object') {
+			const email = (value as any).EMail ?? (value as any).Email ?? (value as any).email ?? (value as any).mail ?? (value as any).PrimaryEmail;
+			if (email) {
+				const trimmed = String(email).trim();
+				if (trimmed) {
+					results.push(trimmed);
+				}
+				return;
+			}
+			const title = (value as any).Title ?? (value as any).Name ?? (value as any).text;
+			if (title && typeof title === 'string') {
+				const sanitized = title.trim();
+				if (sanitized) {
+					results.push(sanitized);
+				}
+				return;
+			}
+		}
+		const stringify = String(value).trim();
+		if (!stringify) {
+			return;
+		}
+		const pipeSplit = stringify.lastIndexOf('|');
+		if (pipeSplit !== -1 && pipeSplit + 1 < stringify.length) {
+			const afterPipe = stringify.substring(pipeSplit + 1).trim();
+			if (afterPipe) {
+				results.push(afterPipe);
+				return;
+			}
+		}
+		const hashSplit = stringify.lastIndexOf(';#');
+		if (hashSplit !== -1 && hashSplit + 2 <= stringify.length) {
+			const afterHash = stringify.substring(hashSplit + 2).trim();
+			if (afterHash) {
+				results.push(afterHash);
+				return;
+			}
+		}
+		results.push(stringify);
+	};
+
+	collect(input);
+	const filtered = results.filter(Boolean);
+	const unique: string[] = [];
+	filtered.forEach((r) => {
+		if (unique.indexOf(r) === -1) unique.push(r);
+	});
+	return unique.join(', ');
+};
+
+// Format various date inputs (Date, string, number) to MM/DD/YYYY for UI display
+const formatDateMMDDYYYY = (input: any): string => {
+	if (input === null || input === undefined || input === '') return '';
+	let dt: Date;
+	if (input instanceof Date) dt = input;
+	else if (typeof input === 'number') dt = new Date(input);
+	else dt = new Date(String(input));
+	if (isNaN(dt.getTime())) return '';
+	const monthNum = dt.getMonth() + 1;
+	const dayNum = dt.getDate();
+	const mm = (monthNum < 10 ? '0' : '') + String(monthNum);
+	const dd = (dayNum < 10 ? '0' : '') + String(dayNum);
+	const yyyy = dt.getFullYear();
+	return `${mm}/${dd}/${yyyy}`;
+};
 const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, className }) => {
 	// prefer passed columns, then RCACOLUMNS, then fallback dynamic columns
 	const cols = columns && columns.length ? columns : RCACOLUMNS;
@@ -126,6 +223,91 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		setIsDialogOpen(false);
 		setSelectedItem(null);
 		setIsEditing(false);
+	};
+
+	const fetchRCAItems = useCallback(async () => {
+		const genericServiceInstance: IGenericService = new GenericService(undefined, context);
+		genericServiceInstance.init(undefined, context);
+		const rcaRepo: IRCARepository = new RCARepository(genericServiceInstance);
+		rcaRepo.setService(genericServiceInstance);
+		const items = await getRCAItems(true, context);
+		const sortedItems = Array.isArray(items)
+			? [...items].sort((a: Partial<IRCAList>, b: Partial<IRCAList>) => {
+				const diff = getModifiedTimestamp(b) - getModifiedTimestamp(a);
+				if (diff !== 0) return diff;
+				const bId = Number((b as any)?.ID ?? (b as any)?.Id ?? 0);
+				const aId = Number((a as any)?.ID ?? (a as any)?.Id ?? 0);
+				return bId - aId;
+			})
+			: items;
+		// newest items first so users see the latest updates immediately
+		setRCAItems(sortedItems);
+	}, [context]);
+
+	// helper: map repository item (IRCAList) to RCAForm initialData shape
+	const mapRepoItemToForm = (it: any): any => {
+		if (!it) return {};
+		const form: any = {};
+		const parsePeopleValues = (value: any): string[] => {
+			if (!value) return [];
+			if (Array.isArray(value)) {
+				return value
+					.map((entry: any) => String(entry || '').trim())
+					.filter((entry: string) => entry.length > 0);
+			}
+			if (typeof value === 'string') {
+				return value
+					.split(/; ?/)
+					.map((entry: string) => entry.trim())
+					.filter((entry: string) => entry.length > 0);
+			}
+			return [];
+		};
+		form.problemStatement = it.ProblemStatement || it.LinkTitle || '';
+		form.causeCategory = it.CauseCategory || '';
+		form.source = it.RCASource || '';
+		form.priority = it.RCAPriority || '';
+		form.relatedMetric = it.RelatedMetric || '';
+		form.causes = it.Cause || '';
+		form.rootCauses = it.RootCause || '';
+		form.analysisTechnique = it.RCATechniqueUsedAndReference || '';
+		// action types -> array
+		form.actionType = it.RCATypeOfAction ? (typeof it.RCATypeOfAction === 'string' ? it.RCATypeOfAction.split(',').map((s: string) => s.trim()).filter(Boolean) : it.RCATypeOfAction) : [];
+
+		// build actionDetails for each known action type
+		const details: Record<string, any> = {};
+		const actionKeys = form.actionType.length ? form.actionType : ['Correction', 'Corrective Action', 'Preventive Action'];
+
+		actionKeys.forEach((act: string) => {
+			let suffix = '';
+			const lower = (act || '').toString().toLowerCase();
+			if (lower.indexOf('correction') !== -1) suffix = 'Correction';
+			else if (lower.indexOf('corrective') !== -1) suffix = 'Corrective';
+			else if (lower.indexOf('preventive') !== -1) suffix = 'Preventive';
+			else suffix = act.replace(/\s+/g, '');
+
+			details[act] = {
+				actionPlan: it[`ActionPlan${suffix}`] || '',
+				// Normalize multi-people picker values into id|value strings
+				responsibility: parsePeopleValues(it[`Responsibility${suffix}`]),
+				plannedClosureDate: it[`PlannedClosureDate${suffix}`] ? new Date(it[`PlannedClosureDate${suffix}`]) : undefined,
+				actualClosureDate: it[`ActualClosureDate${suffix}`] ? new Date(it[`ActualClosureDate${suffix}`]) : undefined
+			};
+		});
+
+		form.actionDetails = details;
+		form.performanceBefore = it.PerformanceBeforeActionPlan || '';
+		form.performanceAfter = it.PerformanceAfterActionPlan || '';
+		form.quantitativeEffectiveness = it.QuantitativeOrStatisticalEffecti || '';
+		form.remarks = it.Remarks || '';
+		form.relatedSubMetric = it.RelatedSubMetric || '';
+		form.attachments = (it.attachments && Array.isArray(it.attachments)) ? it.attachments.map((a: any) => ({
+			FileName: a.FileName || a.fileName || '',
+			ServerRelativeUrl: a.ServerRelativeUrl || a.Url || a.FileRef || ''
+		})) : [];
+		// preserve id for editing context
+		form.__repoId = it.ID ?? it.Id ?? it.Id;
+		return form;
 	};
 
 	const handleFormSubmit = async (data: any) => {
@@ -153,8 +335,8 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	};
 
 	useEffect(() => {
-		fetchRCAItems();
-	}, [context, handleFormSubmit]);
+		void fetchRCAItems();
+	}, [fetchRCAItems]);
 
 	// If an RCAId (or variants) query parameter is present, open that item in the edit dialog
 	useEffect(() => {
@@ -215,64 +397,6 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 			void tryOpenFromQuery();
 		}
 	}, [RCAItems, context]);
-	 const fetchRCAItems = async () => {
-		const genericServiceInstance: IGenericService = new GenericService(undefined, context);
-		genericServiceInstance.init(undefined, context);
-		const RCARepo: IRCARepository = new RCARepository(genericServiceInstance);
-		RCARepo.setService(genericServiceInstance);
-		const RAitems = await getRCAItems(true, context);
-		setRCAItems(RAitems);
-	}
-	// helper: map repository item (IRCAList) to RCAForm initialData shape
-	const mapRepoItemToForm = (it: any): any => {
-		if (!it) return {};
-		const form: any = {};
-		form.problemStatement = it.ProblemStatement || it.LinkTitle || '';
-		form.causeCategory = it.CauseCategory || '';
-		form.source = it.RCASource || '';
-		form.priority = it.RCAPriority || '';
-		form.relatedMetric = it.RelatedMetric || '';
-		form.causes = it.Cause || '';
-		form.rootCauses = it.RootCause || '';
-		form.analysisTechnique = it.RCATechniqueUsedAndReference || '';
-		// action types -> array
-		form.actionType = it.RCATypeOfAction ? (typeof it.RCATypeOfAction === 'string' ? it.RCATypeOfAction.split(',').map((s: string) => s.trim()).filter(Boolean) : it.RCATypeOfAction) : [];
-
-		// build actionDetails for each known action type
-		const details: Record<string, any> = {};
-		const actionKeys = form.actionType.length ? form.actionType : ['Correction', 'Corrective Action', 'Preventive Action'];
-
-		actionKeys.forEach((act: string) => {
-			let suffix = '';
-			const lower = (act || '').toString().toLowerCase();
-			if (lower.indexOf('correction') !== -1) suffix = 'Correction';
-			else if (lower.indexOf('corrective') !== -1) suffix = 'Corrective';
-			else if (lower.indexOf('preventive') !== -1) suffix = 'Preventive';
-			else suffix = act.replace(/\s+/g, '');
-
-			details[act] = {
-				actionPlan: it[`ActionPlan${suffix}`] || '',
-				// Responsibility fields from repo are strings like email; keep as-is or as array
-				responsibility: it[`Responsibility${suffix}`] || it[`Responsibility${suffix}`] || '',
-				plannedClosureDate: it[`PlannedClosureDate${suffix}`] ? new Date(it[`PlannedClosureDate${suffix}`]) : undefined,
-				actualClosureDate: it[`ActualClosureDate${suffix}`] ? new Date(it[`ActualClosureDate${suffix}`]) : undefined
-			};
-		});
-
-		form.actionDetails = details;
-		form.performanceBefore = it.PerformanceBeforeActionPlan || '';
-		form.performanceAfter = it.PerformanceAfterActionPlan || '';
-		form.quantitativeEffectiveness = it.QuantitativeOrStatisticalEffecti || '';
-		form.remarks = it.Remarks || '';
-		form.relatedSubMetric = it.RelatedSubMetric || '';
-		form.attachments = (it.attachments && Array.isArray(it.attachments)) ? it.attachments.map((a: any) => ({
-			FileName: a.FileName || a.fileName || '',
-			ServerRelativeUrl: a.ServerRelativeUrl || a.Url || a.FileRef || ''
-		})) : [];
-		// preserve id for editing context
-		form.__repoId = it.ID ?? it.Id ?? it.Id;
-		return form;
-	};
 
 	// edit column prepended to columns
 	const displayedColumns: IColumn[] = [
@@ -304,7 +428,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 	// expanded rows state (store string keys derived from each item)
 	const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-	const [expandedInitialized, setExpandedInitialized] = useState<boolean>(false);
+	const [currentPage, setCurrentPage] = useState<number>(1);
 	const keyForItem = (item: any) =>
 		String(item?.ID ?? item?.id ?? item?.key ?? item?.__repoId ?? item?.LinkTitle ?? JSON.stringify(item).slice(0, 40));
 
@@ -317,16 +441,41 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		});
 	};
 
-	// initialize expanded state once when items (remote or local) become available
+	// prune expanded keys when source items change so new data stays collapsed by default
 	useEffect(() => {
-		if (expandedInitialized) return;
-		const items = (RCAItems && RCAItems.length > 0) ? RCAItems : (localItems && localItems.length > 0 ? localItems : []);
-		if (items.length === 0) return;
-		const keys = items.map((it: any) => keyForItem(it));
-		setExpandedKeys(keys);
-		setExpandedInitialized(true);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [RCAItems, localItems]);
+		const sourceItems = (RCAItems && RCAItems.length > 0) ? RCAItems : (localItems && localItems.length > 0 ? localItems : []);
+		if (!sourceItems || sourceItems.length === 0) {
+			if (expandedKeys.length > 0) {
+				setExpandedKeys([]);
+			}
+			return;
+		}
+		const validKeys = new Set(sourceItems.map((it: any) => keyForItem(it)));
+		const filtered = expandedKeys.filter((key) => validKeys.has(key));
+		if (filtered.length !== expandedKeys.length) {
+			setExpandedKeys(filtered);
+		}
+	}, [RCAItems, localItems, expandedKeys]);
+
+	useEffect(() => {
+		const totalPages = Math.max(1, Math.ceil((RCAItems?.length ?? 0) / PAGE_SIZE));
+		setCurrentPage((prev) => {
+			if (prev > totalPages) return totalPages;
+			if (prev < 1) return 1;
+			return prev;
+		});
+	}, [RCAItems]);
+
+	const totalPages = Math.max(1, Math.ceil((RCAItems?.length ?? 0) / PAGE_SIZE));
+	const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+	const paginatedItems = React.useMemo(() => {
+		if (!RCAItems || RCAItems.length === 0) return [];
+		const start = (safeCurrentPage - 1) * PAGE_SIZE;
+		return RCAItems.slice(start, start + PAGE_SIZE);
+	}, [RCAItems, safeCurrentPage]);
+
+	const canGoPrevious = safeCurrentPage > 1;
+	const canGoNext = safeCurrentPage < totalPages;
 
 	// render a compact 3-row table for the action types under a parent row
 	const renderActionSubTable = (it: any) => {
@@ -351,9 +500,9 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 			else suffix = act.replace(/\s+/g, '');
 
 			const actionPlan = it[`ActionPlan${suffix}`] ?? '';
-			const responsibility = it[`Responsibility${suffix}`] ?? '';
-			const planned = it[`PlannedClosureDate${suffix}`] ?? '';
-			const actual = it[`ActualClosureDate${suffix}`] ?? '';
+			const responsibility = formatResponsibilityValue(it[`Responsibility${suffix}`]);
+			const planned = formatDateMMDDYYYY(it[`PlannedClosureDate${suffix}`] ?? '');
+			const actual = formatDateMMDDYYYY(it[`ActualClosureDate${suffix}`] ?? '');
 
 			return {
 				key: `${suffix}-${idx}`,
@@ -417,22 +566,23 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 	return (
 		<>
-			{/* right-aligned button at the top */}
-			<div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-				<DefaultButton
-					text="Add New Item"
+			{/* left-aligned Add New button styled like RAID logs */}
+			<div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
+				<PrimaryButton
+					text="+ Add New"
 					onClick={() => {
 						// ensure creating mode: no selectedItem
 						setSelectedItem(null);
 						setIsEditing(false);
 						openDialog();
 					}}
+					className={raidStyles.addButton}
 				/>
 			</div>
 
 			<div className={classNames.container}>
 				<DetailsList
-					items={RCAItems}
+					items={paginatedItems}
 					columns={displayedColumns}
 					onRenderRow={onRenderRow}
 					// disable selection UI and behavior
@@ -443,6 +593,22 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					// keep virtualization/automatic layout
 					setKey="rca-table"
 				/>
+			</div>
+
+			<div className={classNames.paginationBar}>
+				<span style={{ fontSize: 12 }}>Page {safeCurrentPage} of {totalPages}</span>
+				<div className={classNames.paginationControls}>
+					<DefaultButton
+						text="Previous"
+						onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+						disabled={!canGoPrevious}
+					/>
+					<DefaultButton
+						text="Next"
+						onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+						disabled={!canGoNext}
+					/>
+				</div>
 			</div>
 
 			<Dialog
@@ -468,11 +634,12 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					styles={{ root: { position: 'absolute', right: 1, top: 1, zIndex: 10, width: 28, height: 28 }, icon: { fontSize: 12 } }}
 					onClick={closeDialog}
 				/>
- 				<RCAForm
- 					onSubmit={handleFormSubmit}
- 					initialData={selectedItem ? mapRepoItemToForm(selectedItem) : {}}
- 					context={context}
- 				/>
+				<RCAForm
+					onSubmit={handleFormSubmit}
+					onCancel={closeDialog}
+					initialData={selectedItem ? mapRepoItemToForm(selectedItem) : {}}
+					context={context}
+				/>
 			</Dialog>
 		</>
 	);

@@ -10,7 +10,9 @@ import {
   Text,
   Checkbox,
   Pivot,
-  PivotItem
+  PivotItem,
+  Spinner,
+  SpinnerSize
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
@@ -268,9 +270,13 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
 
 
 
+  const [isSaving, setIsSaving] = React.useState<boolean>(false);
+
   const handleSave = async (): Promise<void> => {
+    setIsSaving(true);
     // Validate mandatory fields
-    if (type === 'Issue' || type === 'Assumption' || type === 'Dependency' || type === 'Constraints') {
+    try {
+      if (type === 'Issue' || type === 'Assumption' || type === 'Dependency' || type === 'Constraints') {
       if (!formData.details || formData.details.trim() === '') {
         if (onValidationError) {
           onValidationError('Details field is mandatory. Please fill in the details before saving.');
@@ -356,6 +362,9 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     
     console.log('📝 RaidForm - Final item to save:', itemToSave);
     await onSave(itemToSave);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderFormFields = (): React.ReactElement => {
@@ -1087,7 +1096,16 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         
         <div className={styles.modalFooter}>
           <DefaultButton text="Cancel" onClick={onCancel} />
-          <PrimaryButton text="Save" onClick={handleSave} />
+          <PrimaryButton onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Spinner size={SpinnerSize.xSmall} />
+                &nbsp;Saving...
+              </>
+            ) : (
+              'Save'
+            )}
+          </PrimaryButton>
         </div>
       </div>
     </Modal>

@@ -463,7 +463,6 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   return (
     <div className={styles.raidLogs}>
       <div className={styles.header}>
-        <h1>RAID Logs</h1>
         <PrimaryButton 
           text="+ Add New" 
           onClick={openNewItemModal}

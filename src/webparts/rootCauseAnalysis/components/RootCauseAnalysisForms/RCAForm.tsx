@@ -9,7 +9,8 @@ import {
   PrimaryButton,
   Pivot,
   PivotItem,
-  Checkbox // added
+  Checkbox,
+  Label
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 
@@ -30,6 +31,7 @@ interface RCAFormProps {
   onSubmit?: (data: any) => void;
   initialData?: any;
   context?: WebPartContext;
+  onCancel?: () => void;
 }
 
 // small ErrorBoundary to catch PeoplePicker runtime errors (e.g. PeopleSearchService failures)
@@ -53,7 +55,7 @@ class PeoplePickerErrorBoundary extends React.Component<{ onError?: () => void }
 
 
 
-export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps) {
+export default function RCAForm({ onSubmit, initialData, context, onCancel }: RCAFormProps) {
   const [form, setForm] = useState<any>({
     problemStatement: initialData?.problemStatement || '',
     causeCategory: initialData?.causeCategory || '',
@@ -89,6 +91,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
   const [showMessageModal, setShowMessageModal] = React.useState<boolean>(false);
   const [messageText, setMessageText] = React.useState<string>('');
   const [messageType, setMessageType] = React.useState<MessageType>('info');
+  const [isSaving, setIsSaving] = React.useState<boolean>(false);
   const causeCategoryOptions: IDropdownOption[] = [
     { key: 'Special', text: 'Special' },
     { key: 'Common', text: 'Common' }
@@ -227,13 +230,56 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
   const handlePeoplePickerChange = (actionKey: string) => (items: any[]) => {
     const list = Array.isArray(items) ? items : [];
     const values = list
-      .map((p: any) => {
-        const id = (p && (p.id || p.Id || p.ID)) ?? '';
-        const display = (p && (p.secondaryText || p.loginName || p.text || p.email || '')) || '';
-        return `${String(id)}|${String(display)}`.trim();
+      .map((user: any) => {
+        if (!user) return null;
+        const rawId = user.id ?? user.Id ?? user.ID ?? user.key ?? user.Key;
+        let idStr = String(rawId ?? '').trim();
+        if (!idStr && user.loginName) {
+          const rawLogin = String(user.loginName).trim();
+          const membershipSplit = rawLogin.split('|');
+          idStr = membershipSplit[membershipSplit.length - 1] || rawLogin;
+        }
+        if (!idStr && user.UserPrincipalName) {
+          idStr = String(user.UserPrincipalName).trim();
+        }
+        if (!idStr && user.userPrincipalName) {
+          idStr = String(user.userPrincipalName).trim();
+        }
+        if (/^\d+$/.test(idStr) === false) {
+          const numericId = parseInt(idStr, 10);
+          if (!isNaN(numericId)) {
+            idStr = String(numericId);
+          }
+        }
+
+        const contact = String(
+          user.secondaryText ||
+          user.email ||
+          user.EMail ||
+          user.UserPrincipalName ||
+          user.userPrincipalName ||
+          user.loginName ||
+          user.LoginName ||
+          user.text ||
+          user.primaryText ||
+          ''
+        ).trim();
+
+        if (!idStr) {
+          return null;
+        }
+
+        return `${idStr}|${contact}`.trim();
       })
       .filter((v: any): v is string => typeof v === 'string' && v.length > 0);
-    updateActionDetail(actionKey, 'responsibility', values);
+
+    const uniqueValues: string[] = [];
+    values.forEach((entry: string) => {
+      if (uniqueValues.indexOf(entry) === -1) {
+        uniqueValues.push(entry);
+      }
+    });
+    updateActionDetail(actionKey, 'responsibility', uniqueValues);
 
     // clear responsibility error for the action
     setErrors(prev => {
@@ -305,172 +351,129 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
   const onSave = async () => {
     // run validation before preparing payload / saving
     if (!validate()) {
-      // focus/scroll to first error could be added here
       return;
     }
 
-    // keep top-level fields in sync with first selected action type for compatibility
-    const firstKey = (form.actionType && form.actionType.length) ? form.actionType[0] : undefined;
-    const payload = {
-      ...form,
-      actionDetails
-    };
-    if (firstKey && actionDetails[firstKey]) {
-      payload.actionPlan = actionDetails[firstKey].actionPlan;
-      payload.responsibility = actionDetails[firstKey].responsibility;
-      payload.plannedClosureDate = actionDetails[firstKey].plannedClosureDate;
-      payload.actualClosureDate = actionDetails[firstKey].actualClosureDate;
-    }
-    console.log('Prepared payload', payload);
-    //setPayloadState(payload);
-
-
-
-    const item: any = {};
-    // title / problem statement
-    item.LinkTitle = form.problemStatement || '';
-    //item.ProblemStatement = form.problemStatement || '';
-
-    // top-level mappings
-    item.CauseCategory = form.causeCategory || '';
-    item.RCASource = form.source || '';
-    item.RCAPriority = form.priority || '';
-    item.RelatedMetric = form.relatedMetric || '';
-    item.RelatedSubMetric = form.relatedSubMetric || '';
-    item.Cause = form.causes || '';
-    item.RootCause = form.rootCauses || '';
-    item.RCATechniqueUsedAndReference = form.analysisTechnique || '';
-    // join action types into a single string similar to existing list storage
-    item.RCATypeOfAction = (form.actionType && form.actionType.length) ? (form.actionType as string[]).join(', ') : '';
-
-    // map per-action-type details to repository fields using suffix mapping
-    Object.keys(actionDetails || {}).forEach((actKey) => {
-      const details = actionDetails[actKey] || {};
-      // determine suffix used in repository field names
-      let suffix = '';
-      if (actKey.toLowerCase().indexOf('correction') !== -1) suffix = 'Correction';
-      else if (actKey.toLowerCase().indexOf('corrective') !== -1) suffix = 'Corrective';
-      else if (actKey.toLowerCase().indexOf('preventive') !== -1) suffix = 'Preventive';
-      else {
-        // fallback: sanitize actKey to use as suffix (remove spaces)
-        suffix = actKey.replace(/\s+/g, '');
-      }
-
-      if (details.actionPlan !== undefined) item[`ActionPlan${suffix}`] = details.actionPlan;
-      if (details.responsibility !== undefined) item[`Responsibility${suffix}`] = details.responsibility;
-      if (details.plannedClosureDate !== undefined) item[`PlannedClosureDate${suffix}`] = formatDate(details.plannedClosureDate);
-      if (details.actualClosureDate !== undefined) item[`ActualClosureDate${suffix}`] = formatDate(details.actualClosureDate);
-    });
-
-    if (form.performanceBefore !== undefined) item.PerformanceBeforeActionPlan = form.performanceBefore;
-    if (form.performanceAfter !== undefined) item.PerformanceAfterActionPlan = form.performanceAfter;
-    if (form.quantitativeEffectiveness !== undefined) item.Quantitative_x0020_Or_x0020_Stat = form.quantitativeEffectiveness;
-    if (form.remarks !== undefined) item.Remarks = form.remarks;
-
-    // determine repository id from initialData when editing
-    const repoId = initialData ? (initialData.__repoId ?? initialData.__id ?? initialData.id ?? initialData.ID) : undefined;
-    const numericRepoId = repoId ? Number(repoId) : undefined;
-
-    // call repository save/update
+    setIsSaving(true);
     try {
-      let savedItemId: number | undefined = undefined;
+      // keep top-level fields in sync with first selected action type for compatibility
+      const firstKey = (form.actionType && form.actionType.length) ? form.actionType[0] : undefined;
+      const payload = {
+        ...form,
+        actionDetails
+      };
+      if (firstKey && actionDetails[firstKey]) {
+        payload.actionPlan = actionDetails[firstKey].actionPlan;
+        payload.responsibility = actionDetails[firstKey].responsibility;
+        payload.plannedClosureDate = actionDetails[firstKey].plannedClosureDate;
+        payload.actualClosureDate = actionDetails[firstKey].actualClosureDate;
+      }
+      console.log('Prepared payload', payload);
 
-      if (context) {
-        if (numericRepoId && numericRepoId > 0) {
-          try {
-            await updateRCAItem(numericRepoId, item, context);
-            console.log('RCA updated', numericRepoId);
-            savedItemId = numericRepoId;
-            const successMessage = numericRepoId && numericRepoId > 0 ? 'RCA updated successfully.' : 'RCA saved successfully.';
-            showMessage(successMessage, 'success');
-            // await fetchRCAItems();
-          } catch (e: any) {
-            console.error('Failed to update RCA item', e);
-            showMessage('Failed to update RCA item. Please try again later.', 'error');
+      const item: any = {};
+      // title / problem statement
+      item.LinkTitle = form.problemStatement || '';
+
+      // top-level mappings
+      item.CauseCategory = form.causeCategory || '';
+      item.RCASource = form.source || '';
+      item.RCAPriority = form.priority || '';
+      item.RelatedMetric = form.relatedMetric || '';
+      item.RelatedSubMetric = form.relatedSubMetric || '';
+      item.Cause = form.causes || '';
+      item.RootCause = form.rootCauses || '';
+      item.RCATechniqueUsedAndReference = form.analysisTechnique || '';
+      item.RCATypeOfAction = (form.actionType && form.actionType.length) ? (form.actionType as string[]).join(', ') : '';
+
+      Object.keys(actionDetails || {}).forEach((actKey) => {
+        const details = actionDetails[actKey] || {};
+        let suffix = '';
+        if (actKey.toLowerCase().indexOf('correction') !== -1) suffix = 'Correction';
+        else if (actKey.toLowerCase().indexOf('corrective') !== -1) suffix = 'Corrective';
+        else if (actKey.toLowerCase().indexOf('preventive') !== -1) suffix = 'Preventive';
+        else {
+          suffix = actKey.replace(/\s+/g, '');
+        }
+
+        if (details.actionPlan !== undefined) item[`ActionPlan${suffix}`] = details.actionPlan;
+        if (details.responsibility !== undefined) item[`Responsibility${suffix}`] = details.responsibility;
+        if (details.plannedClosureDate !== undefined) item[`PlannedClosureDate${suffix}`] = formatDate(details.plannedClosureDate);
+        if (details.actualClosureDate !== undefined) item[`ActualClosureDate${suffix}`] = formatDate(details.actualClosureDate);
+      });
+
+      if (form.performanceBefore !== undefined) item.PerformanceBeforeActionPlan = form.performanceBefore;
+      if (form.performanceAfter !== undefined) item.PerformanceAfterActionPlan = form.performanceAfter;
+      if (form.quantitativeEffectiveness !== undefined) item.Quantitative_x0020_Or_x0020_Stat = form.quantitativeEffectiveness;
+      if (form.remarks !== undefined) item.Remarks = form.remarks;
+
+      const repoId = initialData ? (initialData.__repoId ?? initialData.__id ?? initialData.id ?? initialData.ID) : undefined;
+      const numericRepoId = repoId ? Number(repoId) : undefined;
+
+      try {
+        let savedItemId: number | undefined = undefined;
+
+        if (context) {
+          if (numericRepoId && numericRepoId > 0) {
+            try {
+              await updateRCAItem(numericRepoId, item, context);
+              console.log('RCA updated', numericRepoId);
+              savedItemId = numericRepoId;
+              const successMessage = numericRepoId && numericRepoId > 0 ? 'RCA updated successfully.' : 'RCA saved successfully.';
+              showMessage(successMessage, 'success');
+            } catch (e: any) {
+              console.error('Failed to update RCA item', e);
+              showMessage('Failed to update RCA item. Please try again later.', 'error');
+            }
+          } else {
+            try {
+              const result = await saveRCAItem(item, context);
+              console.log('RCA saved', result);
+              savedItemId =
+                (result && (result.Id || result.ID || result.id)) ||
+                (result && result.data && (result.data.Id || result.data.ID || result.data.id)) ||
+                undefined;
+              if (typeof savedItemId === 'string') savedItemId = Number(savedItemId);
+              const successMessage = numericRepoId && numericRepoId > 0 ? 'RCA updated successfully.' : 'RCA saved successfully.';
+              showMessage(successMessage, 'success');
+            } catch (e: any) {
+              console.error('Failed to save RCA item', e);
+              showMessage('Failed to save RCA item. Please try again later.', 'error');
+
+            }
           }
         } else {
-          try {
-            const result = await saveRCAItem(item, context);
-            console.log('RCA saved', result);
-            // try to extract item id from repository result (common shapes)
-            savedItemId =
-              (result && (result.Id || result.ID || result.id)) ||
-              (result && result.data && (result.data.Id || result.data.ID || result.data.id)) ||
-              undefined;
-            if (typeof savedItemId === 'string') savedItemId = Number(savedItemId);
-            const successMessage = numericRepoId && numericRepoId > 0 ? 'RCA updated successfully.' : 'RCA saved successfully.';
-            showMessage(successMessage, 'success');
-            // await fetchRCAItems();
-          } catch (e: any) {
-            console.error('Failed to save RCA item', e);
-            showMessage('Failed to save RCA item. Please try again later.', 'error');
-
-          }
+          console.warn('No WebPart context provided to save/update RCA item - skipping backend call.');
         }
-      } else {
-        console.warn('No WebPart context provided to save/update RCA item - skipping backend call.');
-      }
 
-      // upload new attachments (File objects)
-      if (savedItemId && form.attachments && form.attachments.length > 0) {
-        const filesToUpload = (form.attachments || []).filter((a: any) => a instanceof File) as File[];
-        if (filesToUpload.length > 0) {
-          for (const file of filesToUpload) {
-            try {
-              // savedItemId is checked above — assert as number for the repo API
-              await uploadRCAAttachment(savedItemId as number, file, context);
-              console.log('Uploaded attachment', file.name);
-              window.location.reload();
+        if (savedItemId && form.attachments && form.attachments.length > 0) {
+          const filesToUpload = (form.attachments || []).filter((a: any) => a instanceof File) as File[];
+          if (filesToUpload.length > 0) {
+            for (const file of filesToUpload) {
+              try {
+                await uploadRCAAttachment(savedItemId as number, file, context);
+                console.log('Uploaded attachment', file.name);
+                window.location.reload();
 
-            } catch (e: any) {
-              console.error('Failed to upload attachment', file.name, e);
+              } catch (e: any) {
+                console.error('Failed to upload attachment', file.name, e);
+              }
             }
           }
         }
+
+
+        if (onSubmit) onSubmit(payload);
+        else console.log('RCA Form submit', payload);
+      } catch (err: any) {
+        console.error('Failed to save/update RCA item', err);
+        showMessage('Failed to save RCA item. Please try again later.', 'error');
       }
-
-
-
-
-
-      // show modal and call parent callback (parent can also refetch onSubmit)
-
-      if (onSubmit) onSubmit(payload);
-      else console.log('RCA Form submit', payload);
-    } catch (err: any) {
-      console.error('Failed to save/update RCA item', err);
-      showMessage('Failed to save RCA item. Please try again later.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // add reset handler
-  const onReset = () => {
-    setForm({
-      problemStatement: '',
-      causeCategory: '',
-      source: '',
-      priority: '',
-      relatedMetric: '',
-      causes: '',
-      rootCauses: '',
-      analysisTechnique: '',
-      // reset actionType to empty array
-      actionType: [],
-      actionPlan: '',
-      responsibility: '',
-      plannedClosureDate: undefined,
-      actualClosureDate: undefined,
-      performanceBefore: '',
-      performanceAfter: '',
-      quantitativeEffectiveness: '',
-      remarks: '',
-      // ensure attachments cleared on reset
-      attachments: []
-    });
-    setActionDetails({});
-    // ensure dropdown is enabled after reset
-    setActionTypeDisabled(false);
-  };
+  // Note: Reset functionality removed; parent should control dialog dismissal via onCancel
 
   // when Cause Category is "Special", pre-populate and disable Type of Action
   useEffect(() => {
@@ -790,7 +793,7 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
                     />
                     {/* Responsibility converted to People Picker */}
                     <div>
-                      <label style={{ display: 'block', marginBottom: 6, color: '#605e5c', fontSize: 12 }}>Responsibility</label>
+                      <Label>Responsibility</Label>
                       {!peoplePickerFailed && context ? (
                         <PeoplePickerErrorBoundary onError={() => setPeoplePickerFailed(true)}>
                           <PeoplePicker
@@ -1004,8 +1007,8 @@ export default function RCAForm({ onSubmit, initialData, context }: RCAFormProps
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <DefaultButton text="Reset" onClick={onReset} />
-          <PrimaryButton text="Save" onClick={onSave} />
+          <DefaultButton text="Cancel" onClick={() => { if (onCancel) onCancel(); }} disabled={isSaving} />
+          <PrimaryButton text={isSaving ? 'Saving...' : 'Save'} onClick={onSave} disabled={isSaving} />
         </div>
       </div>
     </>
