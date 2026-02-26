@@ -9,6 +9,8 @@ import { GenericService } from '../../../../services/GenericServices';
 import IGenericService from '../../../../services/IGenericServices';
 import { getRCAItems, RCARepository } from '../../../../repositories/RCARepository';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
+import { exportRowsToExcel } from '../../../../common/excelExport';
+import { formatResponsibilityValue, formatDateMMDDYYYY } from '../../../../common/exportHelpers';
 import IRCARepository from '../../../../repositories/repositoriesInterface/IRCARepository';
 export interface IColumnConfig {
 	key: string;
@@ -94,11 +96,6 @@ const classNames = mergeStyleSets({
 	},
 	subDetailsList: {
 		selectors: {
-			//'.ms-DetailsList': { width: '100%' },
-			//'.ms-DetailsList-contentWrapper': { paddingRight: 0 },
-			//'.ms-DetailsHeader': { padding: '6px 8px', background: '#faf9f8', fontSize: 12 },
-			//'.ms-DetailsHeader-cell': { paddingRight: 8 },
-			//'.ms-DetailsRow-cell': { padding: '6px 6px', fontSize: 13 }
 		}
 	},
 	paginationBar: {
@@ -106,105 +103,98 @@ const classNames = mergeStyleSets({
 		justifyContent: 'space-between',
 		alignItems: 'center',
 		marginTop: 12,
-		padding: '0 4px'
+		padding: '8px 12px',
+		background: '#f3f2f1',
+		borderRadius: 4
 	},
 	paginationControls: {
 		display: 'flex',
-		columnGap: 8
+		gap: 8
 	}
 });
 
+const CAUSAL_ACTION_SEGMENTS = [
+	{ suffix: 'Correction', label: 'Correction' },
+	{ suffix: 'Corrective', label: 'Corrective Action' },
+	{ suffix: 'Preventive', label: 'Preventive Action' }
+];
 
+	const CAUSAL_EXPORT_HEADERS = [
+		'Problem statement (Causal Analysis Trigger)',
+		'Cause Category',
+		'Source',
+		'Priority',
+		'Related Metric (if any)',
+		'Related Sub Metric (if any)',
+		'Cause(s)',
+		'Root Cause(s)',
+		'Root Cause Analysis Technique Used and Reference (if any)',
+		'Type of Action',
+		'Action Plan (Correction)',
+		'Responsibility (Correction)',
+		'Planned Closure Date (Correction)',
+		'Actual Closure Date (Correction)',
+		'Action Plan (Corrective Action)',
+		'Responsibility (Corrective Action)',
+		'Planned Closure Date (Corrective Action)',
+		'Actual Closure Date (Corrective Action)',
+		'Action Plan (Preventive Action)',
+		'Responsibility (Preventive Action)',
+		'Planned Closure Date (Preventive Action)',
+		'Actual Closure Date (Preventive Action)',
+		'Performance before action plan',
+		'Performance after action plan',
+		'Quantitative / Statistical effectiveness',
+		'Remarks'
+	];
 
-const getModifiedTimestamp = (entry: Partial<IRCAList> | undefined): number => {
-	if (!entry) return 0;
-	const raw: any = (entry as any).Modified ?? (entry as any).modified ?? (entry as any).LastModified ?? (entry as any).lastModified;
-	if (raw instanceof Date) {
-		return raw.getTime();
-	}
-	if (typeof raw === 'string' || typeof raw === 'number') {
-		const parsed = new Date(raw);
-		const time = parsed.getTime();
-		return isNaN(time) ? 0 : time;
-	}
-	return 0;
-};
+	const buildCausalExportRow = (item: Partial<IRCAList>): Record<string, any> => {
+		const row: Record<string, any> = {
+			'Problem statement (Causal Analysis Trigger)': item.LinkTitle ?? '',
+			'Cause Category': item.CauseCategory ?? '',
+			'Source': item.RCASource ?? '',
+			'Priority': item.RCAPriority ?? '',
+			'Related Metric (if any)': item.RelatedMetric ?? '',
+			'Related Sub Metric (if any)': item.RelatedSubMetric ?? '',
+			'Cause(s)': item.Cause ?? '',
+			'Root Cause(s)': item.RootCause ?? '',
+			'Root Cause Analysis Technique Used and Reference (if any)': item.RCATechniqueUsedAndReference ?? '',
+			'Type of Action': item.RCATypeOfAction ?? ''
+		};
 
-const formatResponsibilityValue = (input: any): string => {
-	const results: string[] = [];
-	const collect = (value: any): void => {
-		if (value === null || value === undefined) {
-			return;
-		}
-		if (Array.isArray(value)) {
-			value.forEach(collect);
-			return;
-		}
-		if (typeof value === 'object') {
-			const email = (value as any).EMail ?? (value as any).Email ?? (value as any).email ?? (value as any).mail ?? (value as any).PrimaryEmail;
-			if (email) {
-				const trimmed = String(email).trim();
-				if (trimmed) {
-					results.push(trimmed);
-				}
-				return;
-			}
-			const title = (value as any).Title ?? (value as any).Name ?? (value as any).text;
-			if (title && typeof title === 'string') {
-				const sanitized = title.trim();
-				if (sanitized) {
-					results.push(sanitized);
-				}
-				return;
-			}
-		}
-		const stringify = String(value).trim();
-		if (!stringify) {
-			return;
-		}
-		const pipeSplit = stringify.lastIndexOf('|');
-		if (pipeSplit !== -1 && pipeSplit + 1 < stringify.length) {
-			const afterPipe = stringify.substring(pipeSplit + 1).trim();
-			if (afterPipe) {
-				results.push(afterPipe);
-				return;
-			}
-		}
-		const hashSplit = stringify.lastIndexOf(';#');
-		if (hashSplit !== -1 && hashSplit + 2 <= stringify.length) {
-			const afterHash = stringify.substring(hashSplit + 2).trim();
-			if (afterHash) {
-				results.push(afterHash);
-				return;
-			}
-		}
-		results.push(stringify);
+		CAUSAL_ACTION_SEGMENTS.forEach((segment) => {
+			const planKey = `ActionPlan${segment.suffix}` as keyof Partial<IRCAList>;
+			const responsibilityKey = `Responsibility${segment.suffix}` as keyof Partial<IRCAList>;
+			const plannedKey = `PlannedClosureDate${segment.suffix}` as keyof Partial<IRCAList>;
+			const actualKey = `ActualClosureDate${segment.suffix}` as keyof Partial<IRCAList>;
+
+			row[`Action Plan (${segment.label})`] = item[planKey] ?? '';
+			row[`Responsibility (${segment.label})`] = formatResponsibilityValue(item[responsibilityKey]);
+			row[`Planned Closure Date (${segment.label})`] = formatDateMMDDYYYY(item[plannedKey]);
+			row[`Actual Closure Date (${segment.label})`] = formatDateMMDDYYYY(item[actualKey]);
+		});
+
+		row['Performance before action plan'] = item.PerformanceBeforeActionPlan ?? '';
+		row['Performance after action plan'] = item.PerformanceAfterActionPlan ?? '';
+		row['Quantitative / Statistical effectiveness'] = item.QuantitativeOrStatisticalEffecti ?? '';
+		row['Remarks'] = item.Remarks ?? '';
+		return row;
 	};
 
-	collect(input);
-	const filtered = results.filter(Boolean);
-	const unique: string[] = [];
-	filtered.forEach((r) => {
-		if (unique.indexOf(r) === -1) unique.push(r);
-	});
-	return unique.join(', ');
-};
+	const getModifiedTimestamp = (entry: Partial<IRCAList> | undefined): number => {
+		if (!entry) return 0;
+		const raw: any = (entry as any).Modified ?? (entry as any).modified ?? (entry as any).LastModified ?? (entry as any).lastModified;
+		if (raw instanceof Date) {
+			return raw.getTime();
+		}
+		if (typeof raw === 'string' || typeof raw === 'number') {
+			const parsed = new Date(raw);
+			const time = parsed.getTime();
+			return isNaN(time) ? 0 : time;
+		}
+		return 0;
+	};
 
-// Format various date inputs (Date, string, number) to MM/DD/YYYY for UI display
-const formatDateMMDDYYYY = (input: any): string => {
-	if (input === null || input === undefined || input === '') return '';
-	let dt: Date;
-	if (input instanceof Date) dt = input;
-	else if (typeof input === 'number') dt = new Date(input);
-	else dt = new Date(String(input));
-	if (isNaN(dt.getTime())) return '';
-	const monthNum = dt.getMonth() + 1;
-	const dayNum = dt.getDate();
-	const mm = (monthNum < 10 ? '0' : '') + String(monthNum);
-	const dd = (dayNum < 10 ? '0' : '') + String(dayNum);
-	const yyyy = dt.getFullYear();
-	return `${mm}/${dd}/${yyyy}`;
-};
 const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, className }) => {
 	// prefer passed columns, then RCACOLUMNS, then fallback dynamic columns
 	const cols = columns && columns.length ? columns : RCACOLUMNS;
@@ -477,6 +467,16 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	const canGoPrevious = safeCurrentPage > 1;
 	const canGoNext = safeCurrentPage < totalPages;
 
+	const handleExportCausalAnalysis = (): void => {
+		const rows = (RCAItems ?? []).map(buildCausalExportRow);
+		exportRowsToExcel({
+			rows,
+			headers: CAUSAL_EXPORT_HEADERS,
+			sheetName: 'Causal Analysis',
+			fileName: 'CausalAnalysis'
+		});
+	};
+
 	// render a compact 3-row table for the action types under a parent row
 	const renderActionSubTable = (it: any) => {
 		if (!it) return null;
@@ -566,8 +566,8 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 	return (
 		<>
-			{/* left-aligned Add New button styled like RAID logs */}
-			<div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
+			{/* Add / export controls styled alongside RAID logs actions */}
+			<div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: 8, gap: 8 }}>
 				<PrimaryButton
 					text="+ Add New"
 					onClick={() => {
@@ -577,6 +577,12 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 						openDialog();
 					}}
 					className={raidStyles.addButton}
+				/>
+				<DefaultButton
+					text="Export"
+					iconProps={{ iconName: 'Download' }}
+					onClick={handleExportCausalAnalysis}
+					disabled={!RCAItems || RCAItems.length === 0}
 				/>
 			</div>
 

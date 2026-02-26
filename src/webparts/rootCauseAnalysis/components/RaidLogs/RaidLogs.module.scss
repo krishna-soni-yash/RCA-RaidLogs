@@ -10,8 +10,9 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  gap: 8px;
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: none;
