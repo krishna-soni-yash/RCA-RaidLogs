@@ -149,6 +149,14 @@ const CAUSAL_ACTION_SEGMENTS = [
 	];
 
 	const buildCausalExportRow = (item: Partial<IRCAList>): Record<string, any> => {
+		// Format Type of Action - handle array or comma-separated string
+		let typeOfActionStr = '';
+		if (Array.isArray(item.RCATypeOfAction)) {
+			typeOfActionStr = item.RCATypeOfAction.map((t: any) => String(t).trim()).filter(Boolean).join('; ');
+		} else if (typeof item.RCATypeOfAction === 'string' && item.RCATypeOfAction.trim().length) {
+			typeOfActionStr = item.RCATypeOfAction.split(',').map((s: string) => s.trim()).filter(Boolean).join('; ');
+		}
+
 		const row: Record<string, any> = {
 			'Problem statement (Causal Analysis Trigger)': item.LinkTitle ?? '',
 			'Cause Category': item.CauseCategory ?? '',
@@ -159,7 +167,7 @@ const CAUSAL_ACTION_SEGMENTS = [
 			'Cause(s)': item.Cause ?? '',
 			'Root Cause(s)': item.RootCause ?? '',
 			'Root Cause Analysis Technique Used and Reference (if any)': item.RCATechniqueUsedAndReference ?? '',
-			'Type of Action': item.RCATypeOfAction ?? ''
+			'Type of Action': typeOfActionStr
 		};
 
 		CAUSAL_ACTION_SEGMENTS.forEach((segment) => {
