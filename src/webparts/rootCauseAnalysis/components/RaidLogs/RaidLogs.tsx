@@ -473,7 +473,7 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   };
 
   return (
-    <div className={styles.raidLogs}>
+    <div>
       <div className={styles.header}>
         <PrimaryButton 
           text="+ Add New" 
