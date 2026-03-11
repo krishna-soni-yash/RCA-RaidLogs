@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
+import historyStyles from './RCATableHistory.module.scss';
 import { RCACOLUMNS, SubSiteListNames } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
 import { GenericService } from '../../../../services/GenericServices';
@@ -114,6 +115,34 @@ const classNames = mergeStyleSets({
 		maxHeight: 560,
 		overflowY: 'auto',
 		padding: '4px 4px 4px 0',
+		background: '#fafafa'
+	},
+	historyModalContent: {
+		background: '#ffffff',
+		borderRadius: 8,
+		boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+		width: '100%',
+		maxHeight: '90vh',
+		display: 'flex',
+		flexDirection: 'column'
+	},
+	historyModalHeader: {
+		padding: '18px 22px',
+		borderBottom: '1px solid #e0e0e0',
+		display: 'flex',
+		justifyContent: 'space-between',
+		alignItems: 'center'
+	},
+	historyModalTitle: {
+		fontSize: 20,
+		color: '#333',
+		margin: 0,
+		fontWeight: 600
+	},
+	historyModalBody: {
+		padding: '16px 20px',
+		overflowY: 'auto',
+		flex: 1,
 		background: '#fafafa'
 	},
 	historySummary: {
@@ -812,27 +841,27 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				</div>
 			</div>
 
-			<Dialog
-				hidden={!isHistoryDialogOpen}
-				onDismiss={() => setIsHistoryDialogOpen(false)}
-				dialogContentProps={{
-					type: DialogType.largeHeader,
-					title: `Version History${historyItemTitle ? ` - ${historyItemTitle}` : ''}`
-				}}
-				modalProps={{
-					isBlocking: false,
-				}}
-				minWidth={600}
-				maxWidth={900}
-			>
-				<div className={classNames.historyContainer}>
+			{isHistoryDialogOpen && (
+				<div className={historyStyles.historyModalOverlay} onClick={() => setIsHistoryDialogOpen(false)}>
+					<div className={historyStyles.historyModalContainer} onClick={(e) => e.stopPropagation()}>
+						<div className={historyStyles.historyModalHeader}>
+							<h2 className={historyStyles.historyModalTitle}>Version History{historyItemTitle ? ` - ${historyItemTitle}` : ''}</h2>
+							<IconButton
+								iconProps={{ iconName: 'Cancel' }}
+								title="Close"
+								ariaLabel="Close"
+								onClick={() => setIsHistoryDialogOpen(false)}
+							/>
+						</div>
+						<div className={historyStyles.historyModalBody}>
+							<div className={historyStyles.historyContainer}>
 					{isHistoryLoading ? (
 						<div style={{ padding: 8 }}>Loading version history...</div>
 					) : historyVersions.length === 0 ? (
 						<div style={{ padding: 8 }}>No version history available.</div>
 					) : (
 						<div>
-							<div className={classNames.historySummary}>Found {historyVersions.length} version(s) for this item</div>
+							<div className={historyStyles.historySummary}>Found {historyVersions.length} version(s) for this item</div>
 							{historyVersions.map((version: any, index: number) => {
 								const modifiedRaw = version?.Modified ?? version?.Created;
 								const modifiedDate = modifiedRaw ? new Date(modifiedRaw) : undefined;
@@ -845,63 +874,63 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 								const label = version?.VersionLabel ?? version?.Version ?? `${historyVersions.length - index}`;
 
 								return (
-									<div key={`${label}-${index}`} className={`${classNames.historyCard} ${index === 0 ? classNames.historyCardLatest : ''}`}>
-										<div className={classNames.historyCardHeader}>
-											<span className={classNames.historyVersionBadge}>Version {String(label)}</span>
-											<span className={classNames.historyMetaText}>Modified: {modifiedText}</span>
+									<div key={`${label}-${index}`} className={`${historyStyles.historyCard} ${index === 0 ? historyStyles.historyCardLatest : ''}`}>
+										<div className={historyStyles.historyCardHeader}>
+											<span className={historyStyles.historyVersionBadge}>Version {String(label)}</span>
+											<span className={historyStyles.historyMetaText}>Modified: {modifiedText}</span>
 										</div>
-										<div className={classNames.historyMetaText}>Modified By: {String(editorEmail)}</div>
+										<div className={historyStyles.historyMetaText}>Modified By: {String(editorEmail)}</div>
 										{version?.CheckInComment ? (
-											<div className={classNames.historyMetaText} style={{ marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
+											<div className={historyStyles.historyMetaText} style={{ marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
 										) : null}
 
-										<div className={classNames.historySection}>
-											<div className={classNames.historySectionTitle}>RCA Overview</div>
-											<div className={classNames.historyFieldGrid}>
-												<div className={classNames.historyFieldLabel}>Problem statement (Causal Analysis Trigger)</div><div className={classNames.historyFieldValue}>{textValue(version?.LinkTitle)}</div>
-												<div className={classNames.historyFieldLabel}>Cause Category</div><div className={classNames.historyFieldValue}>{textValue(version?.CauseCategory)}</div>
-												<div className={classNames.historyFieldLabel}>Source</div><div className={classNames.historyFieldValue}>{textValue(version?.RCASource)}</div>
-												<div className={classNames.historyFieldLabel}>Priority</div><div className={classNames.historyFieldValue}>{textValue(version?.RCAPriority)}</div>
-												<div className={classNames.historyFieldLabel}>Related Metric (if any)</div><div className={classNames.historyFieldValue}>{textValue(version?.RelatedMetric)}</div>
-												<div className={classNames.historyFieldLabel}>Related Sub Metric (if any)</div><div className={classNames.historyFieldValue}>{textValue(version?.RelatedSubMetric)}</div>
-												<div className={classNames.historyFieldLabel}>Cause(s)</div><div className={classNames.historyFieldValue}>{textValue(version?.Cause)}</div>
-												<div className={classNames.historyFieldLabel}>Root Cause(s)</div><div className={classNames.historyFieldValue}>{textValue(version?.RootCause)}</div>
-												<div className={classNames.historyFieldLabel}>Root Cause Analysis Technique Used and Reference (if any)</div><div className={classNames.historyFieldValue}>{textValue(version?.RCATechniqueUsedAndReference)}</div>
-												<div className={classNames.historyFieldLabel}>Type of Action</div><div className={classNames.historyFieldValue}>{actionTypeText(version)}</div>
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>RCA Overview</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Problem statement (Causal Analysis Trigger)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.LinkTitle)}</div>
+												<div className={historyStyles.historyFieldLabel}>Cause Category</div><div className={historyStyles.historyFieldValue}>{textValue(version?.CauseCategory)}</div>
+												<div className={historyStyles.historyFieldLabel}>Source</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RCASource)}</div>
+												<div className={historyStyles.historyFieldLabel}>Priority</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RCAPriority)}</div>
+												<div className={historyStyles.historyFieldLabel}>Related Metric (if any)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RelatedMetric)}</div>
+												<div className={historyStyles.historyFieldLabel}>Related Sub Metric (if any)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RelatedSubMetric)}</div>
+												<div className={historyStyles.historyFieldLabel}>Cause(s)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.Cause)}</div>
+												<div className={historyStyles.historyFieldLabel}>Root Cause(s)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RootCause)}</div>
+												<div className={historyStyles.historyFieldLabel}>Root Cause Analysis Technique Used and Reference (if any)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RCATechniqueUsedAndReference)}</div>
+												<div className={historyStyles.historyFieldLabel}>Type of Action</div><div className={historyStyles.historyFieldValue}>{actionTypeText(version)}</div>
 											</div>
 										</div>
 
-										<div className={classNames.historySection}>
-											<div className={classNames.historySectionTitle}>Correction</div>
-											<div className={classNames.historyFieldGrid}>
-												<div className={classNames.historyFieldLabel}>Action Plan (Correction)</div><div className={classNames.historyFieldValue}>{textValue(version?.ActionPlanCorrection)}</div>
-												<div className={classNames.historyFieldLabel}>Responsibility (Correction)</div><div className={classNames.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrection))}</div>
-												<div className={classNames.historyFieldLabel}>Planned Closure Date (Correction)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrection))}</div>
-												<div className={classNames.historyFieldLabel}>Actual Closure Date (Correction)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrection))}</div>
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>Correction</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Action Plan (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.ActionPlanCorrection)}</div>
+												<div className={historyStyles.historyFieldLabel}>Responsibility (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrection))}</div>
+												<div className={historyStyles.historyFieldLabel}>Planned Closure Date (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrection))}</div>
+												<div className={historyStyles.historyFieldLabel}>Actual Closure Date (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrection))}</div>
 											</div>
 										</div>
 
-										<div className={classNames.historySection}>
-											<div className={classNames.historySectionTitle}>Corrective Action</div>
-											<div className={classNames.historyFieldGrid}>
-												<div className={classNames.historyFieldLabel}>Action Plan (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(version?.ActionPlanCorrective)}</div>
-												<div className={classNames.historyFieldLabel}>Responsibility (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrective))}</div>
-												<div className={classNames.historyFieldLabel}>Planned Closure Date (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrective))}</div>
-												<div className={classNames.historyFieldLabel}>Actual Closure Date (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrective))}</div>
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>Corrective Action</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Action Plan (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.ActionPlanCorrective)}</div>
+												<div className={historyStyles.historyFieldLabel}>Responsibility (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrective))}</div>
+												<div className={historyStyles.historyFieldLabel}>Planned Closure Date (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrective))}</div>
+												<div className={historyStyles.historyFieldLabel}>Actual Closure Date (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrective))}</div>
 											</div>
 										</div>
 
-										<div className={classNames.historySection}>
-											<div className={classNames.historySectionTitle}>Preventive Action And Effectiveness</div>
-											<div className={classNames.historyFieldGrid}>
-												<div className={classNames.historyFieldLabel}>Action Plan (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(version?.ActionPlanPreventive)}</div>
-												<div className={classNames.historyFieldLabel}>Responsibility (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityPreventive))}</div>
-												<div className={classNames.historyFieldLabel}>Planned Closure Date (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDatePreventive))}</div>
-												<div className={classNames.historyFieldLabel}>Actual Closure Date (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDatePreventive))}</div>
-												<div className={classNames.historyFieldLabel}>Performance before action plan</div><div className={classNames.historyFieldValue}>{textValue(version?.PerformanceBeforeActionPlan)}</div>
-												<div className={classNames.historyFieldLabel}>Performance after action plan</div><div className={classNames.historyFieldValue}>{textValue(version?.PerformanceAfterActionPlan)}</div>
-												<div className={classNames.historyFieldLabel}>Quantitative / Statistical effectiveness</div><div className={classNames.historyFieldValue}>{textValue(version?.QuantitativeOrStatisticalEffecti)}</div>
-												<div className={classNames.historyFieldLabel}>Remarks</div><div className={classNames.historyFieldValue}>{textValue(version?.Remarks)}</div>
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>Preventive Action And Effectiveness</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Action Plan (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.ActionPlanPreventive)}</div>
+												<div className={historyStyles.historyFieldLabel}>Responsibility (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityPreventive))}</div>
+												<div className={historyStyles.historyFieldLabel}>Planned Closure Date (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDatePreventive))}</div>
+												<div className={historyStyles.historyFieldLabel}>Actual Closure Date (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDatePreventive))}</div>
+												<div className={historyStyles.historyFieldLabel}>Performance before action plan</div><div className={historyStyles.historyFieldValue}>{textValue(version?.PerformanceBeforeActionPlan)}</div>
+												<div className={historyStyles.historyFieldLabel}>Performance after action plan</div><div className={historyStyles.historyFieldValue}>{textValue(version?.PerformanceAfterActionPlan)}</div>
+												<div className={historyStyles.historyFieldLabel}>Quantitative / Statistical effectiveness</div><div className={historyStyles.historyFieldValue}>{textValue(version?.QuantitativeOrStatisticalEffecti)}</div>
+												<div className={historyStyles.historyFieldLabel}>Remarks</div><div className={historyStyles.historyFieldValue}>{textValue(version?.Remarks)}</div>
 											</div>
 										</div>
 									</div>
@@ -909,8 +938,11 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 							})}
 						</div>
 					)}
+						</div>
+					</div>
 				</div>
-			</Dialog>
+				</div>
+			)}
 
 			<Dialog
 				hidden={!isDialogOpen}
