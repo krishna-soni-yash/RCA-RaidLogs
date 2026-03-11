@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
-import raidStyles from '../RaidLogs/RaidLogs.module.scss';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
 import { RCACOLUMNS, SubSiteListNames } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
@@ -110,6 +109,65 @@ const classNames = mergeStyleSets({
 	paginationControls: {
 		display: 'flex',
 		gap: 8
+	},
+	historyContainer: {
+		maxHeight: 520,
+		overflowY: 'auto',
+		paddingRight: 4
+	},
+	historyCard: {
+		border: '1px solid #d0d7de',
+		borderRadius: 10,
+		padding: 12,
+		marginBottom: 12,
+		background: '#ffffff',
+		boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+	},
+	historyCardHeader: {
+		display: 'flex',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 8,
+		paddingBottom: 8,
+		borderBottom: '1px solid #eceff1'
+	},
+	historyVersionBadge: {
+		fontSize: 12,
+		fontWeight: 700,
+		padding: '4px 8px',
+		borderRadius: 999,
+		background: '#e8f1fb',
+		color: '#005a9e'
+	},
+	historyMetaText: {
+		fontSize: 12,
+		color: '#5c6773'
+	},
+	historySection: {
+		marginTop: 10
+	},
+	historySectionTitle: {
+		fontSize: 12,
+		fontWeight: 700,
+		color: '#323130',
+		textTransform: 'uppercase',
+		letterSpacing: 0.3,
+		marginBottom: 6
+	},
+	historyFieldGrid: {
+		display: 'grid',
+		gridTemplateColumns: '240px 1fr',
+		columnGap: 10,
+		rowGap: 6,
+		fontSize: 12
+	},
+	historyFieldLabel: {
+		fontWeight: 600,
+		color: '#323130'
+	},
+	historyFieldValue: {
+		color: '#201f1e',
+		wordBreak: 'break-word'
 	}
 });
 
@@ -353,7 +411,35 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				context,
 				listTitle: SubSiteListNames.RootCauseAnalysis,
 				itemId,
-				select: ['VersionLabel', 'Created', 'Modified', 'CheckInComment', 'Editor/Title'],
+				select: [
+					'VersionLabel', 'Created', 'Modified', 'CheckInComment', 'Editor/Title',
+					'LinkTitle',
+					'CauseCategory',
+					'RCASource',
+					'RCAPriority',
+					'RelatedMetric',
+					'RelatedSubMetric',
+					'Cause',
+					'RootCause',
+					'RCATechniqueUsedAndReference',
+					'RCATypeOfAction',
+					'ActionPlanCorrection',
+					'ResponsibilityCorrection',
+					'PlannedClosureDateCorrection',
+					'ActualClosureDateCorrection',
+					'ActionPlanCorrective',
+					'ResponsibilityCorrective',
+					'PlannedClosureDateCorrective',
+					'ActualClosureDateCorrective',
+					'ActionPlanPreventive',
+					'ResponsibilityPreventive',
+					'PlannedClosureDatePreventive',
+					'ActualClosureDatePreventive',
+					'PerformanceBeforeActionPlan',
+					'PerformanceAfterActionPlan',
+					'QuantitativeOrStatisticalEffecti',
+					'Remarks'
+				],
 				expand: ['Editor']
 			});
 
@@ -364,6 +450,37 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		} finally {
 			setIsHistoryLoading(false);
 		}
+	};
+
+	const textValue = (value: any): string => {
+		if (value === null || value === undefined) return '-';
+		if (Array.isArray(value)) {
+			const normalized = value.map((entry: any) => String(entry ?? '').trim()).filter(Boolean);
+			return normalized.length ? normalized.join('; ') : '-';
+		}
+		if (typeof value === 'string') {
+			const trimmed = value.trim();
+			return trimmed.length ? trimmed : '-';
+		}
+		if (typeof value === 'number' || typeof value === 'boolean') {
+			return String(value);
+		}
+		if (typeof value === 'object') {
+			const title = (value as any).Title ?? (value as any).title;
+			if (title) return String(title);
+		}
+		return String(value);
+	};
+
+	const actionTypeText = (version: any): string => {
+		const raw = version?.RCATypeOfAction;
+		if (Array.isArray(raw)) {
+			return textValue(raw);
+		}
+		if (typeof raw === 'string' && raw.trim().length) {
+			return raw.split(',').map((x: string) => x.trim()).filter(Boolean).join('; ');
+		}
+		return '-';
 	};
 
 	useEffect(() => {
@@ -628,7 +745,6 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 						setIsEditing(false);
 						openDialog();
 					}}
-					className={raidStyles.addButton}
 				/>
 				<DefaultButton
 					text="Export"
@@ -682,7 +798,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				minWidth={600}
 				maxWidth={900}
 			>
-				<div style={{ maxHeight: 420, overflowY: 'auto' }}>
+				<div className={classNames.historyContainer}>
 					{isHistoryLoading ? (
 						<div style={{ padding: 8 }}>Loading version history...</div>
 					) : historyVersions.length === 0 ? (
@@ -697,13 +813,65 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 								const label = version?.VersionLabel ?? version?.Version ?? `${historyVersions.length - index}`;
 
 								return (
-									<div key={`${label}-${index}`} style={{ borderBottom: '1px solid #eee', padding: '8px 4px' }}>
-										<div style={{ fontWeight: 600 }}>Version {String(label)}</div>
-										<div style={{ fontSize: 12, marginTop: 2 }}>Modified: {modifiedText}</div>
-										<div style={{ fontSize: 12, marginTop: 2 }}>Modified By: {String(editorName)}</div>
+									<div key={`${label}-${index}`} className={classNames.historyCard}>
+										<div className={classNames.historyCardHeader}>
+											<span className={classNames.historyVersionBadge}>Version {String(label)}</span>
+											<span className={classNames.historyMetaText}>Modified: {modifiedText}</span>
+										</div>
+										<div className={classNames.historyMetaText}>Modified By: {String(editorName)}</div>
 										{version?.CheckInComment ? (
-											<div style={{ fontSize: 12, marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
+											<div className={classNames.historyMetaText} style={{ marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
 										) : null}
+
+										<div className={classNames.historySection}>
+											<div className={classNames.historySectionTitle}>RCA Overview</div>
+											<div className={classNames.historyFieldGrid}>
+												<div className={classNames.historyFieldLabel}>Problem statement (Causal Analysis Trigger)</div><div className={classNames.historyFieldValue}>{textValue(version?.LinkTitle)}</div>
+												<div className={classNames.historyFieldLabel}>Cause Category</div><div className={classNames.historyFieldValue}>{textValue(version?.CauseCategory)}</div>
+												<div className={classNames.historyFieldLabel}>Source</div><div className={classNames.historyFieldValue}>{textValue(version?.RCASource)}</div>
+												<div className={classNames.historyFieldLabel}>Priority</div><div className={classNames.historyFieldValue}>{textValue(version?.RCAPriority)}</div>
+												<div className={classNames.historyFieldLabel}>Related Metric (if any)</div><div className={classNames.historyFieldValue}>{textValue(version?.RelatedMetric)}</div>
+												<div className={classNames.historyFieldLabel}>Related Sub Metric (if any)</div><div className={classNames.historyFieldValue}>{textValue(version?.RelatedSubMetric)}</div>
+												<div className={classNames.historyFieldLabel}>Cause(s)</div><div className={classNames.historyFieldValue}>{textValue(version?.Cause)}</div>
+												<div className={classNames.historyFieldLabel}>Root Cause(s)</div><div className={classNames.historyFieldValue}>{textValue(version?.RootCause)}</div>
+												<div className={classNames.historyFieldLabel}>Root Cause Analysis Technique Used and Reference (if any)</div><div className={classNames.historyFieldValue}>{textValue(version?.RCATechniqueUsedAndReference)}</div>
+												<div className={classNames.historyFieldLabel}>Type of Action</div><div className={classNames.historyFieldValue}>{actionTypeText(version)}</div>
+											</div>
+										</div>
+
+										<div className={classNames.historySection}>
+											<div className={classNames.historySectionTitle}>Correction</div>
+											<div className={classNames.historyFieldGrid}>
+												<div className={classNames.historyFieldLabel}>Action Plan (Correction)</div><div className={classNames.historyFieldValue}>{textValue(version?.ActionPlanCorrection)}</div>
+												<div className={classNames.historyFieldLabel}>Responsibility (Correction)</div><div className={classNames.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrection))}</div>
+												<div className={classNames.historyFieldLabel}>Planned Closure Date (Correction)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrection))}</div>
+												<div className={classNames.historyFieldLabel}>Actual Closure Date (Correction)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrection))}</div>
+											</div>
+										</div>
+
+										<div className={classNames.historySection}>
+											<div className={classNames.historySectionTitle}>Corrective Action</div>
+											<div className={classNames.historyFieldGrid}>
+												<div className={classNames.historyFieldLabel}>Action Plan (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(version?.ActionPlanCorrective)}</div>
+												<div className={classNames.historyFieldLabel}>Responsibility (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrective))}</div>
+												<div className={classNames.historyFieldLabel}>Planned Closure Date (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrective))}</div>
+												<div className={classNames.historyFieldLabel}>Actual Closure Date (Corrective Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrective))}</div>
+											</div>
+										</div>
+
+										<div className={classNames.historySection}>
+											<div className={classNames.historySectionTitle}>Preventive Action And Effectiveness</div>
+											<div className={classNames.historyFieldGrid}>
+												<div className={classNames.historyFieldLabel}>Action Plan (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(version?.ActionPlanPreventive)}</div>
+												<div className={classNames.historyFieldLabel}>Responsibility (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityPreventive))}</div>
+												<div className={classNames.historyFieldLabel}>Planned Closure Date (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDatePreventive))}</div>
+												<div className={classNames.historyFieldLabel}>Actual Closure Date (Preventive Action)</div><div className={classNames.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDatePreventive))}</div>
+												<div className={classNames.historyFieldLabel}>Performance before action plan</div><div className={classNames.historyFieldValue}>{textValue(version?.PerformanceBeforeActionPlan)}</div>
+												<div className={classNames.historyFieldLabel}>Performance after action plan</div><div className={classNames.historyFieldValue}>{textValue(version?.PerformanceAfterActionPlan)}</div>
+												<div className={classNames.historyFieldLabel}>Quantitative / Statistical effectiveness</div><div className={classNames.historyFieldValue}>{textValue(version?.QuantitativeOrStatisticalEffecti)}</div>
+												<div className={classNames.historyFieldLabel}>Remarks</div><div className={classNames.historyFieldValue}>{textValue(version?.Remarks)}</div>
+											</div>
+										</div>
 									</div>
 								);
 							})}
