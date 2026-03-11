@@ -600,6 +600,9 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	}, [RCAItems, context]);
 
 	// edit column prepended to columns
+	const allowedMainFieldNames = new Set(['LinkTitle', 'CauseCategory', 'RCAPriority', 'RootCause', 'RCATypeOfAction']);
+	const mainListColumns: IColumn[] = (cols as IColumn[]).filter((column: IColumn) => allowedMainFieldNames.has(String(column.fieldName || '')));
+
 	const displayedColumns: IColumn[] = [
 		{
 			key: 'edit',
@@ -638,7 +641,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				</div>
 			)
 		},
-		...cols as IColumn[]
+		...mainListColumns
 	];
 
 	// expanded rows state (store string keys derived from each item)
