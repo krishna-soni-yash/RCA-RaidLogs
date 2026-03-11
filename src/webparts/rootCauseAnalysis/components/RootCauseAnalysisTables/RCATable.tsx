@@ -412,7 +412,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				listTitle: SubSiteListNames.RootCauseAnalysis,
 				itemId,
 				select: [
-					'VersionLabel', 'Created', 'Modified', 'CheckInComment', 'Editor/Title',
+					'VersionLabel', 'Created', 'Modified', 'CheckInComment', 'Editor/Title', 'Editor/EMail',
 					'LinkTitle',
 					'CauseCategory',
 					'RCASource',
@@ -809,7 +809,11 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 								const modifiedRaw = version?.Modified ?? version?.Created;
 								const modifiedDate = modifiedRaw ? new Date(modifiedRaw) : undefined;
 								const modifiedText = modifiedDate && !isNaN(modifiedDate.getTime()) ? modifiedDate.toLocaleString() : '-';
-								const editorName = version?.Editor?.Title ?? version?.Editor ?? '-';
+								const editorEmail =
+									version?.Editor?.EMail ??
+									version?.Editor?.Email ??
+									version?.Editor?.email ??
+									'-';
 								const label = version?.VersionLabel ?? version?.Version ?? `${historyVersions.length - index}`;
 
 								return (
@@ -818,7 +822,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 											<span className={classNames.historyVersionBadge}>Version {String(label)}</span>
 											<span className={classNames.historyMetaText}>Modified: {modifiedText}</span>
 										</div>
-										<div className={classNames.historyMetaText}>Modified By: {String(editorName)}</div>
+										<div className={classNames.historyMetaText}>Modified By: {String(editorEmail)}</div>
 										{version?.CheckInComment ? (
 											<div className={classNames.historyMetaText} style={{ marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
 										) : null}
