@@ -147,6 +147,37 @@
     outline:none !important;
   }
 }
+
+.tabsContainer {
+  border-top: 1px solid rgba(82, 95, 234, .2);
+  width: 100%;
+  margin-bottom: 1rem;
+  // padding: 0 1rem;
+  background: transparent;
+}
+
+.tabs {
+  :global(.ms-Pivot-link) {
+    border-bottom: 2px solid transparent;
+    color: var(--neutralSecondary, #605e5c);
+    font-weight: 500;
+    // padding: 0.625rem 1.25rem;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      color: var(--indigoDark, #303f9f);
+    }
+    
+    &.is-selected {
+      border-bottom: 2px solid var(--indigoDark, #303f9f);
+      color: var(--indigoDark, #303f9f);
+      font-weight: 600;
+    }
+  }
+}
+
 .actionRow {
   border: 1px solid #e0e0e0;
   border-radius: 4px;

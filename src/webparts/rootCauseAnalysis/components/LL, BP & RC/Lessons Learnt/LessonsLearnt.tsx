@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import {
+  DefaultButton,
   DetailsList,
   DetailsListLayoutMode,
   IColumn,
@@ -18,6 +19,7 @@ import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
 import PpoApproversContext from '../../PpoApproversContext';
 import { Current_User_Role } from '../../../../../common/Constants';
+import { exportRowsToExcel } from '../../../../../common/excelExport';
 import {
   addLessonsLearnt,
   fetchLessonsLearnt,
@@ -32,6 +34,7 @@ interface ILessonsLearntProps {
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
+const LESSONS_EXPORT_HEADERS = ['Problem Faced / Learning', 'Category', 'Solution', 'Remarks'];
 
 const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
@@ -56,6 +59,21 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
     }
     setSuccessMessage(null);
   }, []);
+
+  const handleExportLessonsLearnt = React.useCallback(() => {
+    const rows = items.map((item) => ({
+      'Problem Faced / Learning': item.LlProblemFacedLearning ?? '',
+      'Category': item.LlCategory ?? '',
+      'Solution': item.LlSolution ?? '',
+      'Remarks': item.LlRemarks ?? ''
+    }));
+    exportRowsToExcel({
+      rows,
+      headers: LESSONS_EXPORT_HEADERS,
+      sheetName: 'Lessons Learnt',
+      fileName: 'LessonsLearnt'
+    });
+  }, [items]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -350,13 +368,21 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
 
   return (
     <div>
-      {isProjectManager && (
-        <PrimaryButton
-          text="Add Lessons Learnt"
-          onClick={handleCreateClick}
-          style={{ marginTop: '8px' }}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '8px' }}>
+        {isProjectManager && (
+          <PrimaryButton
+            text="Add Lessons Learnt"
+            onClick={handleCreateClick}
+            style={{ marginTop: '8px' }}
+          />
+        )}
+        <DefaultButton
+          text="Export"
+          iconProps={{ iconName: 'Download' }}
+          onClick={handleExportLessonsLearnt}
+          disabled={isLoading || items.length === 0}
         />
-      )}
+      </div>
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (

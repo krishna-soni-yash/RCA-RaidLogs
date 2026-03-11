@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import {
+  DefaultButton,
   DetailsList,
   DetailsListLayoutMode,
   IColumn,
@@ -19,6 +20,7 @@ import styles from '../LlBpRc.module.scss';
 import { IReusableComponents } from '../../../../../models/Ll Bp Rc/ReusableComponents';
 import PpoApproversContext from '../../PpoApproversContext';
 import { Current_User_Role } from '../../../../../common/Constants';
+import { exportRowsToExcel } from '../../../../../common/excelExport';
 import {
   addReusableComponents,
   fetchReusableComponents,
@@ -33,6 +35,7 @@ interface IReusableComponentsProps {
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
+const REUSABLE_COMPONENTS_EXPORT_HEADERS = ['Component Name', 'Location', 'Purpose / Functionality', 'Remarks'];
 
 const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
@@ -57,6 +60,21 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
     }
     setSuccessMessage(null);
   }, []);
+
+  const handleExportReusableComponents = React.useCallback(() => {
+    const rows = items.map((item) => ({
+      'Component Name': item.RcComponentName ?? '',
+      'Location': item.RcLocation ?? '',
+      'Purpose / Functionality': item.RcPurposeMainFunctionality ?? '',
+      'Remarks': item.RcRemarks ?? ''
+    }));
+    exportRowsToExcel({
+      rows,
+      headers: REUSABLE_COMPONENTS_EXPORT_HEADERS,
+      sheetName: 'Reusable Components',
+      fileName: 'ReusableComponents'
+    });
+  }, [items]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -349,13 +367,21 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
 
   return (
     <div>
-      {isProjectManager && (
-        <PrimaryButton
-          text="Add Reusable Component"
-          onClick={handleCreateClick}
-          style={{ marginTop: '8px' }}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '8px' }}>
+        {isProjectManager && (
+          <PrimaryButton
+            text="Add Reusable Component"
+            onClick={handleCreateClick}
+            style={{ marginTop: '8px' }}
+          />
+        )}
+        <DefaultButton
+          text="Export"
+          iconProps={{ iconName: 'Download' }}
+          onClick={handleExportReusableComponents}
+          disabled={isLoading || items.length === 0}
         />
-      )}
+      </div>
       <Stack tokens={stackTokens} className={styles.formWrapper}>
         {successMessage && (
           <MessageBar

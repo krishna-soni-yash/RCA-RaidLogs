@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import {
+  DefaultButton,
   DetailsList,
   DetailsListLayoutMode,
   IColumn,
@@ -18,6 +19,7 @@ import styles from '../LlBpRc.module.scss';
 import { IBestPractices } from '../../../../../models/Ll Bp Rc/BestPractices';
 import PpoApproversContext from '../../PpoApproversContext';
 import { Current_User_Role } from '../../../../../common/Constants';
+import { exportRowsToExcel } from '../../../../../common/excelExport';
 import {
   addBestPractices,
   fetchBestPractices,
@@ -32,6 +34,7 @@ interface IBestPracticesProps {
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
+const BEST_PRACTICES_EXPORT_HEADERS = ['Best Practice Description', 'Category', 'Remarks'];
 
 const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
@@ -56,6 +59,20 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
     }
     setSuccessMessage(null);
   }, []);
+
+  const handleExportBestPractices = React.useCallback(() => {
+    const rows = items.map((item) => ({
+      'Best Practice Description': item.BpBestPracticesDescription ?? '',
+      'Category': item.BpCategory ?? '',
+      'Remarks': item.BpRemarks ?? ''
+    }));
+    exportRowsToExcel({
+      rows,
+      headers: BEST_PRACTICES_EXPORT_HEADERS,
+      sheetName: 'Best Practices',
+      fileName: 'BestPractices'
+    });
+  }, [items]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -340,13 +357,21 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
 
   return (
     <div>
-      {isProjectManager && (
-        <PrimaryButton
-          text="Add Best Practice"
-          onClick={handleCreateClick}
-          style={{ marginTop: '8px' }}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '8px' }}>
+        {isProjectManager && (
+          <PrimaryButton
+            text="Add Best Practice"
+            onClick={handleCreateClick}
+            style={{ marginTop: '8px' }}
+          />
+        )}
+        <DefaultButton
+          text="Export"
+          iconProps={{ iconName: 'Download' }}
+          onClick={handleExportBestPractices}
+          disabled={isLoading || items.length === 0}
         />
-      )}
+      </div>
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (
