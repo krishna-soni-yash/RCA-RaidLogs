@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
 import raidStyles from '../RaidLogs/RaidLogs.module.scss';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
-import { RCACOLUMNS } from '../../../../common/Constants';
+import { RCACOLUMNS, SubSiteListNames } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
 import { GenericService } from '../../../../services/GenericServices';
 import IGenericService from '../../../../services/IGenericServices';
@@ -215,6 +215,10 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	// editing state
 	const [selectedItem, setSelectedItem] = useState<Partial<IRCAList> | null>(null);
 	const [isEditing, setIsEditing] = useState<boolean>(false);
+	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState<boolean>(false);
+	const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(false);
+	const [historyItemTitle, setHistoryItemTitle] = useState<string>('');
+	const [historyVersions, setHistoryVersions] = useState<any[]>([]);
 
 	const openDialog = () => setIsDialogOpen(true);
 	const closeDialog = () => {
@@ -332,6 +336,36 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		closeDialog();
 	};
 
+	const openVersionHistory = async (item: Partial<IRCAList>): Promise<void> => {
+		const rawId: any = (item as any)?.ID ?? (item as any)?.Id;
+		const itemId = Number(rawId);
+		if (!itemId || isNaN(itemId)) return;
+
+		setHistoryItemTitle(String((item as any)?.LinkTitle ?? `RCA ${itemId}`));
+		setIsHistoryLoading(true);
+		setIsHistoryDialogOpen(true);
+
+		try {
+			const genericServiceInstance: IGenericService = new GenericService(undefined, context);
+			genericServiceInstance.init(undefined, context);
+
+			const versions = await genericServiceInstance.getVersionHistory<any>({
+				context,
+				listTitle: SubSiteListNames.RootCauseAnalysis,
+				itemId,
+				select: ['VersionLabel', 'Created', 'Modified', 'CheckInComment', 'Editor/Title'],
+				expand: ['Editor']
+			});
+
+			setHistoryVersions(Array.isArray(versions) ? versions : []);
+		} catch (error) {
+			console.error('Error fetching RCA version history:', error);
+			setHistoryVersions([]);
+		} finally {
+			setIsHistoryLoading(false);
+		}
+	};
+
 	useEffect(() => {
 		void fetchRCAItems();
 	}, [fetchRCAItems]);
@@ -402,23 +436,33 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 			key: 'edit',
 			name: '',
 			fieldName: 'edit',
-			minWidth: 36,
-			maxWidth: 36,
+			minWidth: 72,
+			maxWidth: 72,
 			isResizable: false,
 			onRender: (item: any) => (
-				<IconButton
-					menuIconProps={{ iconName: '' }}
-					iconProps={{ iconName: 'Edit', styles: { root: { fontSize: 12 } } }}
-					title="Edit"
-					ariaLabel="Edit"
-					styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
-					onClick={() => {
-						// open dialog with mapped initial data
-						setSelectedItem(item);
-						setIsEditing(true);
-						setIsDialogOpen(true);
-					}}
-				/>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+					<IconButton
+						menuIconProps={{ iconName: '' }}
+						iconProps={{ iconName: 'Edit', styles: { root: { fontSize: 12 } } }}
+						title="Edit"
+						ariaLabel="Edit"
+						styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
+						onClick={() => {
+							// open dialog with mapped initial data
+							setSelectedItem(item);
+							setIsEditing(true);
+							setIsDialogOpen(true);
+						}}
+					/>
+					<IconButton
+						menuIconProps={{ iconName: '' }}
+						iconProps={{ iconName: 'History', styles: { root: { fontSize: 12 } } }}
+						title="Version History"
+						ariaLabel="Version History"
+						styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
+						onClick={() => { void openVersionHistory(item); }}
+					/>
+				</div>
 			)
 		},
 		...cols as IColumn[]
@@ -624,6 +668,49 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					/>
 				</div>
 			</div>
+
+			<Dialog
+				hidden={!isHistoryDialogOpen}
+				onDismiss={() => setIsHistoryDialogOpen(false)}
+				dialogContentProps={{
+					type: DialogType.largeHeader,
+					title: `Version History${historyItemTitle ? ` - ${historyItemTitle}` : ''}`
+				}}
+				modalProps={{
+					isBlocking: false,
+				}}
+				minWidth={600}
+				maxWidth={900}
+			>
+				<div style={{ maxHeight: 420, overflowY: 'auto' }}>
+					{isHistoryLoading ? (
+						<div style={{ padding: 8 }}>Loading version history...</div>
+					) : historyVersions.length === 0 ? (
+						<div style={{ padding: 8 }}>No version history available.</div>
+					) : (
+						<div>
+							{historyVersions.map((version: any, index: number) => {
+								const modifiedRaw = version?.Modified ?? version?.Created;
+								const modifiedDate = modifiedRaw ? new Date(modifiedRaw) : undefined;
+								const modifiedText = modifiedDate && !isNaN(modifiedDate.getTime()) ? modifiedDate.toLocaleString() : '-';
+								const editorName = version?.Editor?.Title ?? version?.Editor ?? '-';
+								const label = version?.VersionLabel ?? version?.Version ?? `${historyVersions.length - index}`;
+
+								return (
+									<div key={`${label}-${index}`} style={{ borderBottom: '1px solid #eee', padding: '8px 4px' }}>
+										<div style={{ fontWeight: 600 }}>Version {String(label)}</div>
+										<div style={{ fontSize: 12, marginTop: 2 }}>Modified: {modifiedText}</div>
+										<div style={{ fontSize: 12, marginTop: 2 }}>Modified By: {String(editorName)}</div>
+										{version?.CheckInComment ? (
+											<div style={{ fontSize: 12, marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
+										) : null}
+									</div>
+								);
+							})}
+						</div>
+					)}
+				</div>
+			</Dialog>
 
 			<Dialog
 				hidden={!isDialogOpen}
