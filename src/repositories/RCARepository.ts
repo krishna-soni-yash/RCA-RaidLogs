@@ -207,15 +207,52 @@ export class RCARepository implements IRCARepository {
         }
 
         try {
+            const tableSelectFields: string[] = [
+                'Id',
+                'Title',
+                'CauseCategory',
+                'RCAPriority',
+                'RootCause',
+                'RCATypeOfAction',
+                'ActionPlanCorrection',
+                'ResponsibilityCorrection/Id',
+                'ResponsibilityCorrection/Title',
+                'ResponsibilityCorrection/EMail',
+                'ResponsibilityCorrectionId',
+                'PlannedClosureDateCorrection',
+                'ActualClosureDateCorrection',
+                'ActionPlanCorrective',
+                'ResponsibilityCorrective/Id',
+                'ResponsibilityCorrective/Title',
+                'ResponsibilityCorrective/EMail',
+                'ResponsibilityCorrectiveId',
+                'PlannedClosureDateCorrective',
+                'ActualClosureDateCorrective',
+                'ActionPlanPreventive',
+                'ResponsibilityPreventive/Id',
+                'ResponsibilityPreventive/Title',
+                'ResponsibilityPreventive/EMail',
+                'ResponsibilityPreventiveId',
+                'PlannedClosureDatePreventive',
+                'ActualClosureDatePreventive',
+                'Modified'
+            ];
+
+            const tableExpandFields: string[] = [
+                'ResponsibilityCorrection',
+                'ResponsibilityCorrective',
+                'ResponsibilityPreventive'
+            ];
+
             const genericServiceInstance: IGenericService = new GenericService(undefined, context);
             genericServiceInstance.init(undefined, context);
 
             const items = await this.service.fetchAllItems<any>({
                 context,
                 listTitle: SubSiteListNames.RootCauseAnalysis,
-                select: selectedFields,
+                select: tableSelectFields,
                 pageSize: 2000,
-                expand: expandFields
+                expand: tableExpandFields
                 //filter: 'IsActive eq 1 and ProjectType/Title eq \'' + (selectedProjectType) + '\'',
                 // filter: 'IsActive eq true and ProjectType in (' + (selectedProjectTypes?.map(pt => `'${pt}'`).join(',') || '') + ')',
 
@@ -255,29 +292,9 @@ export class RCARepository implements IRCARepository {
                 QuantitativeOrStatisticalEffecti: it?.Quantitative_x0020_Or_x0020_Stat || '',
                 Remarks: it?.Remarks || '',
                 RelatedSubMetric: it?.RelatedSubMetric || '',
+                Modified: it?.Modified || '',
                 attachments: []
             })) as unknown as IRCAList[];
-
-            if (context) {
-                let targetsiteurl: string; 
-                targetsiteurl = await this.service.getSiteUrlForList(SubSiteListNames.RootCauseAnalysis,context);
-                let sp:any;
-
-                sp = await this.service.getSpInstanceForSite(targetsiteurl,context);
-                await Promise.all(normalized.map(async (n) => {
-                    if (!n.ID) { n.attachments = []; return; }
-                    try {
-                        const files = await sp.web.lists.getByTitle(SubSiteListNames.RootCauseAnalysis).items.getById(n.ID).attachmentFiles();
-                        n.attachments = files.map((f: any) => ({
-                            FileName: f?.FileName || f?.FileLeafRef || '',
-                            ServerRelativeUrl: f?.ServerRelativeUrl || f?.ServerRelativePath?.DecodedUrl || ''
-                        }));
-                    } catch (e) {
-                        console.warn('Failed to load attachments for item', n.ID, e);
-                        n.attachments = [];
-                    }
-                }));
-            }
 
             this.cache = normalized;
             this.cacheTimestamp = now;
