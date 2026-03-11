@@ -615,10 +615,9 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
 					<IconButton
 						menuIconProps={{ iconName: '' }}
-						iconProps={{ iconName: 'Edit', styles: { root: { fontSize: 12 } } }}
+						iconProps={{ iconName: 'Edit' }}
 						title="Edit"
 						ariaLabel="Edit"
-						styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
 						onClick={() => {
 							// open dialog with mapped initial data
 							setSelectedItem(item);
@@ -628,13 +627,12 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					/>
 					<IconButton
 						menuIconProps={{ iconName: '' }}
-						iconProps={{ iconName: 'History', styles: { root: { fontSize: 12 } } }}
+						iconProps={{ iconName: 'History' }}
 						title="Version History"
 						ariaLabel="Version History"
 						styles={{
-							root: { width: 28, height: 28, color: '#107C10' },
+							root: { color: '#107C10' },
 							rootHovered: { color: '#107C10', background: '#e6f4ea' },
-							icon: { fontSize: 12 }
 						}}
 						onClick={() => { void openVersionHistory(item); }}
 					/>
@@ -781,8 +779,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 							onClick={() => toggleExpand(item)}
 							title={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
 							ariaLabel={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
-							iconProps={{ iconName: expandedKeys.indexOf(k) !== -1 ? 'ChevronUp' : 'ChevronDown', styles: { root: { fontSize: 12 } } }}
-							styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
+							iconProps={{ iconName: expandedKeys.indexOf(k) !== -1 ? 'ChevronUp' : 'ChevronDown' }}
 						/>
 					</div>
 					<div style={{ flex: 1 }}>{defaultRow}</div>
