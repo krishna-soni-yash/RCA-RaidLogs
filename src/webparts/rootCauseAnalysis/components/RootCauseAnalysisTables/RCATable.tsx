@@ -111,17 +111,38 @@ const classNames = mergeStyleSets({
 		gap: 8
 	},
 	historyContainer: {
-		maxHeight: 520,
+		maxHeight: 560,
 		overflowY: 'auto',
-		paddingRight: 4
+		padding: '4px 4px 4px 0',
+		background: '#fafafa'
+	},
+	historySummary: {
+		background: '#dff6dd',
+		border: '1px solid #a7e5a3',
+		borderRadius: 6,
+		padding: '10px 12px',
+		marginBottom: 12,
+		fontSize: 13,
+		fontWeight: 600,
+		color: '#1f7a1f'
 	},
 	historyCard: {
-		border: '1px solid #d0d7de',
-		borderRadius: 10,
+		border: '1px solid #e0e0e0',
+		borderLeft: '4px solid #d0d0d0',
+		borderRadius: 8,
 		padding: 12,
 		marginBottom: 12,
 		background: '#ffffff',
-		boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+		boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+		selectors: {
+			':hover': {
+				boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+			}
+		}
+	},
+	historyCardLatest: {
+		borderLeftColor: '#0078d4',
+		background: '#f0f8ff'
 	},
 	historyCardHeader: {
 		display: 'flex',
@@ -136,7 +157,7 @@ const classNames = mergeStyleSets({
 		fontWeight: 700,
 		padding: '4px 8px',
 		borderRadius: 999,
-		background: '#e8f1fb',
+		background: '#e8f4fd',
 		color: '#005a9e'
 	},
 	historyMetaText: {
@@ -152,7 +173,9 @@ const classNames = mergeStyleSets({
 		color: '#323130',
 		textTransform: 'uppercase',
 		letterSpacing: 0.3,
-		marginBottom: 6
+		marginBottom: 6,
+		paddingBottom: 4,
+		borderBottom: '1px solid #f0f0f0'
 	},
 	historyFieldGrid: {
 		display: 'grid',
@@ -576,7 +599,11 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 						iconProps={{ iconName: 'History', styles: { root: { fontSize: 12 } } }}
 						title="Version History"
 						ariaLabel="Version History"
-						styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
+						styles={{
+							root: { width: 28, height: 28, color: '#107C10' },
+							rootHovered: { color: '#107C10', background: '#e6f4ea' },
+							icon: { fontSize: 12 }
+						}}
 						onClick={() => { void openVersionHistory(item); }}
 					/>
 				</div>
@@ -805,6 +832,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 						<div style={{ padding: 8 }}>No version history available.</div>
 					) : (
 						<div>
+							<div className={classNames.historySummary}>Found {historyVersions.length} version(s) for this item</div>
 							{historyVersions.map((version: any, index: number) => {
 								const modifiedRaw = version?.Modified ?? version?.Created;
 								const modifiedDate = modifiedRaw ? new Date(modifiedRaw) : undefined;
@@ -817,7 +845,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 								const label = version?.VersionLabel ?? version?.Version ?? `${historyVersions.length - index}`;
 
 								return (
-									<div key={`${label}-${index}`} className={classNames.historyCard}>
+									<div key={`${label}-${index}`} className={`${classNames.historyCard} ${index === 0 ? classNames.historyCardLatest : ''}`}>
 										<div className={classNames.historyCardHeader}>
 											<span className={classNames.historyVersionBadge}>Version {String(label)}</span>
 											<span className={classNames.historyMetaText}>Modified: {modifiedText}</span>
