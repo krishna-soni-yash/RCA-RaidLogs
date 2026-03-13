@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
-import raidStyles from '../RaidLogs/RaidLogs.module.scss';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
-import { RCACOLUMNS } from '../../../../common/Constants';
+import historyStyles from './RCATableHistory.module.scss';
+import { RCACOLUMNS, SubSiteListNames } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
 import { GenericService } from '../../../../services/GenericServices';
 import IGenericService from '../../../../services/IGenericServices';
@@ -110,6 +110,116 @@ const classNames = mergeStyleSets({
 	paginationControls: {
 		display: 'flex',
 		gap: 8
+	},
+	historyContainer: {
+		maxHeight: 560,
+		overflowY: 'auto',
+		padding: '4px 4px 4px 0',
+		background: '#fafafa'
+	},
+	historyModalContent: {
+		background: '#ffffff',
+		borderRadius: 8,
+		boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+		width: '100%',
+		maxHeight: '90vh',
+		display: 'flex',
+		flexDirection: 'column'
+	},
+	historyModalHeader: {
+		padding: '18px 22px',
+		borderBottom: '1px solid #e0e0e0',
+		display: 'flex',
+		justifyContent: 'space-between',
+		alignItems: 'center'
+	},
+	historyModalTitle: {
+		fontSize: 20,
+		color: '#333',
+		margin: 0,
+		fontWeight: 600
+	},
+	historyModalBody: {
+		padding: '16px 20px',
+		overflowY: 'auto',
+		flex: 1,
+		background: '#fafafa'
+	},
+	historySummary: {
+		background: '#dff6dd',
+		border: '1px solid #a7e5a3',
+		borderRadius: 6,
+		padding: '10px 12px',
+		marginBottom: 12,
+		fontSize: 13,
+		fontWeight: 600,
+		color: '#1f7a1f'
+	},
+	historyCard: {
+		border: '1px solid #e0e0e0',
+		borderLeft: '4px solid #d0d0d0',
+		borderRadius: 8,
+		padding: 12,
+		marginBottom: 12,
+		background: '#ffffff',
+		boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+		selectors: {
+			':hover': {
+				boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+			}
+		}
+	},
+	historyCardLatest: {
+		borderLeftColor: '#0078d4',
+		background: '#f0f8ff'
+	},
+	historyCardHeader: {
+		display: 'flex',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 8,
+		paddingBottom: 8,
+		borderBottom: '1px solid #eceff1'
+	},
+	historyVersionBadge: {
+		fontSize: 12,
+		fontWeight: 700,
+		padding: '4px 8px',
+		borderRadius: 999,
+		background: '#e8f4fd',
+		color: '#005a9e'
+	},
+	historyMetaText: {
+		fontSize: 12,
+		color: '#5c6773'
+	},
+	historySection: {
+		marginTop: 10
+	},
+	historySectionTitle: {
+		fontSize: 12,
+		fontWeight: 700,
+		color: '#323130',
+		textTransform: 'uppercase',
+		letterSpacing: 0.3,
+		marginBottom: 6,
+		paddingBottom: 4,
+		borderBottom: '1px solid #f0f0f0'
+	},
+	historyFieldGrid: {
+		display: 'grid',
+		gridTemplateColumns: '240px 1fr',
+		columnGap: 10,
+		rowGap: 6,
+		fontSize: 12
+	},
+	historyFieldLabel: {
+		fontWeight: 600,
+		color: '#323130'
+	},
+	historyFieldValue: {
+		color: '#201f1e',
+		wordBreak: 'break-word'
 	}
 });
 
@@ -215,6 +325,10 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	// editing state
 	const [selectedItem, setSelectedItem] = useState<Partial<IRCAList> | null>(null);
 	const [isEditing, setIsEditing] = useState<boolean>(false);
+	const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState<boolean>(false);
+	const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(false);
+	const [historyItemTitle, setHistoryItemTitle] = useState<string>('');
+	const [historyVersions, setHistoryVersions] = useState<any[]>([]);
 
 	const openDialog = () => setIsDialogOpen(true);
 	const closeDialog = () => {
@@ -332,6 +446,95 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		closeDialog();
 	};
 
+	const openVersionHistory = async (item: Partial<IRCAList>): Promise<void> => {
+		const rawId: any = (item as any)?.ID ?? (item as any)?.Id;
+		const itemId = Number(rawId);
+		if (!itemId || isNaN(itemId)) return;
+
+		setHistoryItemTitle(String((item as any)?.LinkTitle ?? `RCA ${itemId}`));
+		setIsHistoryLoading(true);
+		setIsHistoryDialogOpen(true);
+
+		try {
+			const genericServiceInstance: IGenericService = new GenericService(undefined, context);
+			genericServiceInstance.init(undefined, context);
+
+			const versions = await genericServiceInstance.getVersionHistory<any>({
+				context,
+				listTitle: SubSiteListNames.RootCauseAnalysis,
+				itemId,
+				select: [
+					'VersionLabel', 'Created', 'Modified', 'CheckInComment', 'Editor/Title', 'Editor/EMail',
+					'LinkTitle',
+					'CauseCategory',
+					'RCASource',
+					'RCAPriority',
+					'RelatedMetric',
+					'RelatedSubMetric',
+					'Cause',
+					'RootCause',
+					'RCATechniqueUsedAndReference',
+					'RCATypeOfAction',
+					'ActionPlanCorrection',
+					'ResponsibilityCorrection',
+					'PlannedClosureDateCorrection',
+					'ActualClosureDateCorrection',
+					'ActionPlanCorrective',
+					'ResponsibilityCorrective',
+					'PlannedClosureDateCorrective',
+					'ActualClosureDateCorrective',
+					'ActionPlanPreventive',
+					'ResponsibilityPreventive',
+					'PlannedClosureDatePreventive',
+					'ActualClosureDatePreventive',
+					'PerformanceBeforeActionPlan',
+					'PerformanceAfterActionPlan',
+					'QuantitativeOrStatisticalEffecti',
+					'Remarks'
+				],
+				expand: ['Editor']
+			});
+
+			setHistoryVersions(Array.isArray(versions) ? versions : []);
+		} catch (error) {
+			console.error('Error fetching RCA version history:', error);
+			setHistoryVersions([]);
+		} finally {
+			setIsHistoryLoading(false);
+		}
+	};
+
+	const textValue = (value: any): string => {
+		if (value === null || value === undefined) return '-';
+		if (Array.isArray(value)) {
+			const normalized = value.map((entry: any) => String(entry ?? '').trim()).filter(Boolean);
+			return normalized.length ? normalized.join('; ') : '-';
+		}
+		if (typeof value === 'string') {
+			const trimmed = value.trim();
+			return trimmed.length ? trimmed : '-';
+		}
+		if (typeof value === 'number' || typeof value === 'boolean') {
+			return String(value);
+		}
+		if (typeof value === 'object') {
+			const title = (value as any).Title ?? (value as any).title;
+			if (title) return String(title);
+		}
+		return String(value);
+	};
+
+	const actionTypeText = (version: any): string => {
+		const raw = version?.RCATypeOfAction;
+		if (Array.isArray(raw)) {
+			return textValue(raw);
+		}
+		if (typeof raw === 'string' && raw.trim().length) {
+			return raw.split(',').map((x: string) => x.trim()).filter(Boolean).join('; ');
+		}
+		return '-';
+	};
+
 	useEffect(() => {
 		void fetchRCAItems();
 	}, [fetchRCAItems]);
@@ -397,31 +600,46 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	}, [RCAItems, context]);
 
 	// edit column prepended to columns
+	const allowedMainFieldNames = new Set(['LinkTitle', 'CauseCategory', 'RCAPriority', 'RootCause', 'RCATypeOfAction']);
+	const mainListColumns: IColumn[] = (cols as IColumn[]).filter((column: IColumn) => allowedMainFieldNames.has(String(column.fieldName || '')));
+
 	const displayedColumns: IColumn[] = [
 		{
 			key: 'edit',
 			name: '',
 			fieldName: 'edit',
-			minWidth: 36,
-			maxWidth: 36,
+			minWidth: 72,
+			maxWidth: 72,
 			isResizable: false,
 			onRender: (item: any) => (
-				<IconButton
-					menuIconProps={{ iconName: '' }}
-					iconProps={{ iconName: 'Edit', styles: { root: { fontSize: 12 } } }}
-					title="Edit"
-					ariaLabel="Edit"
-					styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
-					onClick={() => {
-						// open dialog with mapped initial data
-						setSelectedItem(item);
-						setIsEditing(true);
-						setIsDialogOpen(true);
-					}}
-				/>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+					<IconButton
+						menuIconProps={{ iconName: '' }}
+						iconProps={{ iconName: 'Edit' }}
+						title="Edit"
+						ariaLabel="Edit"
+						onClick={() => {
+							// open dialog with mapped initial data
+							setSelectedItem(item);
+							setIsEditing(true);
+							setIsDialogOpen(true);
+						}}
+					/>
+					<IconButton
+						menuIconProps={{ iconName: '' }}
+						iconProps={{ iconName: 'History' }}
+						title="Version History"
+						ariaLabel="Version History"
+						styles={{
+							root: { color: '#107C10' },
+							rootHovered: { color: '#107C10', background: '#e6f4ea' },
+						}}
+						onClick={() => { void openVersionHistory(item); }}
+					/>
+				</div>
 			)
 		},
-		...cols as IColumn[]
+		...mainListColumns
 	];
 
 	// expanded rows state (store string keys derived from each item)
@@ -561,8 +779,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 							onClick={() => toggleExpand(item)}
 							title={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
 							ariaLabel={expandedKeys.indexOf(k) !== -1 ? 'Collapse details' : 'Expand details'}
-							iconProps={{ iconName: expandedKeys.indexOf(k) !== -1 ? 'ChevronUp' : 'ChevronDown', styles: { root: { fontSize: 12 } } }}
-							styles={{ root: { width: 28, height: 28 }, icon: { fontSize: 12 } }}
+							iconProps={{ iconName: expandedKeys.indexOf(k) !== -1 ? 'ChevronUp' : 'ChevronDown' }}
 						/>
 					</div>
 					<div style={{ flex: 1 }}>{defaultRow}</div>
@@ -584,7 +801,6 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 						setIsEditing(false);
 						openDialog();
 					}}
-					className={raidStyles.addButton}
 				/>
 				<DefaultButton
 					text="Export"
@@ -624,6 +840,109 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					/>
 				</div>
 			</div>
+
+			{isHistoryDialogOpen && (
+				<div className={historyStyles.historyModalOverlay} onClick={() => setIsHistoryDialogOpen(false)}>
+					<div className={historyStyles.historyModalContainer} onClick={(e) => e.stopPropagation()}>
+						<div className={historyStyles.historyModalHeader}>
+							<h2 className={historyStyles.historyModalTitle}>Version History{historyItemTitle ? ` - ${historyItemTitle}` : ''}</h2>
+							<IconButton
+								iconProps={{ iconName: 'Cancel' }}
+								title="Close"
+								ariaLabel="Close"
+								onClick={() => setIsHistoryDialogOpen(false)}
+							/>
+						</div>
+						<div className={historyStyles.historyModalBody}>
+							<div className={historyStyles.historyContainer}>
+					{isHistoryLoading ? (
+						<div style={{ padding: 8 }}>Loading version history...</div>
+					) : historyVersions.length === 0 ? (
+						<div style={{ padding: 8 }}>No version history available.</div>
+					) : (
+						<div>
+							<div className={historyStyles.historySummary}>Found {historyVersions.length} version(s) for this item</div>
+							{historyVersions.map((version: any, index: number) => {
+								const modifiedRaw = version?.Modified ?? version?.Created;
+								const modifiedDate = modifiedRaw ? new Date(modifiedRaw) : undefined;
+								const modifiedText = modifiedDate && !isNaN(modifiedDate.getTime()) ? modifiedDate.toLocaleString() : '-';
+								const editorEmail =
+									version?.Editor?.EMail ??
+									version?.Editor?.Email ??
+									version?.Editor?.email ??
+									'-';
+								const label = version?.VersionLabel ?? version?.Version ?? `${historyVersions.length - index}`;
+
+								return (
+									<div key={`${label}-${index}`} className={`${historyStyles.historyCard} ${index === 0 ? historyStyles.historyCardLatest : ''}`}>
+										<div className={historyStyles.historyCardHeader}>
+											<span className={historyStyles.historyVersionBadge}>Version {String(label)}</span>
+											<span className={historyStyles.historyMetaText}>Modified: {modifiedText}</span>
+										</div>
+										<div className={historyStyles.historyMetaText}>Modified By: {String(editorEmail)}</div>
+										{version?.CheckInComment ? (
+											<div className={historyStyles.historyMetaText} style={{ marginTop: 2 }}>Comment: {String(version.CheckInComment)}</div>
+										) : null}
+
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>RCA Overview</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Problem statement (Causal Analysis Trigger)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.LinkTitle)}</div>
+												<div className={historyStyles.historyFieldLabel}>Cause Category</div><div className={historyStyles.historyFieldValue}>{textValue(version?.CauseCategory)}</div>
+												<div className={historyStyles.historyFieldLabel}>Source</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RCASource)}</div>
+												<div className={historyStyles.historyFieldLabel}>Priority</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RCAPriority)}</div>
+												<div className={historyStyles.historyFieldLabel}>Related Metric (if any)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RelatedMetric)}</div>
+												<div className={historyStyles.historyFieldLabel}>Related Sub Metric (if any)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RelatedSubMetric)}</div>
+												<div className={historyStyles.historyFieldLabel}>Cause(s)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.Cause)}</div>
+												<div className={historyStyles.historyFieldLabel}>Root Cause(s)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RootCause)}</div>
+												<div className={historyStyles.historyFieldLabel}>Root Cause Analysis Technique Used and Reference (if any)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.RCATechniqueUsedAndReference)}</div>
+												<div className={historyStyles.historyFieldLabel}>Type of Action</div><div className={historyStyles.historyFieldValue}>{actionTypeText(version)}</div>
+											</div>
+										</div>
+
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>Correction</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Action Plan (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.ActionPlanCorrection)}</div>
+												<div className={historyStyles.historyFieldLabel}>Responsibility (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrection))}</div>
+												<div className={historyStyles.historyFieldLabel}>Planned Closure Date (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrection))}</div>
+												<div className={historyStyles.historyFieldLabel}>Actual Closure Date (Correction)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrection))}</div>
+											</div>
+										</div>
+
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>Corrective Action</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Action Plan (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.ActionPlanCorrective)}</div>
+												<div className={historyStyles.historyFieldLabel}>Responsibility (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityCorrective))}</div>
+												<div className={historyStyles.historyFieldLabel}>Planned Closure Date (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDateCorrective))}</div>
+												<div className={historyStyles.historyFieldLabel}>Actual Closure Date (Corrective Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDateCorrective))}</div>
+											</div>
+										</div>
+
+										<div className={historyStyles.historySection}>
+											<div className={historyStyles.historySectionTitle}>Preventive Action And Effectiveness</div>
+											<div className={historyStyles.historyFieldGrid}>
+												<div className={historyStyles.historyFieldLabel}>Action Plan (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(version?.ActionPlanPreventive)}</div>
+												<div className={historyStyles.historyFieldLabel}>Responsibility (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatResponsibilityValue(version?.ResponsibilityPreventive))}</div>
+												<div className={historyStyles.historyFieldLabel}>Planned Closure Date (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.PlannedClosureDatePreventive))}</div>
+												<div className={historyStyles.historyFieldLabel}>Actual Closure Date (Preventive Action)</div><div className={historyStyles.historyFieldValue}>{textValue(formatDateMMDDYYYY(version?.ActualClosureDatePreventive))}</div>
+												<div className={historyStyles.historyFieldLabel}>Performance before action plan</div><div className={historyStyles.historyFieldValue}>{textValue(version?.PerformanceBeforeActionPlan)}</div>
+												<div className={historyStyles.historyFieldLabel}>Performance after action plan</div><div className={historyStyles.historyFieldValue}>{textValue(version?.PerformanceAfterActionPlan)}</div>
+												<div className={historyStyles.historyFieldLabel}>Quantitative / Statistical effectiveness</div><div className={historyStyles.historyFieldValue}>{textValue(version?.QuantitativeOrStatisticalEffecti)}</div>
+												<div className={historyStyles.historyFieldLabel}>Remarks</div><div className={historyStyles.historyFieldValue}>{textValue(version?.Remarks)}</div>
+											</div>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					)}
+						</div>
+					</div>
+				</div>
+				</div>
+			)}
 
 			<Dialog
 				hidden={!isDialogOpen}
