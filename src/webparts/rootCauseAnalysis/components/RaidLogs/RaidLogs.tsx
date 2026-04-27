@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner } from '@fluentui/react';
+import { DefaultButton, PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner } from '@fluentui/react';
 import styles from './RaidLogs.module.scss';
 import { IRaidLogsProps, IRaidItem, RaidType } from './interfaces/IRaidItem';
 import RaidTable from './RaidTables';
@@ -7,7 +7,9 @@ import RaidForm from './RaidForms';
 import { RaidServiceFactory } from './RaidListService';
 import { IExtendedRaidItem } from './interfaces/IRaidService';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../common/Constants';
+import { formatDateShort } from '../../../../common/DateUtils';
 import { MessageModal, MessageType } from '../ModalPopups';
+import { exportRowsToExcel } from '../../../../common/excelExport';
 
 const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [items, setItems] = React.useState<IExtendedRaidItem[]>([]);
@@ -111,6 +113,71 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   React.useEffect(() => {
     filterItems();
   }, [filterItems]);
+
+  // If a RaidlogId (or variants) query parameter is present, open that item in the edit modal
+  React.useEffect(() => {
+    const tryOpenFromQuery = async (): Promise<void> => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('RaidlogId') || params.get('RaidLogId') || params.get('raidlogid') || params.get('RAIDId') || params.get('worklogId');
+        if (!raw) return;
+
+        // Try to find item by SP Id first (use explicit loops to avoid lib target issues)
+        const value = raw;
+        let found: IExtendedRaidItem | undefined = undefined;
+
+        for (let idx = 0; idx < items.length; idx++) {
+          const it = items[idx];
+          if (String(it.id) === value) {
+            found = it;
+            break;
+          }
+        }
+
+        // If not found, try matching raidId (for Risk groups)
+        if (!found) {
+          for (let idx = 0; idx < items.length; idx++) {
+            const it = items[idx];
+            if (it.raidId === value) {
+              found = it;
+              break;
+            }
+          }
+        }
+
+        // If still not found, try fetching by id from service (in case items not yet loaded)
+        if (!found && !isNaN(Number(value))) {
+          try {
+            const fetched = await raidService.getRaidItemById(Number(value));
+            if (fetched) {
+              found = fetched as IExtendedRaidItem;
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (found) {
+          await editItem(found);
+
+          // Remove query params so modal doesn't reopen on refresh
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('RaidlogId');
+          newUrl.searchParams.delete('RaidLogId');
+          newUrl.searchParams.delete('raidlogid');
+          newUrl.searchParams.delete('RAIDId');
+          newUrl.searchParams.delete('worklogId');
+          window.history.replaceState(null, '', newUrl.toString());
+        }
+      } catch (err) {
+        console.error('Error opening item from query param:', err);
+      }
+    };
+
+    if (items && items.length > 0) {
+      void tryOpenFromQuery();
+    }
+  }, [items]);
 
   const handleTabChange = (item?: PivotItem): void => {
     if (item) {
@@ -275,6 +342,16 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
     }
   };
 
+  const handleExportRaidTab = (): void => {
+    const rows = buildRaidExportRows(currentTab, filteredItems);
+    exportRowsToExcel({
+      rows,
+      headers: RAID_EXPORT_HEADERS[currentTab],
+      sheetName: currentTab,
+      fileName: `${currentTab}RAIDLogs`
+    });
+  };
+
   const saveItem = async (item: IRaidItem): Promise<void> => {
     try {
       setLoading(true);
@@ -396,14 +473,19 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   };
 
   return (
-    <div className={styles.raidLogs}>
+    <div>
       <div className={styles.header}>
-        <h1>RAID Logs</h1>
         <PrimaryButton 
           text="+ Add New" 
           onClick={openNewItemModal}
           className={styles.addButton}
           disabled={loading}
+        />
+        <DefaultButton
+          text="Export"
+          iconProps={{ iconName: 'Download' }}
+          onClick={handleExportRaidTab}
+          disabled={loading || filteredItems.length === 0}
         />
       </div>
       
@@ -596,6 +678,265 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
       )}
     </div>
   );
+};
+
+const RAID_EXPORT_HEADERS: Record<RaidType, string[]> = {
+  Risk: [
+    'Identification Date',
+    'Description',
+    'Associated Goal',
+    'Source',
+    'Category',
+    'Impact',
+    'Priority',
+    'Impact Value',
+    'Probability Value',
+    'Risk Exposure',
+    'Type of Action',
+    'Action Plan',
+    'Responsibility',
+    'Target Date',
+    'Actual Date',
+    'Status',
+    'Effectiveness',
+    'Remarks'
+  ],
+  Opportunity: [
+    'Identification Date',
+    'Description',
+    'Associated Goal',
+    'Source',
+    'Category',
+    'Impact',
+    'Priority',
+    'Potential Cost',
+    'Potential Benefit',
+    'Opportunity Value',
+    'Leverage Action Plan',
+    'Responsibility',
+    'Target Date',
+    'Actual Date',
+    'Status',
+    'Effectiveness',
+    'Remarks'
+  ],
+  Issue: [
+    'Details',
+    'Date',
+    'Identified By',
+    'Implementation Actions',
+    'Planned Closure Date',
+    'Actual Closure Date',
+    'Responsibility',
+    'Remarks'
+  ],
+  Assumption: [
+    'Details',
+    'Date',
+    'Identified By',
+    'Implementation Actions',
+    'Planned Closure Date',
+    'Actual Closure Date',
+    'Responsibility',
+    'Remarks'
+  ],
+  Dependency: [
+    'Details',
+    'Date',
+    'Identified By',
+    'Implementation Actions',
+    'Planned Closure Date',
+    'Actual Closure Date',
+    'Responsibility',
+    'Remarks'
+  ],
+  Constraints: [
+    'Details',
+    'Date',
+    'Identified By',
+    'Implementation Actions',
+    'Planned Closure Date',
+    'Actual Closure Date',
+    'Responsibility',
+    'Remarks'
+  ]
+};
+
+const COST_LABELS: Record<number, string> = {
+  1: '1 - No Cost',
+  2: '2 - Very Low Cost',
+  3: '3 - Low Cost',
+  4: '4 - Medium Cost',
+  5: '5 - Moderate Cost',
+  6: '6 - Medium Cost',
+  7: '7 - High Cost',
+  8: '8 - Above High Cost',
+  9: '9 - Very High Cost',
+  10: '10 - Extreme High Cost'
+};
+
+const BENEFIT_LABELS: Record<number, string> = {
+  1: '1 - No Benefits',
+  2: '2 - Low Benefits',
+  3: '3 - Moderate Benefits',
+  4: '4 - Medium Benefits',
+  5: '5 - Above Moderate Benefits',
+  6: '6 - Moderate Benefits',
+  7: '7 - Medium Benefits',
+  8: '8 - Above High Benefits',
+  9: '9 - High Benefits',
+  10: '10 - Significant Benefits'
+};
+
+const buildRaidExportRows = (type: RaidType, items: IExtendedRaidItem[]): Record<string, any>[] => {
+  switch (type) {
+    case 'Risk': {
+      const rows: Record<string, any>[] = [];
+      items.forEach(item => {
+        const itemRows = mapRiskItem(item);
+        itemRows.forEach(row => rows.push(row));
+      });
+      return rows;
+    }
+    case 'Opportunity':
+      return items.map(mapOpportunityItem);
+    case 'Issue':
+    case 'Assumption':
+    case 'Dependency':
+    case 'Constraints':
+      return items.map(mapIssueLikeItem);
+    default:
+      return [];
+  }
+};
+
+const mapRiskItem = (item: IExtendedRaidItem): Record<string, any>[] => {
+  // Get all action types and create Type of Action string
+  const actionTypes: string[] = [];
+  if (item.actions && item.actions.length > 0) {
+    item.actions.forEach(action => {
+      if (action.type && actionTypes.indexOf(action.type) === -1) {
+        actionTypes.push(action.type);
+      }
+    });
+  }
+  const typeOfActionStr = actionTypes.sort().join('; ');
+
+  // Base row data (without action-specific fields)
+  const baseRow = {
+    'Identification Date': formatDateShort(item.identificationDate),
+    'Description': item.description ?? '',
+    'Associated Goal': item.associatedGoal ?? '',
+    'Source': item.source ?? '',
+    'Category': item.category ?? '',
+    'Impact': item.impact ?? '',
+    'Priority': item.priority ?? '',
+    'Impact Value': item.impactValue ?? '',
+    'Probability Value': item.probabilityValue ?? '',
+    'Risk Exposure': item.riskExposure ?? '',
+    'Type of Action': typeOfActionStr,
+    'Effectiveness': item.effectiveness ?? '',
+    'Remarks': item.remarks ?? ''
+  };
+
+  // If no actions or only one action, return single row
+  if (!item.actions || item.actions.length === 0) {
+    return [{
+      ...baseRow,
+      'Action Plan': '',
+      'Responsibility': '',
+      'Target Date': '',
+      'Actual Date': '',
+      'Status': ''
+    }];
+  }
+
+  // Check if both Mitigation and Contingency exist
+  const hasMitigation = item.actions.some(a => a.type === 'Mitigation');
+  const hasContingency = item.actions.some(a => a.type === 'Contingency');
+
+  // If both types exist, create separate rows for each action
+  if (hasMitigation && hasContingency) {
+    return item.actions.map(action => ({
+      ...baseRow,
+      'Type of Action': action.type ?? '',
+      'Action Plan': action.plan ?? '',
+      'Responsibility': formatPersonValue(action.responsibility),
+      'Target Date': formatDateShort(action.targetDate),
+      'Actual Date': formatDateShort(action.actualDate),
+      'Status': action.status ?? ''
+    }));
+  }
+
+  // If only one type, create single row with action details
+  const action = item.actions[0];
+  return [{
+    ...baseRow,
+    'Action Plan': action.plan ?? '',
+    'Responsibility': formatPersonValue(action.responsibility),
+    'Target Date': formatDateShort(action.targetDate),
+    'Actual Date': formatDateShort(action.actualDate),
+    'Status': action.status ?? ''
+  }];
+};
+
+const mapOpportunityItem = (item: IExtendedRaidItem): Record<string, any> => ({
+  'Identification Date': formatDateShort(item.identificationDate),
+  'Description': item.description ?? '',
+  'Associated Goal': item.associatedGoal ?? '',
+  'Source': item.source ?? '',
+  'Category': item.category ?? '',
+  'Impact': item.impact ?? '',
+  'Priority': item.priority ?? '',
+  'Potential Cost': formatPotentialCost(item.potentialCost),
+  'Potential Benefit': formatPotentialBenefit(item.potentialBenefit),
+  'Opportunity Value': item.opportunityValue ?? '',
+  'Leverage Action Plan': item.actionPlan ?? '',
+  'Responsibility': formatPersonValue(item.responsibility),
+  'Target Date': formatDateShort(item.targetDate),
+  'Actual Date': formatDateShort(item.actualDate),
+  'Status': item.status ?? '',
+  'Effectiveness': item.effectiveness ?? '',
+  'Remarks': item.remarks ?? ''
+});
+
+const mapIssueLikeItem = (item: IExtendedRaidItem): Record<string, any> => ({
+  'Details': item.details ?? '',
+  'Date': formatDateShort(item.date),
+  'Identified By': formatPersonValue(item.byWhom),
+  'Implementation Actions': item.implementationActions ?? '',
+  'Planned Closure Date': formatDateShort(item.plannedClosureDate),
+  'Actual Closure Date': formatDateShort(item.actualClosureDate),
+  'Responsibility': formatPersonValue(item.responsibility),
+  'Remarks': item.remarks ?? ''
+});
+
+const formatPersonValue = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (!entry) return '';
+        if (typeof entry === 'string') {
+          return entry;
+        }
+        return entry.displayName || entry.Title || entry.text || entry.EMail || entry.email || '';
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+  return '';
+};
+
+const formatPotentialCost = (value?: number): string => {
+  if (value === undefined || value === null) return '';
+  return COST_LABELS[value] || String(value);
+};
+
+const formatPotentialBenefit = (value?: number): string => {
+  if (value === undefined || value === null) return '';
+  return BENEFIT_LABELS[value] || String(value);
 };
 
 export default RaidLogs;

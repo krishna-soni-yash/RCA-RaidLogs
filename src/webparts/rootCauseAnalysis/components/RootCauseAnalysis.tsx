@@ -9,6 +9,7 @@ import PPOApproversRepository from '../../../repositories/PPOApproversRepository
 import { IPPOApprovers } from '../../../models/PPOApprovers';
 import { Current_User_Role } from '../../../common/Constants';
 import PpoApproversContext from './PpoApproversContext';
+import { Pivot, PivotItem } from '@fluentui/react';
 
 
 export interface IRootCauseAnalysisState {
@@ -34,10 +35,23 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
     };
   }
   public componentDidMount(): void {
+    // If URL contains RCAId (or variants), activate the Causal Analysis tab so RCATable mounts
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get('RCAId') || params.get('RcaId') || params.get('rcaid') || params.get('RCAid') || params.get('rcaId');
+      if (raw) {
+        this.setState({ activeTab: 'rootCauseAnalysis' });
+      }
+    } catch {
+      // ignore
+    }
+
     void this.loadPpoApprovers();
   }
-  private handleTabChange = (tabKey: string): void => {
-    this.setState({ activeTab: tabKey });
+  private handleTabChange = (item?: PivotItem): void => {
+    if (item) {
+      this.setState({ activeTab: item.props.itemKey || 'rootCauseAnalysis' });
+    }
   };
 
   private loadPpoApprovers = async (): Promise<void> => {
@@ -96,8 +110,27 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
         reload: this.loadPpoApprovers
       }}>
         <section className={`${styles.rootCauseAnalysis} ${hasTeamsContext ? styles.teams : ''}`}>
-          <Header  activeTab={this.state.activeTab}
-            onTabChange={this.handleTabChange}/>
+          <Header />
+          <div className={styles.tabsContainer}>
+            <Pivot
+              selectedKey={this.state.activeTab}
+              onLinkClick={this.handleTabChange}
+              className={styles.tabs}
+            >
+              <PivotItem 
+                headerText="Causal Analysis" 
+                itemKey="rootCauseAnalysis"
+              />
+              <PivotItem 
+                headerText="RAID Logs" 
+                itemKey="raidLogs"
+              />
+              <PivotItem 
+                headerText="LL, BP & RC" 
+                itemKey="lessonsLearnt"
+              />
+            </Pivot>
+          </div>
           {renderContent()}
         </section>
       </PpoApproversContext.Provider>

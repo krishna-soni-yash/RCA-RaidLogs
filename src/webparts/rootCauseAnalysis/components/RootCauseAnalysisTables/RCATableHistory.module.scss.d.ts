@@ -1,0 +1,20 @@
+declare const styles: {
+  readonly "historyModalOverlay": string;
+  readonly "historyModalContainer": string;
+  readonly "historyModalHeader": string;
+  readonly "historyModalTitle": string;
+  readonly "historyModalBody": string;
+  readonly "historyContainer": string;
+  readonly "historySummary": string;
+  readonly "historyCard": string;
+  readonly "historyCardLatest": string;
+  readonly "historyCardHeader": string;
+  readonly "historyVersionBadge": string;
+  readonly "historyMetaText": string;
+  readonly "historySection": string;
+  readonly "historySectionTitle": string;
+  readonly "historyFieldGrid": string;
+  readonly "historyFieldLabel": string;
+  readonly "historyFieldValue": string;
+};
+export default styles;

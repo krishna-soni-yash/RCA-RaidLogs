@@ -89,7 +89,6 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const payload = {
-			Title: (item.LlProblemFacedLearning || item.LlSolution || '').trim() || 'Lessons Learnt',
 			LlProblemFacedLearning: (item.LlProblemFacedLearning ?? '').trim(),
 			LlCategory: (item.LlCategory ?? '').trim(),
 			LlSolution: (item.LlSolution ?? '').trim(),
@@ -147,7 +146,6 @@ class LlBpRcrepository implements ILlBpRcRepository {
 		}
 
 		const payload = {
-			Title: (item.LlProblemFacedLearning || item.LlSolution || '').trim() || 'Lessons Learnt',
 			LlProblemFacedLearning: (item.LlProblemFacedLearning ?? '').trim(),
 			LlCategory: (item.LlCategory ?? '').trim(),
 			LlSolution: (item.LlSolution ?? '').trim(),

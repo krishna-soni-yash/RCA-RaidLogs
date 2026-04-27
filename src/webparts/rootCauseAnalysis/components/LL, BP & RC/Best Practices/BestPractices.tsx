@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import {
+  DefaultButton,
   DetailsList,
   DetailsListLayoutMode,
   IColumn,
@@ -18,6 +19,7 @@ import styles from '../LlBpRc.module.scss';
 import { IBestPractices } from '../../../../../models/Ll Bp Rc/BestPractices';
 import PpoApproversContext from '../../PpoApproversContext';
 import { Current_User_Role } from '../../../../../common/Constants';
+import { exportRowsToExcel } from '../../../../../common/excelExport';
 import {
   addBestPractices,
   fetchBestPractices,
@@ -28,11 +30,13 @@ import BestPracticesForm from './BestPracticesForm';
 
 interface IBestPracticesProps {
   context: WebPartContext;
+  openItemId?: string | null;
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
+const BEST_PRACTICES_EXPORT_HEADERS = ['Best Practice Description', 'Category', 'Remarks'];
 
-const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
+const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
@@ -55,6 +59,20 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
     }
     setSuccessMessage(null);
   }, []);
+
+  const handleExportBestPractices = React.useCallback(() => {
+    const rows = items.map((item) => ({
+      'Best Practice Description': item.BpBestPracticesDescription ?? '',
+      'Category': item.BpCategory ?? '',
+      'Remarks': item.BpRemarks ?? ''
+    }));
+    exportRowsToExcel({
+      rows,
+      headers: BEST_PRACTICES_EXPORT_HEADERS,
+      sheetName: 'Best Practices',
+      fileName: 'BestPractices'
+    });
+  }, [items]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -245,6 +263,39 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
   }, [context]);
 
   React.useEffect(() => {
+    if (!openItemId) return;
+    if (!items || items.length === 0) return;
+
+    const val = String(openItemId);
+    let found: IBestPractices | undefined = undefined;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (String(it.ID) === val || String((it as any).Id) === val) {
+        found = it;
+        break;
+      }
+    }
+    if (!found) return;
+
+    (async () => {
+      try {
+        await ensureBestPracticeAttachments(found);
+      } catch (e) {
+        // ignore
+      }
+      void openFormForItem(found, 'edit');
+
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('LlBpRcId');
+        window.history.replaceState(null, '', newUrl.toString());
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [openItemId, items, ensureBestPracticeAttachments, openFormForItem]);
+
+  React.useEffect(() => {
     return () => {
       if (successTimeoutRef.current) {
         window.clearTimeout(successTimeoutRef.current);
@@ -306,13 +357,21 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context }) => {
 
   return (
     <div>
-      {isProjectManager && (
-        <PrimaryButton
-          text="Add Best Practice"
-          onClick={handleCreateClick}
-          style={{ marginTop: '8px' }}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '8px' }}>
+        {isProjectManager && (
+          <PrimaryButton
+            text="Add Best Practice"
+            onClick={handleCreateClick}
+            style={{ marginTop: '8px' }}
+          />
+        )}
+        <DefaultButton
+          text="Export"
+          iconProps={{ iconName: 'Download' }}
+          onClick={handleExportBestPractices}
+          disabled={isLoading || items.length === 0}
         />
-      )}
+      </div>
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (

@@ -10,7 +10,9 @@ import {
   Text,
   Checkbox,
   Pivot,
-  PivotItem
+  PivotItem,
+  Spinner,
+  SpinnerSize
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
@@ -268,18 +270,55 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
 
 
 
+  const [isSaving, setIsSaving] = React.useState<boolean>(false);
+
   const handleSave = async (): Promise<void> => {
+    setIsSaving(true);
     // Validate mandatory fields
-    if (type === 'Issue' || type === 'Assumption' || type === 'Dependency' || type === 'Constraints') {
+    try {
+      if (type === 'Issue' || type === 'Assumption' || type === 'Dependency' || type === 'Constraints') {
       if (!formData.details || formData.details.trim() === '') {
         if (onValidationError) {
           onValidationError('Details field is mandatory. Please fill in the details before saving.');
         }
         return;
       }
+      
+      // Validate Identified By field
+      if (!formData.byWhom || !Array.isArray(formData.byWhom) || formData.byWhom.length === 0) {
+        if (onValidationError) {
+          onValidationError('Identified By field is mandatory. Please select at least one person.');
+        }
+        return;
+      }
+      
+      // Validate Responsibility field
+      if (!formData.responsibility || !Array.isArray(formData.responsibility) || formData.responsibility.length === 0) {
+        if (onValidationError) {
+          onValidationError('Responsibility field is mandatory. Please select at least one person.');
+        }
+        return;
+      }
     }
     
-    if (type === 'Opportunity' || type === 'Risk') {
+    if (type === 'Opportunity') {
+      if (!formData.description || formData.description.trim() === '') {
+        if (onValidationError) {
+          onValidationError('Description field is mandatory. Please fill in the description before saving.');
+        }
+        return;
+      }
+      
+      // Validate Responsibility field for Opportunity
+      if (!formData.responsibility || !Array.isArray(formData.responsibility) || formData.responsibility.length === 0) {
+        if (onValidationError) {
+          onValidationError('Responsibility field is mandatory. Please select at least one person.');
+        }
+        return;
+      }
+    }
+    
+    if (type === 'Risk') {
       if (!formData.description || formData.description.trim() === '') {
         if (onValidationError) {
           onValidationError('Description field is mandatory. Please fill in the description before saving.');
@@ -300,6 +339,26 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           onValidationError('Please select at least one Type of Action (Mitigation or Contingency) for Risk items.');
         }
         return;
+      }
+      
+      // Validate Responsibility field in Mitigation action
+      if (selectedActionTypes.indexOf('Mitigation') !== -1 && mitigationAction) {
+        if (!mitigationAction.responsibility || !Array.isArray(mitigationAction.responsibility) || mitigationAction.responsibility.length === 0) {
+          if (onValidationError) {
+            onValidationError('Responsibility field is mandatory in Mitigation action. Please select at least one person.');
+          }
+          return;
+        }
+      }
+      
+      // Validate Responsibility field in Contingency action
+      if (selectedActionTypes.indexOf('Contingency') !== -1 && contingencyAction) {
+        if (!contingencyAction.responsibility || !Array.isArray(contingencyAction.responsibility) || contingencyAction.responsibility.length === 0) {
+          if (onValidationError) {
+            onValidationError('Responsibility field is mandatory in Contingency action. Please select at least one person.');
+          }
+          return;
+        }
       }
 
       // Generate unique RaidID for new Risk items (not in edit mode)
@@ -356,6 +415,9 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     
     console.log('📝 RaidForm - Final item to save:', itemToSave);
     await onSave(itemToSave);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderFormFields = (): React.ReactElement => {
@@ -404,7 +466,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
-          required={false}
+          required={true}
           disabled={false}
           ensureUser={true}
           onChange={(items: any[]) => {
@@ -439,7 +501,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
-          required={false}
+          required={true}
           disabled={false}
           ensureUser={true}
           onChange={(items: any[]) => {
@@ -512,7 +574,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
-          required={false}
+          required={true}
           disabled={false}
           ensureUser={true}
           onChange={(items: any[]) => {
@@ -547,7 +609,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
-          required={false}
+          required={true}
           disabled={false}
           ensureUser={true}
           onChange={(items: any[]) => {
@@ -707,7 +769,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
           personSelectionLimit={3}
           groupName=""
           showtooltip={true}
-          required={false}
+          required={true}
           disabled={false}
           ensureUser={true}
           onChange={(items: any[]) => {
@@ -923,7 +985,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
                           personSelectionLimit={3}
                           groupName=""
                           showtooltip={true}
-                          required={false}
+                          required={true}
                           disabled={false}
                           ensureUser={true}
                           onChange={(items: any[]) => {
@@ -987,12 +1049,12 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
                             absoluteUrl: context.pageContext.web.absoluteUrl,
                             msGraphClientFactory: context.msGraphClientFactory,
                             spHttpClient: context.spHttpClient
-                          }}
+          }}
                           titleText="Responsibility"
                           personSelectionLimit={3}
                           groupName=""
                           showtooltip={true}
-                          required={false}
+                          required={true}
                           disabled={false}
                           ensureUser={true}
                           onChange={(items: any[]) => {
@@ -1087,7 +1149,16 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         
         <div className={styles.modalFooter}>
           <DefaultButton text="Cancel" onClick={onCancel} />
-          <PrimaryButton text="Save" onClick={handleSave} />
+          <PrimaryButton onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Spinner size={SpinnerSize.xSmall} />
+                &nbsp;Saving...
+              </>
+            ) : (
+              'Save'
+            )}
+          </PrimaryButton>
         </div>
       </div>
     </Modal>

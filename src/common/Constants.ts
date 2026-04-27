@@ -5,9 +5,12 @@ export default class ParentListNames {
   public static ObjectivesMaster: string = "ObjectivesMaster";
   public static PPOApprovers: string = "PPOApprovers";
   public static ProjectType: string = "ProjectType";
-  public static AssociatedPPM: string = "AssociatedPPM"
+  public static AssociatedPPM: string = "AssociatedPPM";
   public static Metrics: string = "Metrics";
   public static MetricsMailSender: string = "MetricsMailSender";
+  public static RAIDLogEmailTrigger: string = "RAIDLogEmailTrigger";
+  public static LLBPRCEmailTrigger: string = "LLBPRCEmailTrigger";
+  public static RCAEmailTrigger: string = "RCAEmailTrigger";
 }
 
 export class SubSiteListNames {
@@ -56,7 +59,7 @@ export const RCACOLUMNS: (IColumnConfig)[] = [
   { key: 'actionType', name: 'Type of Action', fieldName: 'RCATypeOfAction', minWidth: 100, maxWidth: 140, isResizable: true },
   { key: 'performanceBefore', name: 'Performance before action plan', fieldName: 'PerformanceBeforeActionPlan', minWidth: 120, maxWidth: 180, isResizable: true },
   { key: 'performanceAfter', name: 'Performance after action plan', fieldName: 'PerformanceAfterActionPlan', minWidth: 120, maxWidth: 180, isResizable: true },
-  { key: 'quantitativeEffectiveness', name: 'Quantitative / Statistical effectiveness', fieldName: 'Quantitative_x0020_Or_x0020_Stat', minWidth: 140, maxWidth: 200, isResizable: true },
+  { key: 'quantitativeEffectiveness', name: 'Quantitative / Statistical effectiveness', fieldName: 'QuantitativeOrStatisticalEffecti', minWidth: 140, maxWidth: 200, isResizable: true },
   { key: 'remarks', name: 'Remarks', fieldName: 'Remarks', minWidth: 100, maxWidth: 180, isResizable: true }
 ];
 export const selectedFields = [
@@ -75,6 +78,7 @@ export const selectedFields = [
   'ResponsibilityCorrection/Id',
   'ResponsibilityCorrection/Title',
   'ResponsibilityCorrection/EMail',
+  'ResponsibilityCorrectionId',
   
   'PlannedClosureDateCorrection', 
   'ActualClosureDateCorrection',
@@ -83,6 +87,7 @@ export const selectedFields = [
   'ResponsibilityCorrective/Id',
   'ResponsibilityCorrective/Title',
   'ResponsibilityCorrective/EMail',
+  'ResponsibilityCorrectiveId',
 
   'PlannedClosureDateCorrective',
   'ActualClosureDateCorrective',
@@ -91,6 +96,7 @@ export const selectedFields = [
   'ResponsibilityPreventive/Id', 
   'ResponsibilityPreventive/Title',
   'ResponsibilityPreventive/EMail',
+  'ResponsibilityPreventiveId',
 
   'PlannedClosureDatePreventive', 
   'ActualClosureDatePreventive',

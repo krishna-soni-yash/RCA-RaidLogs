@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import {
+  DefaultButton,
   DetailsList,
   DetailsListLayoutMode,
   IColumn,
@@ -18,6 +19,7 @@ import styles from '../LlBpRc.module.scss';
 import { ILessonsLearnt } from '../../../../../models/Ll Bp Rc/LessonsLearnt';
 import PpoApproversContext from '../../PpoApproversContext';
 import { Current_User_Role } from '../../../../../common/Constants';
+import { exportRowsToExcel } from '../../../../../common/excelExport';
 import {
   addLessonsLearnt,
   fetchLessonsLearnt,
@@ -28,11 +30,13 @@ import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
   context: WebPartContext;
+  openItemId?: string | null;
 }
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
+const LESSONS_EXPORT_HEADERS = ['Problem Faced / Learning', 'Category', 'Solution', 'Remarks'];
 
-const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
+const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
@@ -55,6 +59,21 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     }
     setSuccessMessage(null);
   }, []);
+
+  const handleExportLessonsLearnt = React.useCallback(() => {
+    const rows = items.map((item) => ({
+      'Problem Faced / Learning': item.LlProblemFacedLearning ?? '',
+      'Category': item.LlCategory ?? '',
+      'Solution': item.LlSolution ?? '',
+      'Remarks': item.LlRemarks ?? ''
+    }));
+    exportRowsToExcel({
+      rows,
+      headers: LESSONS_EXPORT_HEADERS,
+      sheetName: 'Lessons Learnt',
+      fileName: 'LessonsLearnt'
+    });
+  }, [items]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -252,6 +271,41 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
     };
   }, [context]);
 
+  // If an openItemId is provided via query param, try to open that item in edit mode
+  React.useEffect(() => {
+    if (!openItemId) return;
+    if (!items || items.length === 0) return;
+
+    const val = String(openItemId);
+    let found: ILessonsLearnt | undefined = undefined;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (String(it.ID) === val || String((it as any).Id) === val) {
+        found = it;
+        break;
+      }
+    }
+    if (!found) return;
+
+    (async () => {
+      try {
+        await ensureLessonAttachments(found);
+      } catch (e) {
+        // ignore
+      }
+      void openFormForLesson(found, 'edit');
+
+      // Remove query param so modal doesn't reopen on refresh
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('LlBpRcId');
+        window.history.replaceState(null, '', newUrl.toString());
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, [openItemId, items, ensureLessonAttachments, openFormForLesson]);
+
   React.useEffect(() => {
     return () => {
       if (successTimeoutRef.current) {
@@ -314,13 +368,21 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context }) => {
 
   return (
     <div>
-      {isProjectManager && (
-        <PrimaryButton
-          text="Add Lessons Learnt"
-          onClick={handleCreateClick}
-          style={{ marginTop: '8px' }}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '8px' }}>
+        {isProjectManager && (
+          <PrimaryButton
+            text="Add Lessons Learnt"
+            onClick={handleCreateClick}
+            style={{ marginTop: '8px' }}
+          />
+        )}
+        <DefaultButton
+          text="Export"
+          iconProps={{ iconName: 'Download' }}
+          onClick={handleExportLessonsLearnt}
+          disabled={isLoading || items.length === 0}
         />
-      )}
+      </div>
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (

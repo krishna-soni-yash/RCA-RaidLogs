@@ -1,0 +1,151 @@
+.historyModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.historyModalContainer {
+  width: 920px;
+  max-width: 95vw;
+  max-height: 90vh;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.historyModalHeader {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.historyModalTitle {
+  font-size: 20px;
+  color: #333333;
+  margin: 0;
+  font-weight: 600;
+}
+
+.historyModalBody {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  background: #fafafa;
+}
+
+.historyContainer {
+  padding: 4px 0 4px 0;
+}
+
+.historySummary {
+  background: #dff6dd;
+  border: 1px solid #a7e5a3;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f7a1f;
+}
+
+.historyCard {
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #d0d0d0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.historyCard:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.historyCardLatest {
+  border-left-color: #0078d4;
+  background: #f0f8ff;
+}
+
+.historyCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eceff1;
+}
+
+.historyVersionBadge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f4fd;
+  color: #005a9e;
+}
+
+.historyMetaText {
+  font-size: 12px;
+  color: #5c6773;
+}
+
+.historySection {
+  margin-top: 10px;
+}
+
+.historySectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #323130;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.historyFieldGrid {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  column-gap: 10px;
+  row-gap: 6px;
+  font-size: 12px;
+}
+
+.historyFieldLabel {
+  font-weight: 600;
+  color: #323130;
+}
+
+.historyFieldValue {
+  color: #201f1e;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .historyModalContainer {
+    max-width: 98vw;
+    max-height: 94vh;
+  }
+
+  .historyFieldGrid {
+    grid-template-columns: 1fr;
+    row-gap: 4px;
+  }
+
+  .historyFieldLabel {
+    margin-top: 6px;
+  }
+}

@@ -1,20 +1,13 @@
 @import '~@fluentui/react/dist/sass/References.scss';
 
-.raidLogs {
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin: 20px 0;
-}
-
 .header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  gap: 8px;
   margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #e0e0e0;
+  // padding-bottom: 15px;
+  border-bottom: none;
 
   h1 {
     font-size: 24px;

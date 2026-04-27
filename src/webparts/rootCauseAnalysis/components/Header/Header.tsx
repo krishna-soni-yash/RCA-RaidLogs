@@ -6,32 +6,20 @@ import {
   Text,
   IStackTokens,
   Stack,
-  Icon,
-  Pivot,
-  PivotItem
+  Icon
 } from '@fluentui/react';
 
 export interface IHeaderProps {
   title?: string;
   subtitle?: string;
-  activeTab?: string;
-  onTabChange?: (tabKey: string) => void;
 }
 
 const Header: React.FC<IHeaderProps> = ({ 
-  title = "SharePoint lists",
-  activeTab = "rootCauseAnalysis",
-  onTabChange
+  title = "SharePoint lists"
 }) => {
   const { approver } = React.useContext(PpoApproversContext);
   const contextTitle = approver?.InternalProjectName || approver?.Title || title;
   const stackTokens: IStackTokens = { childrenGap: 6 };
-
-  const handleTabChange = (item?: PivotItem): void => {
-    if (item && onTabChange) {
-      onTabChange(item.props.itemKey || "rootCauseAnalysis");
-    }
-  };
 
   return (
   <header className={styles.header} role="banner">
@@ -42,26 +30,6 @@ const Header: React.FC<IHeaderProps> = ({
             <Text className={styles.title}>{contextTitle}</Text>
           </div>
         </Stack>
-        <div className={styles.tabsContainer}>
-          <Pivot
-            selectedKey={activeTab}
-            onLinkClick={handleTabChange}
-            className={styles.tabs}
-          >
-            <PivotItem 
-              headerText="Causual Analysis" 
-              itemKey="rootCauseAnalysis"
-            />
-            <PivotItem 
-              headerText="RAID Logs" 
-              itemKey="raidLogs"
-            />
-            <PivotItem 
-              headerText="LL, BP & RC" 
-              itemKey="lessonsLearnt"
-            />
-          </Pivot>
-        </div>
       </div>
     </header>
   );
