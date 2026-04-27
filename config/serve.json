@@ -2,5 +2,5 @@
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/spfx-serve.schema.json",
   "port": 4321,
   "https": true,
-  "initialPage": "https://ytpl.sharepoint.com/sites/qualityuat/smartiqplus/_layouts/15/workbench.aspx"
+  "initialPage": "https://ytpl.sharepoint.com/sites/smartiqplus/projectsite/_layouts/15/workbench.aspx"
 }
