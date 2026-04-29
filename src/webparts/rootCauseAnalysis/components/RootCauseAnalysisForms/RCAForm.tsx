@@ -62,6 +62,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     source: initialData?.source || '',
     priority: initialData?.priority || '',
     relatedMetric: initialData?.relatedMetric || '',
+    relatedSubMetric: initialData?.relatedSubMetric || '',
     causes: initialData?.causes || '',
     rootCauses: initialData?.rootCauses || '',
     analysisTechnique: initialData?.analysisTechnique || '',
@@ -92,6 +93,43 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   const [messageText, setMessageText] = React.useState<string>('');
   const [messageType, setMessageType] = React.useState<MessageType>('info');
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
+
+  // Update form state when initialData changes (for edit mode)
+  useEffect(() => {
+    console.log('RCAForm - useEffect triggered with initialData:', initialData);
+    if (initialData) {
+      setForm({
+        problemStatement: initialData?.problemStatement || '',
+        causeCategory: initialData?.causeCategory || '',
+        source: initialData?.source || '',
+        priority: initialData?.priority || '',
+        relatedMetric: initialData?.relatedMetric || '',
+        causes: initialData?.causes || '',
+        rootCauses: initialData?.rootCauses || '',
+        analysisTechnique: initialData?.analysisTechnique || '',
+        actionType: initialData?.actionType
+          ? (Array.isArray(initialData.actionType) ? initialData.actionType : [initialData.actionType])
+          : [],
+        actionPlan: initialData?.actionPlan || '',
+        responsibility: initialData?.responsibility || '',
+        plannedClosureDate: initialData?.plannedClosureDate ? new Date(initialData.plannedClosureDate) : undefined,
+        actualClosureDate: initialData?.actualClosureDate ? new Date(initialData.actualClosureDate) : undefined,
+        performanceBefore: initialData?.performanceBefore || '',
+        performanceAfter: initialData?.performanceAfter || '',
+        quantitativeEffectiveness: initialData?.quantitativeEffectiveness || '',
+        remarks: initialData?.remarks || '',
+        relatedSubMetric: initialData?.relatedSubMetric || '',
+        attachments: initialData?.attachments || []
+      });
+      setActionDetails(initialData?.actionDetails || {});
+      console.log('RCAForm - Form state updated with:', {
+        problemStatement: initialData?.problemStatement,
+        causeCategory: initialData?.causeCategory,
+        actionDetails: initialData?.actionDetails
+      });
+    }
+  }, [initialData]);
+
   const causeCategoryOptions: IDropdownOption[] = [
     { key: 'Special', text: 'Special' },
     { key: 'Common', text: 'Common' }
