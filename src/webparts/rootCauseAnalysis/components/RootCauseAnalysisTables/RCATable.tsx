@@ -359,6 +359,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	// helper: map repository item (IRCAList) to RCAForm initialData shape
 	const mapRepoItemToForm = (it: any): any => {
 		if (!it) return {};
+		console.log('RCATable - mapRepoItemToForm called with item:', it);
 		const form: any = {};
 		const parsePeopleValues = (value: any): string[] => {
 			if (!value) return [];
@@ -419,6 +420,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		})) : [];
 		// preserve id for editing context
 		form.__repoId = it.ID ?? it.Id ?? it.Id;
+		console.log('RCATable - mapRepoItemToForm returning form data:', form);
 		return form;
 	};
 
@@ -968,6 +970,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					onClick={closeDialog}
 				/>
 				<RCAForm
+					key={selectedItem?.ID ? `edit-${selectedItem.ID}` : 'new'}
 					onSubmit={handleFormSubmit}
 					onCancel={closeDialog}
 					initialData={selectedItem ? mapRepoItemToForm(selectedItem) : {}}

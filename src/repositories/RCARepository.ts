@@ -211,8 +211,13 @@ export class RCARepository implements IRCARepository {
                 'Id',
                 'Title',
                 'CauseCategory',
+                'RCASource',
                 'RCAPriority',
+                'RelatedMetric',
+                'RelatedSubMetric',
+                'Cause',
                 'RootCause',
+                'RCATechniqueUsedAndReference',
                 'RCATypeOfAction',
                 'ActionPlanCorrection',
                 'ResponsibilityCorrection/Id',
@@ -235,6 +240,10 @@ export class RCARepository implements IRCARepository {
                 'ResponsibilityPreventiveId',
                 'PlannedClosureDatePreventive',
                 'ActualClosureDatePreventive',
+                'PerformanceBeforeActionPlan',
+                'PerformanceAfterActionPlan',
+                'Quantitative_x0020_Or_x0020_Stat',
+                'Remarks',
                 'Modified'
             ];
 
@@ -262,7 +271,7 @@ export class RCARepository implements IRCARepository {
                 ID: typeof it?.ID === 'number' ? it.ID : (typeof it?.Id === 'number' ? it.Id : 0),
                 LinkTitle: it?.Title || it?.LinkTitle || '',
                 ProblemStatementNumber: it?.ProblemStatementNumber || '',
-                ProblemStatement: it?.ProblemStatement || '',
+                ProblemStatement: it?.Title || '',
                 CauseCategory: it?.CauseCategory || '',
                 RCASource: it?.RCASource || '',
                 RCAPriority: it?.RCAPriority || '',
