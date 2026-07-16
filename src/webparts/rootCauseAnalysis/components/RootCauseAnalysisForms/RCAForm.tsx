@@ -94,11 +94,20 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   const [messageType, setMessageType] = React.useState<MessageType>('info');
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
 
-  // Update form state when initialData changes (for edit mode)
+  // Update form state when the selected RCA item changes. Existing attachments are
+  // loaded by RCATable before the edit form is opened.
   useEffect(() => {
-    console.log('RCAForm - useEffect triggered with initialData:', initialData);
-    if (initialData) {
-      setForm({
+    if (!initialData) {
+      return;
+    }
+
+    setForm((prev: any) => {
+      const incomingAttachments = Array.isArray(initialData?.attachments)
+        ? initialData.attachments
+        : [];
+
+      return {
+        ...prev,
         problemStatement: initialData?.problemStatement || '',
         causeCategory: initialData?.causeCategory || '',
         source: initialData?.source || '',
@@ -119,16 +128,12 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
         quantitativeEffectiveness: initialData?.quantitativeEffectiveness || '',
         remarks: initialData?.remarks || '',
         relatedSubMetric: initialData?.relatedSubMetric || '',
-        attachments: initialData?.attachments || []
-      });
-      setActionDetails(initialData?.actionDetails || {});
-      console.log('RCAForm - Form state updated with:', {
-        problemStatement: initialData?.problemStatement,
-        causeCategory: initialData?.causeCategory,
-        actionDetails: initialData?.actionDetails
-      });
-    }
-  }, [initialData]);
+        attachments: incomingAttachments
+      };
+    });
+
+    setActionDetails(initialData?.actionDetails || {});
+  }, [initialData?.__repoId, initialData?.ID, initialData?.id, initialData?.problemStatement, initialData?.causeCategory, initialData?.source, initialData?.priority, initialData?.relatedMetric, initialData?.relatedSubMetric, initialData?.causes, initialData?.rootCauses, initialData?.analysisTechnique, initialData?.actionType, initialData?.actionPlan, initialData?.responsibility, initialData?.plannedClosureDate, initialData?.actualClosureDate, initialData?.performanceBefore, initialData?.performanceAfter, initialData?.quantitativeEffectiveness, initialData?.remarks, initialData?.actionDetails]);
 
   const causeCategoryOptions: IDropdownOption[] = [
     { key: 'Special', text: 'Special' },
@@ -186,7 +191,13 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   };
 
   // new: control whether the attachments panel is expanded
-  const [attachmentsOpen, setAttachmentsOpen] = useState<boolean>(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState<boolean>(() =>
+    Array.isArray(initialData?.attachments) && initialData.attachments.length > 0
+  );
+
+  useEffect(() => {
+    setAttachmentsOpen(Array.isArray(initialData?.attachments) && initialData.attachments.length > 0);
+  }, [initialData?.__repoId, initialData?.ID, initialData?.id]);
 
   const onFilesAdded = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.prototype.slice.call(e.target.files) : [];
@@ -490,8 +501,6 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
               try {
                 await uploadRCAAttachment(savedItemId as number, file, context);
                 console.log('Uploaded attachment', file.name);
-                window.location.reload();
-
               } catch (e: any) {
                 console.error('Failed to upload attachment', file.name, e);
               }
