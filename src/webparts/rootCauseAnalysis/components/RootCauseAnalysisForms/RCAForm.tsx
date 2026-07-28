@@ -185,7 +185,18 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     setForm((s: any) => ({ ...s, [key]: value }));
     setErrors(prev => {
       const next = { ...prev };
-      if (value !== null && value !== undefined && value !== '') delete next[key];
+      if (key === 'problemStatement') {
+        const problemStatement = String(value || '');
+        if (problemStatement.length > 255) {
+          next[key] = 'Problem statement cannot exceed 255 characters.';
+        } else if (problemStatement.trim() !== '') {
+          delete next[key];
+        } else if (next[key]) {
+          next[key] = 'Problem statement is required.';
+        }
+      } else if (value !== null && value !== undefined && value !== '') {
+        delete next[key];
+      }
       return next;
     });
   };
@@ -342,8 +353,11 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   const validate = (): boolean => {
     const nextErrors: Record<string, string> = {};
 
-    if (!form.problemStatement || String(form.problemStatement).trim() === '') {
+    const problemStatement = String(form.problemStatement || '');
+    if (problemStatement.trim() === '') {
       nextErrors['problemStatement'] = 'Problem statement is required.';
+    } else if (problemStatement.length > 255) {
+      nextErrors['problemStatement'] = 'Problem statement cannot exceed 255 characters.';
     }
     if (!form.causeCategory || String(form.causeCategory).trim() === '') {
       nextErrors['causeCategory'] = 'Cause category is required.';
