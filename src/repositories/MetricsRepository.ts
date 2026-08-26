@@ -30,8 +30,6 @@ export class MetricsRepository implements IProjectMetricsRepository {
   //     return (value || '').trim().replace(/\/+$/, '').toLowerCase();
   //   }
 
-  private ActiveVersion: IMetrics[] | null = null;
-  private VersionId: number | undefined = undefined;
   public async getMetricsValues(useCache: boolean = true, context?: WebPartContext, selectedProjectType?: string): Promise<IMetrics[]> {
     const now = Date.now();
 
@@ -138,17 +136,15 @@ export class MetricsRepository implements IProjectMetricsRepository {
       // const selectFields: string[] = ['Id', 'LinkTitle','ProjectType','IsActive'];
       //const listConfig = await getListConfigurationBasedOnMetricLogs(context);
 
-      this.ActiveVersion = await this.getApprovedProjectlogs(true, context);
-      if (this.ActiveVersion && this.ActiveVersion.length > 0) {
-        this.VersionId = this.ActiveVersion[0].ID;
-      }
-      if (this.VersionId || this.VersionId != undefined) {
+      const activeVersions = await this.getApprovedProjectlogs(false, context);
+      const versionId = activeVersions.length > 0 ? activeVersions[0].ID : undefined;
+      if (versionId !== undefined) {
         const items = await this.service.fetchAllItems<any>({
           context,
           listTitle: SubSiteListNames.ProjectMetrics,
           //select: selectFields,
           pageSize: 2000,
-          filter: 'IsActive eq 1 and VersionId eq ' + (this.VersionId) + '',
+          filter: 'VersionId eq ' + versionId,
           // filter: 'IsActive eq true and ProjectType in (' + (selectedProjectTypes?.map(pt => `'${pt}'`).join(',') || '') + ')',
 
         });
@@ -213,15 +209,18 @@ export class MetricsRepository implements IProjectMetricsRepository {
       // const selectFields: string[] = ['Id', 'LinkTitle','ProjectType','IsActive'];
       //const listConfig = await getListConfigurationBasedOnMetricLogs(context);
 
-      // Ensure we have the active version id available
-
-
+      const activeVersions = await this.getApprovedProjectlogs(false, context);
+      const versionId = activeVersions.length > 0 ? activeVersions[0].ID : undefined;
+      if (versionId === undefined) {
+        return [];
+      }
+      const escapedMetric = String(selectedMetrics || '').replace(/'/g, "''");
       const items = await this.service.fetchAllItems<any>({
         context,
         listTitle: SubSiteListNames.ProjectMetrics,
         //select: selectFields,
         pageSize: 2000,
-        filter: 'IsActive eq 1 and Metrics eq \'' + (selectedMetrics) + '\' and  VersionId eq ' + (this.VersionId ?? 0) + '',
+        filter: 'Metrics eq \'' + escapedMetric + '\' and VersionId eq ' + versionId,
         // filter: 'IsActive eq true and ProjectType in (' + (selectedProjectTypes?.map(pt => `'${pt}'`).join(',') || '') + ')',
 
       });

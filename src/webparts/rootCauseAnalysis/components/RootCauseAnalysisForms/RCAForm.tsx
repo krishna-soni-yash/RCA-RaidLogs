@@ -19,7 +19,6 @@ import { MessageModal, MessageType } from '../ModalPopups'; // adjust path if yo
 
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import styles from '../../components/RootCauseAnalysis.module.scss';
-import { getMetricsFromProjectMetrics, getSubMetricsFromProjectMetrics } from '../../../../repositories/MetricsRepository';
 import { MetricsRepository } from '../../../../repositories/MetricsRepository';
 import IProjectMetricsRepository from '../../../../repositories/repositoriesInterface/IProjectMetricsRepository';
 import { GenericService } from '../../../../services/GenericServices';
@@ -604,13 +603,16 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     }
   }, [context]);
   useEffect(() => {
-    if (context && form.relatedMetric !== "" || form.relatedMetric !== undefined) {
-
-      loadSubMetricsData().catch(() => {
-        setSubMetricsData([]);
-        update('relatedSubMetric', undefined);
-      });
+    const selectedMetric = String(form.relatedMetric || '');
+    if (!context || !selectedMetric || selectedMetric === 'None') {
+      setSubMetricsData([]);
+      return;
     }
+
+    loadSubMetricsData(selectedMetric).catch(() => {
+      setSubMetricsData([]);
+      setForm((current: any) => ({ ...current, relatedSubMetric: undefined }));
+    });
   }, [context, form.relatedMetric]);
   const loadMetricsData = async () => {
     const genericServiceInstance: IGenericService = new GenericService(undefined, context);
@@ -618,7 +620,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     const MetricsMeasurementRepo: IProjectMetricsRepository = new MetricsRepository(genericServiceInstance);
     MetricsMeasurementRepo.setService(genericServiceInstance);
 
-    let MetricValues = await getMetricsFromProjectMetrics(false, context)
+    const MetricValues = await MetricsMeasurementRepo.getMetricsFromProjectMetrics(false, context);
     const mapped = MetricValues.map(m => ({ key: m.Metrics || '', text: m.Metrics || '' }));
     // keep only unique keys (preserve first occurrence)
     const unique: Array<{ key: string; text: string }> = [];
@@ -630,13 +632,13 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     // setDropdownValueMetrics(ItemData["Metrics"]);
     setMetricsData(options);
   };
-  const loadSubMetricsData = async () => {
+  const loadSubMetricsData = async (selectedMetric: string) => {
     const genericServiceInstance: IGenericService = new GenericService(undefined, context);
     genericServiceInstance.init(undefined, context);
     const MetricsMeasurementRepo: IProjectMetricsRepository = new MetricsRepository(genericServiceInstance);
     MetricsMeasurementRepo.setService(genericServiceInstance);
 
-    let MetricValues = await getSubMetricsFromProjectMetrics(false, context, form.relatedMetric)
+    const MetricValues = await MetricsMeasurementRepo.getSubMetricsFromProjectMetrics(false, context, selectedMetric);
     const mapped = MetricValues.map(m => ({ key: m.SubMetrics || '', text: m.SubMetrics || '' }));
     // keep only unique keys (preserve first occurrence)
     const unique: Array<{ key: string; text: string }> = [];
@@ -767,13 +769,11 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
             onChange={(_, o) => {
               const key = o?.key;
               update('relatedMetric', key);
-              // clear selected sub-metric when metric changes
-
-              // refresh sub-metrics for newly selected metric
-
+              update('relatedSubMetric', undefined);
+              setSubMetricsData([]);
             }}
           />
-          {((form.relatedMetric !== "" || form.relatedMetric !== undefined) && (form.relatedMetric !== "None" || SubMetricsData.length > 1)) && <Dropdown
+          {form.relatedMetric && form.relatedMetric !== 'None' && <Dropdown
             label="Related Sub Metric (if any)"
             options={SubMetricsData}
             selectedKey={form.relatedSubMetric || undefined}
