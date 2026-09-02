@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   TextField,
   Dropdown,
+  ComboBox,
   IDropdownOption,
   DatePicker,
   DefaultButton,
@@ -367,6 +368,14 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     if (!form.priority || String(form.priority).trim() === '') {
       nextErrors['priority'] = 'Priority is required.';
     }
+    const relatedMetric = String(form.relatedMetric || '').trim();
+    const hasMatchingMetric = relatedMetric === '' || MetricsData.some((metric) =>
+      String(metric.key).trim().toLowerCase() === relatedMetric.toLowerCase() ||
+      String(metric.text).trim().toLowerCase() === relatedMetric.toLowerCase()
+    );
+    if (!hasMatchingMetric) {
+      nextErrors['relatedMetric'] = 'Select Correct Matrics from dropdown';
+    }
     // require causes and root causes
     if (!form.causes || String(form.causes).trim() === '') {
       nextErrors['causes'] = 'Cause(s) is required.';
@@ -603,7 +612,12 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     }
   }, [context]);
   useEffect(() => {
-    const selectedMetric = String(form.relatedMetric || '');
+    const enteredMetric = String(form.relatedMetric || '').trim();
+    const matchingMetric = MetricsData.filter((metric) =>
+      String(metric.key).trim().toLowerCase() === enteredMetric.toLowerCase() ||
+      String(metric.text).trim().toLowerCase() === enteredMetric.toLowerCase()
+    )[0];
+    const selectedMetric = matchingMetric ? String(matchingMetric.key) : '';
     if (!context || !selectedMetric || selectedMetric === 'None') {
       setSubMetricsData([]);
       return;
@@ -613,7 +627,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
       setSubMetricsData([]);
       setForm((current: any) => ({ ...current, relatedSubMetric: undefined }));
     });
-  }, [context, form.relatedMetric]);
+  }, [context, form.relatedMetric, MetricsData]);
   const loadMetricsData = async () => {
     const genericServiceInstance: IGenericService = new GenericService(undefined, context);
     genericServiceInstance.init(undefined, context);
@@ -762,18 +776,43 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
 {/* added expanded Related Metric and Sub-metric dropdowns */}
         {/* Related Metric (attachments link removed — attachments moved to bottom) */}
         <div>
-          <Dropdown
+          <ComboBox
             label="Related Metric (if any)"
             options={MetricsData}
-            selectedKey={form.relatedMetric || undefined}
-            onChange={(_, o) => {
-              const key = o?.key;
-              update('relatedMetric', key);
+            text={String(form.relatedMetric || '')}
+            allowFreeform
+            autoComplete="on"
+            errorMessage={errors['relatedMetric'] || ''}
+            onInputValueChange={(value) => {
+              const matchingMetric = MetricsData.filter((metric) =>
+                String(metric.key).trim().toLowerCase() === value.trim().toLowerCase() ||
+                String(metric.text).trim().toLowerCase() === value.trim().toLowerCase()
+              )[0];
+              update('relatedMetric', matchingMetric ? String(matchingMetric.key) : value);
               update('relatedSubMetric', undefined);
               setSubMetricsData([]);
+              setErrors((previous) => {
+                const next = { ...previous };
+                delete next['relatedMetric'];
+                return next;
+              });
+            }}
+            onChange={(_, option, __, value) => {
+              const nextValue = option ? String(option.key) : String(value || '');
+              update('relatedMetric', nextValue);
+              update('relatedSubMetric', undefined);
+              setSubMetricsData([]);
+              setErrors((previous) => {
+                const next = { ...previous };
+                if (option) {
+                  delete next['relatedMetric'];
+                }
+                return next;
+              });
             }}
           />
-          {form.relatedMetric && form.relatedMetric !== 'None' && <Dropdown
+          {form.relatedMetric &&
+            MetricsData.some((metric) => String(metric.key) === String(form.relatedMetric) && String(metric.key) !== 'None') && <Dropdown
             label="Related Sub Metric (if any)"
             options={SubMetricsData}
             selectedKey={form.relatedSubMetric || undefined}
