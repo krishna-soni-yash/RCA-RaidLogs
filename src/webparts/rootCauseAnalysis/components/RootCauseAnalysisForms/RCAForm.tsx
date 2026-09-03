@@ -890,10 +890,11 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
                       onChange={(_, v) => updateActionDetail(act, 'actionPlan', v)}
                       multiline
                       rows={4}
+                      required
                     />
                     {/* Responsibility converted to People Picker */}
                     <div>
-                      <Label>Responsibility</Label>
+                      <Label required>Responsibility</Label>
                       {!peoplePickerFailed && context ? (
                         <PeoplePickerErrorBoundary onError={() => setPeoplePickerFailed(true)}>
                           <PeoplePicker
