@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   TextField,
   Dropdown,
+  ComboBox,
   IDropdownOption,
   DatePicker,
   DefaultButton,
@@ -19,7 +20,6 @@ import { MessageModal, MessageType } from '../ModalPopups'; // adjust path if yo
 
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import styles from '../../components/RootCauseAnalysis.module.scss';
-import { getMetricsFromProjectMetrics, getSubMetricsFromProjectMetrics } from '../../../../repositories/MetricsRepository';
 import { MetricsRepository } from '../../../../repositories/MetricsRepository';
 import IProjectMetricsRepository from '../../../../repositories/repositoriesInterface/IProjectMetricsRepository';
 import { GenericService } from '../../../../services/GenericServices';
@@ -32,6 +32,13 @@ interface RCAFormProps {
   initialData?: any;
   context?: WebPartContext;
   onCancel?: () => void;
+}
+
+function getRelatedMetricValue(data: { relatedMetric?: string; relatedSubMetric?: string }): string {
+  const subMetric = String(data.relatedSubMetric || '').trim();
+  return subMetric && subMetric.toLowerCase() !== 'none'
+    ? subMetric
+    : String(data.relatedMetric || '');
 }
 
 // small ErrorBoundary to catch PeoplePicker runtime errors (e.g. PeopleSearchService failures)
@@ -62,6 +69,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     source: initialData?.source || '',
     priority: initialData?.priority || '',
     relatedMetric: initialData?.relatedMetric || '',
+    relatedSubMetric: initialData?.relatedSubMetric || '',
     causes: initialData?.causes || '',
     rootCauses: initialData?.rootCauses || '',
     analysisTechnique: initialData?.analysisTechnique || '',
@@ -86,12 +94,63 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   // per-action-type details (actionPlan/responsibility/dates)
   const [actionDetails, setActionDetails] = useState<Record<string, any>>(initialData?.actionDetails || {});
   const [MetricsData, setMetricsData] = React.useState<Array<{ key: string; text: string }>>([]);
-  const [SubMetricsData, setSubMetricsData] = React.useState<Array<{ key: string; text: string }>>([]);
+  const relatedMetricValue = getRelatedMetricValue(form);
+  const updateRelatedMetric = (value: string): void => {
+    setForm((current: any) => {
+      // Keep legacy parent/submetric fields intact until the selection changes.
+      if (getRelatedMetricValue(current).trim().toLowerCase() === value.trim().toLowerCase()) {
+        return current;
+      }
+      return { ...current, relatedMetric: value, relatedSubMetric: '' };
+    });
+  };
   // modal state for save/update success message
   const [showMessageModal, setShowMessageModal] = React.useState<boolean>(false);
   const [messageText, setMessageText] = React.useState<string>('');
   const [messageType, setMessageType] = React.useState<MessageType>('info');
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
+
+  // Update form state when the selected RCA item changes. Existing attachments are
+  // loaded by RCATable before the edit form is opened.
+  useEffect(() => {
+    if (!initialData) {
+      return;
+    }
+
+    setForm((prev: any) => {
+      const incomingAttachments = Array.isArray(initialData?.attachments)
+        ? initialData.attachments
+        : [];
+
+      return {
+        ...prev,
+        problemStatement: initialData?.problemStatement || '',
+        causeCategory: initialData?.causeCategory || '',
+        source: initialData?.source || '',
+        priority: initialData?.priority || '',
+        relatedMetric: initialData?.relatedMetric || '',
+        causes: initialData?.causes || '',
+        rootCauses: initialData?.rootCauses || '',
+        analysisTechnique: initialData?.analysisTechnique || '',
+        actionType: initialData?.actionType
+          ? (Array.isArray(initialData.actionType) ? initialData.actionType : [initialData.actionType])
+          : [],
+        actionPlan: initialData?.actionPlan || '',
+        responsibility: initialData?.responsibility || '',
+        plannedClosureDate: initialData?.plannedClosureDate ? new Date(initialData.plannedClosureDate) : undefined,
+        actualClosureDate: initialData?.actualClosureDate ? new Date(initialData.actualClosureDate) : undefined,
+        performanceBefore: initialData?.performanceBefore || '',
+        performanceAfter: initialData?.performanceAfter || '',
+        quantitativeEffectiveness: initialData?.quantitativeEffectiveness || '',
+        remarks: initialData?.remarks || '',
+        relatedSubMetric: initialData?.relatedSubMetric || '',
+        attachments: incomingAttachments
+      };
+    });
+
+    setActionDetails(initialData?.actionDetails || {});
+  }, [initialData?.__repoId, initialData?.ID, initialData?.id, initialData?.problemStatement, initialData?.causeCategory, initialData?.source, initialData?.priority, initialData?.relatedMetric, initialData?.relatedSubMetric, initialData?.causes, initialData?.rootCauses, initialData?.analysisTechnique, initialData?.actionType, initialData?.actionPlan, initialData?.responsibility, initialData?.plannedClosureDate, initialData?.actualClosureDate, initialData?.performanceBefore, initialData?.performanceAfter, initialData?.quantitativeEffectiveness, initialData?.remarks, initialData?.actionDetails]);
+
   const causeCategoryOptions: IDropdownOption[] = [
     { key: 'Special', text: 'Special' },
     { key: 'Common', text: 'Common' }
@@ -142,13 +201,30 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     setForm((s: any) => ({ ...s, [key]: value }));
     setErrors(prev => {
       const next = { ...prev };
-      if (value !== null && value !== undefined && value !== '') delete next[key];
+      if (key === 'problemStatement') {
+        const problemStatement = String(value || '');
+        if (problemStatement.length > 255) {
+          next[key] = 'Problem statement cannot exceed 255 characters.';
+        } else if (problemStatement.trim() !== '') {
+          delete next[key];
+        } else if (next[key]) {
+          next[key] = 'Problem statement is required.';
+        }
+      } else if (value !== null && value !== undefined && value !== '') {
+        delete next[key];
+      }
       return next;
     });
   };
 
   // new: control whether the attachments panel is expanded
-  const [attachmentsOpen, setAttachmentsOpen] = useState<boolean>(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState<boolean>(() =>
+    Array.isArray(initialData?.attachments) && initialData.attachments.length > 0
+  );
+
+  useEffect(() => {
+    setAttachmentsOpen(Array.isArray(initialData?.attachments) && initialData.attachments.length > 0);
+  }, [initialData?.__repoId, initialData?.ID, initialData?.id]);
 
   const onFilesAdded = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.prototype.slice.call(e.target.files) : [];
@@ -293,8 +369,11 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   const validate = (): boolean => {
     const nextErrors: Record<string, string> = {};
 
-    if (!form.problemStatement || String(form.problemStatement).trim() === '') {
+    const problemStatement = String(form.problemStatement || '');
+    if (problemStatement.trim() === '') {
       nextErrors['problemStatement'] = 'Problem statement is required.';
+    } else if (problemStatement.length > 255) {
+      nextErrors['problemStatement'] = 'Problem statement cannot exceed 255 characters.';
     }
     if (!form.causeCategory || String(form.causeCategory).trim() === '') {
       nextErrors['causeCategory'] = 'Cause category is required.';
@@ -304,6 +383,14 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     }
     if (!form.priority || String(form.priority).trim() === '') {
       nextErrors['priority'] = 'Priority is required.';
+    }
+    const relatedMetric = relatedMetricValue.trim();
+    const hasMatchingMetric = relatedMetric === '' || MetricsData.some((metric) =>
+      String(metric.key).trim().toLowerCase() === relatedMetric.toLowerCase() ||
+      String(metric.text).trim().toLowerCase() === relatedMetric.toLowerCase()
+    );
+    if (!hasMatchingMetric) {
+      nextErrors['relatedMetric'] = 'Select Correct Matrics from dropdown';
     }
     // require causes and root causes
     if (!form.causes || String(form.causes).trim() === '') {
@@ -452,8 +539,6 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
               try {
                 await uploadRCAAttachment(savedItemId as number, file, context);
                 console.log('Uploaded attachment', file.name);
-                window.location.reload();
-
               } catch (e: any) {
                 console.error('Failed to upload attachment', file.name, e);
               }
@@ -542,50 +627,26 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
       });
     }
   }, [context]);
-  useEffect(() => {
-    if (context && form.relatedMetric !== "" || form.relatedMetric !== undefined) {
-
-      loadSubMetricsData().catch(() => {
-        setSubMetricsData([]);
-        update('relatedSubMetric', undefined);
-      });
-    }
-  }, [context, form.relatedMetric]);
   const loadMetricsData = async () => {
     const genericServiceInstance: IGenericService = new GenericService(undefined, context);
     genericServiceInstance.init(undefined, context);
     const MetricsMeasurementRepo: IProjectMetricsRepository = new MetricsRepository(genericServiceInstance);
     MetricsMeasurementRepo.setService(genericServiceInstance);
 
-    let MetricValues = await getMetricsFromProjectMetrics(false, context)
-    const mapped = MetricValues.map(m => ({ key: m.Metrics || '', text: m.Metrics || '' }));
-    // keep only unique keys (preserve first occurrence)
-    const unique: Array<{ key: string; text: string }> = [];
-    mapped.forEach(m => {
-      if (m.key && !unique.some(u => u.key === m.key)) unique.push(m);
+    const MetricValues = await MetricsMeasurementRepo.getMetricsFromProjectMetrics(false, context);
+    const options = [{ key: 'None', text: 'None' }];
+    const seen = new Set<string>(['none']);
+    // Keep the existing metrics first, then include submetrics from the same version.
+    const values = MetricValues.map(m => m.Metrics).concat(MetricValues.map(m => m.SubMetrics));
+    values.forEach(value => {
+      const text = String(value || '').trim();
+      const normalized = text.toLowerCase();
+      if (text && !seen.has(normalized)) {
+        seen.add(normalized);
+        options.push({ key: text, text });
+      }
     });
-
-    const options = [{ key: 'None', text: 'None' }, ...unique];
-    // setDropdownValueMetrics(ItemData["Metrics"]);
     setMetricsData(options);
-  };
-  const loadSubMetricsData = async () => {
-    const genericServiceInstance: IGenericService = new GenericService(undefined, context);
-    genericServiceInstance.init(undefined, context);
-    const MetricsMeasurementRepo: IProjectMetricsRepository = new MetricsRepository(genericServiceInstance);
-    MetricsMeasurementRepo.setService(genericServiceInstance);
-
-    let MetricValues = await getSubMetricsFromProjectMetrics(false, context, form.relatedMetric)
-    const mapped = MetricValues.map(m => ({ key: m.SubMetrics || '', text: m.SubMetrics || '' }));
-    // keep only unique keys (preserve first occurrence)
-    const unique: Array<{ key: string; text: string }> = [];
-    mapped.forEach(m => {
-      if (m.key && !unique.some(u => u.key === m.key)) unique.push(m);
-    });
-
-    const options = [{ key: 'None', text: 'None' }, ...unique];
-    // setDropdownValueMetrics(ItemData["Metrics"]);
-    setSubMetricsData(options);
   };
 
   // derive numeric repo id for existing item (used to fetch attachments)
@@ -696,29 +757,39 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
             {errors['priority'] && <div style={{ color: 'rgb(164, 38, 44)', fontSize: 12, marginTop: 6 }}>{errors['priority']}</div>}
           </div>
         </div>
-{/* added expanded Related Metric and Sub-metric dropdowns */}
         {/* Related Metric (attachments link removed — attachments moved to bottom) */}
         <div>
-          <Dropdown
+          <ComboBox
             label="Related Metric (if any)"
             options={MetricsData}
-            selectedKey={form.relatedMetric || undefined}
-            onChange={(_, o) => {
-              const key = o?.key;
-              update('relatedMetric', key);
-              // clear selected sub-metric when metric changes
-
-              // refresh sub-metrics for newly selected metric
-
+            text={relatedMetricValue}
+            allowFreeform
+            autoComplete="on"
+            errorMessage={errors['relatedMetric'] || ''}
+            onInputValueChange={(value) => {
+              const matchingMetric = MetricsData.filter((metric) =>
+                String(metric.key).trim().toLowerCase() === value.trim().toLowerCase() ||
+                String(metric.text).trim().toLowerCase() === value.trim().toLowerCase()
+              )[0];
+              updateRelatedMetric(matchingMetric ? String(matchingMetric.key) : value);
+              setErrors((previous) => {
+                const next = { ...previous };
+                delete next['relatedMetric'];
+                return next;
+              });
+            }}
+            onChange={(_, option, __, value) => {
+              const nextValue = option ? String(option.key) : String(value || '');
+              updateRelatedMetric(nextValue);
+              setErrors((previous) => {
+                const next = { ...previous };
+                if (option) {
+                  delete next['relatedMetric'];
+                }
+                return next;
+              });
             }}
           />
-          {((form.relatedMetric !== "" || form.relatedMetric !== undefined) && (form.relatedMetric !== "None" || SubMetricsData.length > 1)) && <Dropdown
-            label="Related Sub Metric (if any)"
-            options={SubMetricsData}
-            selectedKey={form.relatedSubMetric || undefined}
-            onChange={(_, o) => update('relatedSubMetric', o?.key)}
-          />
-          }
         </div>
 
         <TextField
@@ -790,10 +861,11 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
                       onChange={(_, v) => updateActionDetail(act, 'actionPlan', v)}
                       multiline
                       rows={4}
+                      required
                     />
                     {/* Responsibility converted to People Picker */}
                     <div>
-                      <Label>Responsibility</Label>
+                      <Label required>Responsibility</Label>
                       {!peoplePickerFailed && context ? (
                         <PeoplePickerErrorBoundary onError={() => setPeoplePickerFailed(true)}>
                           <PeoplePicker
