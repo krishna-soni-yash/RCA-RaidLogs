@@ -34,6 +34,13 @@ interface RCAFormProps {
   onCancel?: () => void;
 }
 
+function getRelatedMetricValue(data: { relatedMetric?: string; relatedSubMetric?: string }): string {
+  const subMetric = String(data.relatedSubMetric || '').trim();
+  return subMetric && subMetric.toLowerCase() !== 'none'
+    ? subMetric
+    : String(data.relatedMetric || '');
+}
+
 // small ErrorBoundary to catch PeoplePicker runtime errors (e.g. PeopleSearchService failures)
 class PeoplePickerErrorBoundary extends React.Component<{ onError?: () => void }, { hasError: boolean }> {
   constructor(props: any) {
@@ -87,7 +94,16 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
   // per-action-type details (actionPlan/responsibility/dates)
   const [actionDetails, setActionDetails] = useState<Record<string, any>>(initialData?.actionDetails || {});
   const [MetricsData, setMetricsData] = React.useState<Array<{ key: string; text: string }>>([]);
-  const [SubMetricsData, setSubMetricsData] = React.useState<Array<{ key: string; text: string }>>([]);
+  const relatedMetricValue = getRelatedMetricValue(form);
+  const updateRelatedMetric = (value: string): void => {
+    setForm((current: any) => {
+      // Keep legacy parent/submetric fields intact until the selection changes.
+      if (getRelatedMetricValue(current).trim().toLowerCase() === value.trim().toLowerCase()) {
+        return current;
+      }
+      return { ...current, relatedMetric: value, relatedSubMetric: '' };
+    });
+  };
   // modal state for save/update success message
   const [showMessageModal, setShowMessageModal] = React.useState<boolean>(false);
   const [messageText, setMessageText] = React.useState<string>('');
@@ -368,7 +384,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     if (!form.priority || String(form.priority).trim() === '') {
       nextErrors['priority'] = 'Priority is required.';
     }
-    const relatedMetric = String(form.relatedMetric || '').trim();
+    const relatedMetric = relatedMetricValue.trim();
     const hasMatchingMetric = relatedMetric === '' || MetricsData.some((metric) =>
       String(metric.key).trim().toLowerCase() === relatedMetric.toLowerCase() ||
       String(metric.text).trim().toLowerCase() === relatedMetric.toLowerCase()
@@ -611,23 +627,6 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
       });
     }
   }, [context]);
-  useEffect(() => {
-    const enteredMetric = String(form.relatedMetric || '').trim();
-    const matchingMetric = MetricsData.filter((metric) =>
-      String(metric.key).trim().toLowerCase() === enteredMetric.toLowerCase() ||
-      String(metric.text).trim().toLowerCase() === enteredMetric.toLowerCase()
-    )[0];
-    const selectedMetric = matchingMetric ? String(matchingMetric.key) : '';
-    if (!context || !selectedMetric || selectedMetric === 'None') {
-      setSubMetricsData([]);
-      return;
-    }
-
-    loadSubMetricsData(selectedMetric).catch(() => {
-      setSubMetricsData([]);
-      setForm((current: any) => ({ ...current, relatedSubMetric: undefined }));
-    });
-  }, [context, form.relatedMetric, MetricsData]);
   const loadMetricsData = async () => {
     const genericServiceInstance: IGenericService = new GenericService(undefined, context);
     genericServiceInstance.init(undefined, context);
@@ -635,34 +634,19 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
     MetricsMeasurementRepo.setService(genericServiceInstance);
 
     const MetricValues = await MetricsMeasurementRepo.getMetricsFromProjectMetrics(false, context);
-    const mapped = MetricValues.map(m => ({ key: m.Metrics || '', text: m.Metrics || '' }));
-    // keep only unique keys (preserve first occurrence)
-    const unique: Array<{ key: string; text: string }> = [];
-    mapped.forEach(m => {
-      if (m.key && !unique.some(u => u.key === m.key)) unique.push(m);
+    const options = [{ key: 'None', text: 'None' }];
+    const seen = new Set<string>(['none']);
+    // Keep the existing metrics first, then include submetrics from the same version.
+    const values = MetricValues.map(m => m.Metrics).concat(MetricValues.map(m => m.SubMetrics));
+    values.forEach(value => {
+      const text = String(value || '').trim();
+      const normalized = text.toLowerCase();
+      if (text && !seen.has(normalized)) {
+        seen.add(normalized);
+        options.push({ key: text, text });
+      }
     });
-
-    const options = [{ key: 'None', text: 'None' }, ...unique];
-    // setDropdownValueMetrics(ItemData["Metrics"]);
     setMetricsData(options);
-  };
-  const loadSubMetricsData = async (selectedMetric: string) => {
-    const genericServiceInstance: IGenericService = new GenericService(undefined, context);
-    genericServiceInstance.init(undefined, context);
-    const MetricsMeasurementRepo: IProjectMetricsRepository = new MetricsRepository(genericServiceInstance);
-    MetricsMeasurementRepo.setService(genericServiceInstance);
-
-    const MetricValues = await MetricsMeasurementRepo.getSubMetricsFromProjectMetrics(false, context, selectedMetric);
-    const mapped = MetricValues.map(m => ({ key: m.SubMetrics || '', text: m.SubMetrics || '' }));
-    // keep only unique keys (preserve first occurrence)
-    const unique: Array<{ key: string; text: string }> = [];
-    mapped.forEach(m => {
-      if (m.key && !unique.some(u => u.key === m.key)) unique.push(m);
-    });
-
-    const options = [{ key: 'None', text: 'None' }, ...unique];
-    // setDropdownValueMetrics(ItemData["Metrics"]);
-    setSubMetricsData(options);
   };
 
   // derive numeric repo id for existing item (used to fetch attachments)
@@ -773,13 +757,12 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
             {errors['priority'] && <div style={{ color: 'rgb(164, 38, 44)', fontSize: 12, marginTop: 6 }}>{errors['priority']}</div>}
           </div>
         </div>
-{/* added expanded Related Metric and Sub-metric dropdowns */}
         {/* Related Metric (attachments link removed — attachments moved to bottom) */}
         <div>
           <ComboBox
             label="Related Metric (if any)"
             options={MetricsData}
-            text={String(form.relatedMetric || '')}
+            text={relatedMetricValue}
             allowFreeform
             autoComplete="on"
             errorMessage={errors['relatedMetric'] || ''}
@@ -788,9 +771,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
                 String(metric.key).trim().toLowerCase() === value.trim().toLowerCase() ||
                 String(metric.text).trim().toLowerCase() === value.trim().toLowerCase()
               )[0];
-              update('relatedMetric', matchingMetric ? String(matchingMetric.key) : value);
-              update('relatedSubMetric', undefined);
-              setSubMetricsData([]);
+              updateRelatedMetric(matchingMetric ? String(matchingMetric.key) : value);
               setErrors((previous) => {
                 const next = { ...previous };
                 delete next['relatedMetric'];
@@ -799,9 +780,7 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
             }}
             onChange={(_, option, __, value) => {
               const nextValue = option ? String(option.key) : String(value || '');
-              update('relatedMetric', nextValue);
-              update('relatedSubMetric', undefined);
-              setSubMetricsData([]);
+              updateRelatedMetric(nextValue);
               setErrors((previous) => {
                 const next = { ...previous };
                 if (option) {
@@ -811,14 +790,6 @@ export default function RCAForm({ onSubmit, initialData, context, onCancel }: RC
               });
             }}
           />
-          {form.relatedMetric &&
-            MetricsData.some((metric) => String(metric.key) === String(form.relatedMetric) && String(metric.key) !== 'None') && <Dropdown
-            label="Related Sub Metric (if any)"
-            options={SubMetricsData}
-            selectedKey={form.relatedSubMetric || undefined}
-            onChange={(_, o) => update('relatedSubMetric', o?.key)}
-          />
-          }
         </div>
 
         <TextField

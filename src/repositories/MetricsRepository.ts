@@ -177,6 +177,7 @@ export class MetricsRepository implements IProjectMetricsRepository {
           PG: it?.PG ?? '',
           MetricsFormulae: it?.MetricsFormulae ?? '',
           Metrics: it?.Metrics ?? '',
+          SubMetrics: it?.SubMetrics ?? '',
         })) as unknown as IMetrics[];
 
         this.cache = normalized;
