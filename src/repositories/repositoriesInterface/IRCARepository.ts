@@ -7,6 +7,7 @@ export interface IRCARepository {
   getRCAItems(useCache?: boolean, context?: WebPartContext): Promise<IRCAList[]>;
   saveRCAItem(item: IRCAList, context?: WebPartContext): Promise<any>;
   updateRCAItem(itemId: number, item: IRCAList, context?: WebPartContext): Promise<any>;
+  getRCAAttachments(itemId: number, context?: WebPartContext): Promise<Array<{ FileName: string; ServerRelativeUrl: string }>>;
   deleteRCAAttachment(itemId: number, fileName: string, context?: WebPartContext): Promise<void>;
   uploadRCAAttachment(itemId: number, file: File, context?: WebPartContext): Promise<void>;
   refresh(): void;
