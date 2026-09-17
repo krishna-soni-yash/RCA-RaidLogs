@@ -35,8 +35,13 @@ export default class RootCauseAnalysis extends React.Component<IRootCauseAnalysi
     };
   }
   public componentDidMount(): void {
-    // If URL contains RCAId (or variants), activate the Causal Analysis tab so RCATable mounts
     try {
+      const menuSelected = window.localStorage.getItem('menuSelected');
+      if (menuSelected === 'rootCauseAnalysis' || menuSelected === 'raidLogs' || menuSelected === 'lessonsLearnt') {
+        this.setState({ activeTab: menuSelected });
+      }
+
+      // If URL contains RCAId (or variants), activate the Causal Analysis tab so RCATable mounts
       const params = new URLSearchParams(window.location.search);
       const raw = params.get('RCAId') || params.get('RcaId') || params.get('rcaid') || params.get('RCAid') || params.get('rcaId');
       if (raw) {

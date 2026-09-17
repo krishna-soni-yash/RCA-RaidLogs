@@ -7,7 +7,7 @@ import { RCACOLUMNS, SubSiteListNames } from '../../../../common/Constants';
 import { IRCAList } from '../../../../models/IRCAList';
 import { GenericService } from '../../../../services/GenericServices';
 import IGenericService from '../../../../services/IGenericServices';
-import { getRCAItems, RCARepository } from '../../../../repositories/RCARepository';
+import { getRCAItems, getRCAAttachments, RCARepository } from '../../../../repositories/RCARepository';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { exportRowsToExcel } from '../../../../common/excelExport';
 import { formatResponsibilityValue, formatDateMMDDYYYY } from '../../../../common/exportHelpers';
@@ -419,7 +419,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 			ServerRelativeUrl: a.ServerRelativeUrl || a.Url || a.FileRef || ''
 		})) : [];
 		// preserve id for editing context
-		form.__repoId = it.ID ?? it.Id ?? it.Id;
+		form.__repoId = it.ID ?? it.Id ?? it.id;
 		console.log('RCATable - mapRepoItemToForm returning form data:', form);
 		return form;
 	};
@@ -446,6 +446,29 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 		}
 		setLocalItems((prev) => [...prev, normalized]);
 		closeDialog();
+	};
+
+	const openEditDialog = async (item: any): Promise<void> => {
+		const rawId: any = item?.ID ?? item?.Id ?? item?.id ?? item?.__repoId;
+		const itemId = Number(rawId);
+		if (!itemId || isNaN(itemId) || !context) {
+			setSelectedItem(item);
+			setIsEditing(true);
+			setIsDialogOpen(true);
+			return;
+		}
+
+		let initialItem = item;
+		try {
+			const attachments = await getRCAAttachments(itemId, context);
+			initialItem = { ...item, attachments };
+		} catch (err) {
+			console.warn('RCATable: failed to load attachments for edit dialog', { itemId, err });
+		}
+
+		setSelectedItem(initialItem);
+		setIsEditing(true);
+		setIsDialogOpen(true);
 	};
 
 	const openVersionHistory = async (item: Partial<IRCAList>): Promise<void> => {
@@ -578,9 +601,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 				}
 
 				if (found) {
-					setSelectedItem(found);
-					setIsEditing(true);
-					setIsDialogOpen(true);
+					await openEditDialog(found);
 
 					// Remove query param so modal doesn't reopen on refresh
 					const newUrl = new URL(window.location.href);
@@ -620,12 +641,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 						iconProps={{ iconName: 'Edit' }}
 						title="Edit"
 						ariaLabel="Edit"
-						onClick={() => {
-							// open dialog with mapped initial data
-							setSelectedItem(item);
-							setIsEditing(true);
-							setIsDialogOpen(true);
-						}}
+						onClick={() => { void openEditDialog(item); }}
 					/>
 					<IconButton
 						menuIconProps={{ iconName: '' }}

@@ -586,6 +586,36 @@ export class RCARepository implements IRCARepository {
             throw new Error('Failed to update RCA item: ' + (error?.message || error));
         }
     }
+    public async getRCAAttachments(itemId: number, context?: WebPartContext): Promise<Array<{ FileName: string; ServerRelativeUrl: string }>> {
+        if (!context || !itemId) {
+            return [];
+        }
+
+        try {
+            const targetSiteUrl = this.service.getSiteUrlForList(SubSiteListNames.RootCauseAnalysis, context);
+            const sp = this.service.getSpInstanceForSite(targetSiteUrl, context);
+            const files = await sp.web.lists
+                .getByTitle(SubSiteListNames.RootCauseAnalysis)
+                .items.getById(itemId)
+                .attachmentFiles();
+
+            const attachmentFiles = (files || []) as Array<{
+                FileName?: string;
+                FileLeafRef?: string;
+                ServerRelativeUrl?: string;
+                ServerRelativePath?: { DecodedUrl?: string };
+            }>;
+
+            return attachmentFiles.map(file => ({
+                FileName: file?.FileName ?? file?.FileLeafRef ?? '',
+                ServerRelativeUrl: file?.ServerRelativeUrl ?? file?.ServerRelativePath?.DecodedUrl ?? ''
+            })).filter(file => Boolean(file.FileName));
+        } catch (error) {
+            console.warn('RCARepository.getRCAAttachments: failed to load attachments', { itemId, error });
+            return [];
+        }
+    }
+
     public async uploadRCAAttachment(itemId: number, file: File, context?: WebPartContext): Promise<void> {
         if (!context || !itemId || !file) return;
         const targetSiteUrl = await this.service.getSiteUrlForList(SubSiteListNames.RootCauseAnalysis, context);
@@ -633,6 +663,7 @@ export const saveRCAItem = async (item: IRCAList, context?: WebPartContext): Pro
 export const updateRCAItem = async (itemId: number, item: IRCAList, context?: WebPartContext): Promise<any> => defaultInstance.updateRCAItem(itemId, item, context);
 export const refresh = (): void => defaultInstance.refresh();
 export const getCacheStatus = (): { cached: boolean; itemCount: number; age: number } => defaultInstance.getCacheStatus();
+export const getRCAAttachments = async (itemId: number, context?: WebPartContext): Promise<Array<{ FileName: string; ServerRelativeUrl: string }>> => defaultInstance.getRCAAttachments(itemId, context);
 export const deleteRCAAttachment = async (itemId: number, fileName: string, context?: WebPartContext): Promise<void> => defaultInstance.deleteRCAAttachment(itemId, fileName, context);
 export const uploadRCAAttachment = async (itemId: number, file: File, context?: WebPartContext): Promise<void> => defaultInstance.uploadRCAAttachment(itemId, file, context);
 

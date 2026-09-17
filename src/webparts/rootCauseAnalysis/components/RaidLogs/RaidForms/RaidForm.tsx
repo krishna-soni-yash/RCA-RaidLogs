@@ -325,6 +325,22 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
         }
         return;
       }
+
+      const impactValue = Number(formData.impactValue);
+      if (formData.impactValue === undefined || formData.impactValue === null || isNaN(impactValue) || impactValue < 1 || impactValue > 10) {
+        if (onValidationError) {
+          onValidationError('Impact Value is mandatory. Please select a value between 1 and 10.');
+        }
+        return;
+      }
+
+      const probabilityValue = Number(formData.probabilityValue);
+      if (formData.probabilityValue === undefined || formData.probabilityValue === null || isNaN(probabilityValue) || probabilityValue < 1 || probabilityValue > 10) {
+        if (onValidationError) {
+          onValidationError('Probability Value is mandatory. Please select a value between 1 and 10.');
+        }
+        return;
+      }
     }
 
     const itemToSave: any = {
@@ -920,6 +936,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
             updateFormData('impactValue', Number(option?.key));
           }}
           placeholder="Select..."
+          required
         />
         
         <Dropdown
@@ -930,6 +947,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
             updateFormData('probabilityValue', Number(option?.key));
           }}
           placeholder="Select..."
+          required
         />
         
         <div className={styles.calculatedField}>
