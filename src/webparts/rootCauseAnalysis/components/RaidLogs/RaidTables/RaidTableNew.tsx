@@ -87,6 +87,16 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
     return '-';
   };
 
+  const idColumn: IColumn = {
+    key: 'raidLogId',
+    name: 'ID',
+    fieldName: 'raidLogId',
+    minWidth: 100,
+    maxWidth: 180,
+    isResizable: true,
+    onRender: (item: IExtendedRaidItem) => item.raidLogId || '-'
+  };
+
   const getColumns = (): IColumn[] => {
     if (currentTab === 'Issue' || currentTab === 'Assumption' || currentTab === 'Dependency' || currentTab === 'Constraints') {
       return [
@@ -108,6 +118,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
             </div>
           )
         },
+        idColumn,
         {
           key: 'details',
           name: 'Details',
@@ -208,6 +219,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
             </div>
           )
         },
+        idColumn,
         {
           key: 'identificationDate',
           name: 'Identification Date',
@@ -443,6 +455,7 @@ const RaidTable: React.FC<IRaidTableProps> = ({ items, currentTab, onEdit, onDel
             </div>
           )
         },
+        idColumn,
         {
           key: 'identificationDate',
           name: 'Identification Date',
