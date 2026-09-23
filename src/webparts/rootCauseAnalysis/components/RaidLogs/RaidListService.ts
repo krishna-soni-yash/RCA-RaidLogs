@@ -5,6 +5,8 @@ import { IRaidItem, RaidType, IRaidAction } from './interfaces/IRaidItem';
 import { LIST_NAMES } from '../../../../common/Constants';
 import { IExtendedRaidItem } from './interfaces/IRaidService';
 import RaidLogEmailTriggerService from '../../../../services/RaidLogEmailTriggerService';
+import { RaidLogIdService } from './RaidLogIdService';
+import { IList } from '@pnp/sp/lists';
 
 export interface ISharePointListItem {
   Id?: number;
@@ -24,6 +26,7 @@ export interface IRaidSharePointItem extends ISharePointListItem {
   Title?: string;
   SelectType: RaidType; // Internal name for RAID Type selection
   RAIDId?: string; // Unique identifier for grouping Risk items with their actions
+  RaidLogID?: string | number;
   IdentificationDate?: string;
   RiskDescription?: string; // Internal name for Description
   AssociatedGoal?: string;
@@ -74,6 +77,11 @@ export class RaidListService {
   private listName: string;
   private enablePeoplePickerFields: boolean = true;
   private emailTriggerService: RaidLogEmailTriggerService;
+
+  private get raidList(): IList {
+    const siteUrl = this.genericService.getSiteUrlForList(this.listName, this.context);
+    return this.genericService.getSpInstanceForSite(siteUrl, this.context).web.lists.getByTitle(this.listName);
+  }
 
   constructor(context: WebPartContext, listName: string = LIST_NAMES.RAID_LOGS) {
     this.context = context;
@@ -240,6 +248,7 @@ export class RaidListService {
       id: spItem.Id || 0,
       type: spItem.SelectType,
       raidId: spItem.RAIDId,
+      raidLogId: String(spItem.RaidLogID ?? '') || undefined,
       identificationDate: spItem.IdentificationDate,
       description: spItem.RiskDescription,
       associatedGoal: spItem.AssociatedGoal,
@@ -513,63 +522,47 @@ export class RaidListService {
   }
 
   async createRaidItem(raidItem: Omit<IRaidItem, 'id'>, options?: { skipEmailTrigger?: boolean }): Promise<IExtendedRaidItem | null> {
+    const raidLogId = await new RaidLogIdService(this.raidList).next(raidItem.type);
+    return this.saveRaidItemWithId(raidItem, raidLogId, options);
+  }
+
+  private async saveRaidItemWithId(
+    raidItem: Omit<IRaidItem, 'id'>,
+    raidLogId: string | number | undefined,
+    options?: { skipEmailTrigger?: boolean }
+  ): Promise<IExtendedRaidItem | null> {
     try {
       const spItem = await this.convertToSharePointItem({ ...raidItem, id: 0 });
+      if (raidLogId !== undefined) {
+        spItem.RaidLogID = await new RaidLogIdService(this.raidList).toFieldValue(raidLogId);
+      }
       // Clean the item using RaidLogs-specific cleaning function
       const cleanedItem = this.genericService.cleanItemForRaidSave(spItem);
       const queryOptions = this.createQueryOptions();
 
-      const result = await this.genericService.saveItem<IRaidSharePointItem>({
-        context: this.context,
-        listTitle: this.listName,
-        item: cleanedItem,
-        select: queryOptions.select || [],
-        expand: queryOptions.expand || []
-      });
+      // PnP v4 returns the new item's data directly. Never identify a created
+      // item by querying the newest row, which might belong to another user.
+      const added = await this.raidList.items.add(cleanedItem);
+      const createdId = added.Id ?? added.ID ?? added.data?.Id;
+      if (!createdId) throw new Error('SharePoint did not return the created item ID. Refresh the table before retrying.');
+      const createdSpItem: IRaidSharePointItem = await this.raidList.items.getById(createdId)
+        .select(...(queryOptions.select || []))
+        .expand(...(queryOptions.expand || []))();
+      const convertedItem = this.convertFromSharePointItem(createdSpItem);
 
-      if (result && result.success) {
-        let createdSpItem: IRaidSharePointItem | undefined = undefined;
-        if (result.item) {
-          createdSpItem = result.item as IRaidSharePointItem;
-        } else if (result.itemId) {
-          const fetched = await this.genericService.fetchAllItems<IRaidSharePointItem>({
-            context: this.context,
-            listTitle: this.listName,
-            filter: `Id eq ${result.itemId}`,
-            select: queryOptions.select || [],
-            expand: queryOptions.expand || []
-          });
-          createdSpItem = fetched && fetched.length > 0 ? fetched[0] : undefined;
+      // Preserve email addresses that SharePoint's people fields may omit.
+      convertedItem.responsibility = raidItem.responsibility || convertedItem.responsibility;
+      convertedItem.byWhom = raidItem.byWhom || convertedItem.byWhom;
+      try {
+        if (!options || !options.skipEmailTrigger) {
+          await this.emailTriggerService.createEmailTrigger(convertedItem);
         }
-
-        if (createdSpItem) {
-          const convertedItem = this.convertFromSharePointItem(createdSpItem);
-
-          // Preserve original responsibility/byWhom values from the input raidItem
-          // so we can retain email address information that may be lost after
-          // the SharePoint round-trip (which often only returns ids/displayName).
-          if (convertedItem) {
-            try {
-              // If the original input (the parameter to createRaidItem) had responsibility/byWhom
-              // prefer those values for email extraction in the email trigger.
-              (convertedItem as any).responsibility = (raidItem as any).responsibility || convertedItem.responsibility;
-              (convertedItem as any).byWhom = (raidItem as any).byWhom || convertedItem.byWhom;
-
-              if (!options || !options.skipEmailTrigger) {
-                await this.emailTriggerService.createEmailTrigger(convertedItem);
-              }
-            } catch (emailError) {
-              console.error('Failed to create email trigger, but RAID item was created successfully:', emailError);
-              // Continue execution - don't fail the RAID item creation if email trigger fails
-            }
-          }
-
-          return convertedItem;
-        }
+      } catch (emailError) {
+        console.error('Failed to create email trigger, but RAID item was created successfully:', emailError);
       }
-
-      return null;
+      return convertedItem;
     } catch (error) {
+      console.error('Failed to create RAID item:', error);
       return null;
     }
   }
@@ -579,6 +572,9 @@ export class RaidListService {
     mitigationAction: IRaidAction | null,
     contingencyAction: IRaidAction | null
   ): Promise<IExtendedRaidItem[] | null> {
+    // Allocate once for the displayed Risk, then share it across its actions.
+    if (!raidItem.raidId || (!mitigationAction && !contingencyAction)) return null;
+    const raidLogId = await new RaidLogIdService(this.raidList).next('Risk');
     try {
       const createdItems: IExtendedRaidItem[] = [];
 
@@ -604,7 +600,7 @@ export class RaidListService {
           status: mitigationAction.status
         };
 
-        const createdMitigation = await this.createRaidItem(mitigationItem);
+        const createdMitigation = await this.saveRaidItemWithId(mitigationItem, raidLogId);
         if (createdMitigation) {
           createdItems.push(createdMitigation);
         } else {
@@ -624,7 +620,7 @@ export class RaidListService {
         };
 
         // If both actions share same responsibility, skip creating a duplicate email trigger for the second item
-        const createdContingency = await this.createRaidItem(contingencyItem, { skipEmailTrigger: bothActionsHaveSameResponsibility });
+        const createdContingency = await this.saveRaidItemWithId(contingencyItem, raidLogId, { skipEmailTrigger: bothActionsHaveSameResponsibility });
         if (createdContingency) {
           createdItems.push(createdContingency);
         } else {
@@ -841,7 +837,7 @@ export class RaidListService {
             status: mitigationAction.status
           };
           
-          const created = await this.createRaidItem(mitigationItem);
+          const created = await this.saveRaidItemWithId(mitigationItem, existingItems[0].raidLogId);
           if (!created) {
             allSuccess = false;
           }
@@ -882,7 +878,7 @@ export class RaidListService {
             status: contingencyAction.status
           };
           
-          const created = await this.createRaidItem(contingencyItem);
+          const created = await this.saveRaidItemWithId(contingencyItem, existingItems[0].raidLogId);
           if (!created) {
             allSuccess = false;
           }
