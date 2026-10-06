@@ -1,8 +1,11 @@
+import { RaidType } from './interfaces/IRaidItem';
+import { formatRaidLogNumber } from './RaidLogIdFormat';
+
 /** Calculates a numeric sequence without relying on text ordering or table state. */
 export class RaidLogIdSequence {
   private highest = 0;
-  private prefix: string | undefined;
-  private width = 0;
+
+  public constructor(private readonly type: RaidType) {}
 
   public include(value: string | number | null | undefined): void {
     const text = String(value ?? '').trim();
@@ -17,22 +20,14 @@ export class RaidLogIdSequence {
     if (!isFinite(number) || number > 9007199254740991) {
       throw new Error('RaidLogID exceeds the supported integer range.');
     }
-    if (this.prefix !== undefined && this.prefix !== match[1]) {
-      throw new Error('RaidLogID values for this type have inconsistent prefixes. Correct them before creating another item.');
-    }
-    this.prefix = match[1];
+    // Legacy numeric and prefixed values can coexist as new items are added.
     this.highest = Math.max(this.highest, number);
-    if (match[2].length > 1 && match[2].charAt(0) === '0') {
-      this.width = Math.max(this.width, match[2].length);
-    }
   }
 
   public next(): string {
     if (this.highest >= 9007199254740991) {
       throw new Error('No further RaidLogID can be allocated within the supported integer range.');
     }
-    let digits = String(this.highest + 1);
-    while (digits.length < this.width) digits = `0${digits}`;
-    return `${this.prefix || ''}${digits}`;
+    return formatRaidLogNumber(this.type, this.highest + 1);
   }
 }

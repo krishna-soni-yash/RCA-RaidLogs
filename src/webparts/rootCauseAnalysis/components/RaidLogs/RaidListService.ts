@@ -6,6 +6,7 @@ import { LIST_NAMES } from '../../../../common/Constants';
 import { IExtendedRaidItem } from './interfaces/IRaidService';
 import RaidLogEmailTriggerService from '../../../../services/RaidLogEmailTriggerService';
 import { RaidLogIdService } from './RaidLogIdService';
+import { formatRaidLogId } from './RaidLogIdFormat';
 import { IList } from '@pnp/sp/lists';
 
 export interface ISharePointListItem {
@@ -248,7 +249,7 @@ export class RaidListService {
       id: spItem.Id || 0,
       type: spItem.SelectType,
       raidId: spItem.RAIDId,
-      raidLogId: String(spItem.RaidLogID ?? '') || undefined,
+      raidLogId: formatRaidLogId(spItem.SelectType, spItem.RaidLogID),
       identificationDate: spItem.IdentificationDate,
       description: spItem.RiskDescription,
       associatedGoal: spItem.AssociatedGoal,
