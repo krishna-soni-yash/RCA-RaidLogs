@@ -6,11 +6,34 @@ Opportunity, Issue, Assumption, Dependency, and Constraints has an independent
 sequence. Empty types start at 1. Browser filters and table pagination have no
 effect on allocation. The query follows every page and aborts if any page fails.
 
-`RaidLogID` must be a writable Number or Single line of text column. Existing
-text prefixes and zero padding are preserved (for example, `RISK-0099` becomes
-`RISK-0100`). Within a type, nonempty IDs must use a consistent prefix and end in
-a nonnegative integer; invalid values stop creation. Empty values are ignored.
-For a type with no existing IDs, text IDs also start at `1` without a prefix.
+All new IDs are stored and displayed with the type prefix and at least two digits:
+
+| Type | First ID |
+| --- | --- |
+| Issue | `I-01` |
+| Assumption | `A-01` |
+| Dependency | `D-01` |
+| Risk | `R-01` |
+| Constraints | `C-01` |
+| Opportunity | `O-01` |
+
+Existing numeric IDs and prefixed IDs can coexist. For example, either `1, 2, 3`
+or `A-01, A-02, A-03` produces a new stored Assumption ID of `A-04`. After adding
+it to legacy numeric records, the next stored ID is `A-05`. Existing numeric
+records display as `A-01`, `A-02`, and `A-03` without rewriting their stored values.
+The same rules apply to all six types, including the frontend ID filter.
+Numbers above 99 use three or more digits (for example, `A-100`).
+
+Legacy prefixes such as `RISK-0099` are also accepted; the next Risk is `R-100`.
+Nonempty IDs must end in a nonnegative integer with an optional alphabetic prefix;
+malformed IDs and numbers outside the supported safe integer range stop creation.
+Empty values are ignored.
+
+`RaidLogID` must be a writable **Single line of text** SharePoint column. A Number
+column cannot store these prefixes. Change the column type before deploying if
+it is currently Number; this application does not change the SharePoint schema.
+Creation reports an actionable error and writes no new record when the column
+does not support prefixed IDs.
 
 One new Risk gets one number shared by its Mitigation and Contingency records.
 Adding an action to an existing Risk reuses that Risk's existing ID. Edits do not

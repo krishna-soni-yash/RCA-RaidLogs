@@ -6,21 +6,17 @@ import { RaidLogIdSequence } from './RaidLogIdSequence';
 export class RaidLogIdService {
   public constructor(private readonly list: IList) {}
 
-  public async toFieldValue(value: string | number): Promise<string | number> {
+  public async toFieldValue(value: string | number): Promise<string> {
     const field = await this.list.fields.getByInternalNameOrTitle('RaidLogID')
       .select('TypeAsString', 'ReadOnlyField')();
-    if (field.ReadOnlyField || (field.TypeAsString !== 'Number' && field.TypeAsString !== 'Text')) {
-      throw new Error('RaidLogID must be a writable Number or Single line of text column.');
-    }
-    if (field.TypeAsString === 'Number') {
-      if (!/^\d+$/.test(String(value))) throw new Error('The numeric RaidLogID column contains an invalid ID.');
-      return Number(value);
+    if (field.ReadOnlyField || field.TypeAsString !== 'Text') {
+      throw new Error('RaidLogID must be a writable Single line of text column to store prefixed IDs. Update the column type before creating new RAID items.');
     }
     return String(value);
   }
 
-  public async next(type: RaidType): Promise<string | number> {
-    const sequence = new RaidLogIdSequence();
+  public async next(type: RaidType): Promise<string> {
+    const sequence = new RaidLogIdSequence(type);
     const query = this.list.items.select('RaidLogID')
       .filter(`SelectType eq '${type.replace(/'/g, "''")}'`).top(2000);
     // PnP v4's iterator follows every continuation link. A failed page must
