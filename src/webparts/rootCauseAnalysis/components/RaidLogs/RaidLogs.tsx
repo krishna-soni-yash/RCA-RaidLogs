@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DefaultButton, PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner } from '@fluentui/react';
+import { DefaultButton, PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner, SearchBox } from '@fluentui/react';
 import styles from './RaidLogs.module.scss';
 import { IRaidLogsProps, IRaidItem, RaidType } from './interfaces/IRaidItem';
 import RaidTable from './RaidTables';
@@ -15,6 +15,8 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [items, setItems] = React.useState<IExtendedRaidItem[]>([]);
   const [filteredItems, setFilteredItems] = React.useState<IExtendedRaidItem[]>([]);
   const [currentTab, setCurrentTab] = React.useState<RaidType>('Risk');
+  const [idFilters, setIdFilters] = React.useState<Partial<Record<RaidType, string>>>({});
+  const idFilter = idFilters[currentTab] || '';
   const [showModal, setShowModal] = React.useState<boolean>(false);
   const [showTypeModal, setShowTypeModal] = React.useState<boolean>(false);
   const [currentItem, setCurrentItem] = React.useState<IExtendedRaidItem | null>(null);
@@ -103,8 +105,16 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
       filtered = groupedItems;
     }
     
+    // Filter the displayed IDs after grouping so matching Risks retain all actions.
+    const normalizedIdFilter = idFilter.trim().toLowerCase();
+    if (normalizedIdFilter) {
+      filtered = filtered.filter(item =>
+        (item.raidLogId || '').toLowerCase().indexOf(normalizedIdFilter) !== -1
+      );
+    }
+
     setFilteredItems(filtered);
-  }, [items, currentTab]);
+  }, [items, currentTab, idFilter]);
 
   React.useEffect(() => {
     loadRaidItems();
@@ -422,7 +432,8 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
       closeModal();
     } catch (err) {
       console.error('Error saving item:', err);
-      showMessage(editingId ? ERROR_MESSAGES.UPDATE_FAILED : ERROR_MESSAGES.CREATE_FAILED, 'error');
+      const message = err instanceof Error ? err.message : (editingId ? ERROR_MESSAGES.UPDATE_FAILED : ERROR_MESSAGES.CREATE_FAILED);
+      showMessage(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -519,13 +530,29 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
         </Pivot>
       </div>
 
-      <RaidTable 
-        items={filteredItems}
-        currentTab={currentTab}
-        onEdit={editItem}
-        onDelete={deleteItem}
-        onViewHistory={viewHistory}
+      <SearchBox
+        placeholder="Filter by ID"
+        ariaLabel={`Filter ${currentTab} by ID`}
+        value={idFilter}
+        onChange={(_, value) => setIdFilters(previous => ({
+          ...previous,
+          [currentTab]: value || ''
+        }))}
+        clearButtonProps={{ ariaLabel: 'Clear ID filter' }}
+        styles={{ root: { width: 320, maxWidth: '100%', marginBottom: 16 } }}
       />
+
+      {!loading && idFilter.trim() && filteredItems.length === 0 ? (
+        <p role="status">No matching IDs found. Change or clear the ID filter to see more items.</p>
+      ) : (
+        <RaidTable
+          items={filteredItems}
+          currentTab={currentTab}
+          onEdit={editItem}
+          onDelete={deleteItem}
+          onViewHistory={viewHistory}
+        />
+      )}
 
       {/* Version History Modal */}
       <Modal

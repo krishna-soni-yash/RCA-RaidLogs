@@ -271,8 +271,11 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
 
 
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
+  const saveInProgress = React.useRef(false);
 
   const handleSave = async (): Promise<void> => {
+    if (saveInProgress.current) return;
+    saveInProgress.current = true;
     setIsSaving(true);
     // Validate mandatory fields
     try {
@@ -432,6 +435,7 @@ const RaidForm: React.FC<IRaidFormProps> = ({ isOpen, type, item, onSave, onCanc
     console.log('📝 RaidForm - Final item to save:', itemToSave);
     await onSave(itemToSave);
     } finally {
+      saveInProgress.current = false;
       setIsSaving(false);
     }
   };

@@ -22,6 +22,7 @@ export interface IRaidItem {
   id: number;
   type: RaidType;
   raidId?: string;
+  raidLogId?: string;
   
   identificationDate?: string;
   description?: string;
