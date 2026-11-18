@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DefaultButton, PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner, SearchBox } from '@fluentui/react';
+import { DefaultButton, PrimaryButton, Modal, IconButton, Pivot, PivotItem, Spinner } from '@fluentui/react';
 import styles from './RaidLogs.module.scss';
 import { IRaidLogsProps, IRaidItem, RaidType } from './interfaces/IRaidItem';
 import RaidTable from './RaidTables';
@@ -10,13 +10,22 @@ import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../common/Constants';
 import { formatDateShort } from '../../../../common/DateUtils';
 import { MessageModal, MessageType } from '../ModalPopups';
 import { exportRowsToExcel } from '../../../../common/excelExport';
+import RaidFilterBar from './RaidFilterBar';
+import {
+  EMPTY_RAID_FILTERS,
+  IRaidColumnFilters,
+  getRaidFilterConfig,
+  hasActiveRaidFilters,
+  matchesRaidFilters
+} from './RaidFilters';
 
 const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
   const [items, setItems] = React.useState<IExtendedRaidItem[]>([]);
   const [filteredItems, setFilteredItems] = React.useState<IExtendedRaidItem[]>([]);
   const [currentTab, setCurrentTab] = React.useState<RaidType>('Risk');
-  const [idFilters, setIdFilters] = React.useState<Partial<Record<RaidType, string>>>({});
-  const idFilter = idFilters[currentTab] || '';
+  const [columnFilters, setColumnFilters] = React.useState<Partial<Record<RaidType, IRaidColumnFilters>>>({});
+  const activeColumnFilters = columnFilters[currentTab] || EMPTY_RAID_FILTERS;
+  const hasActiveColumnFilters = hasActiveRaidFilters(activeColumnFilters);
   const [showModal, setShowModal] = React.useState<boolean>(false);
   const [showTypeModal, setShowTypeModal] = React.useState<boolean>(false);
   const [currentItem, setCurrentItem] = React.useState<IExtendedRaidItem | null>(null);
@@ -105,16 +114,13 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
       filtered = groupedItems;
     }
     
-    // Filter the displayed IDs after grouping so matching Risks retain all actions.
-    const normalizedIdFilter = idFilter.trim().toLowerCase();
-    if (normalizedIdFilter) {
-      filtered = filtered.filter(item =>
-        (item.raidLogId || '').toLowerCase().indexOf(normalizedIdFilter) !== -1
-      );
+    if (hasActiveColumnFilters) {
+      const config = getRaidFilterConfig(currentTab);
+      filtered = filtered.filter(item => matchesRaidFilters(item, activeColumnFilters, config));
     }
 
     setFilteredItems(filtered);
-  }, [items, currentTab, idFilter]);
+  }, [items, currentTab, activeColumnFilters, hasActiveColumnFilters]);
 
   React.useEffect(() => {
     loadRaidItems();
@@ -530,20 +536,21 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
         </Pivot>
       </div>
 
-      <SearchBox
-        placeholder="Filter by ID"
-        ariaLabel={`Filter ${currentTab} by ID`}
-        value={idFilter}
-        onChange={(_, value) => setIdFilters(previous => ({
+      <RaidFilterBar
+        currentTab={currentTab}
+        filters={activeColumnFilters}
+        onChange={(patch) => setColumnFilters(previous => ({
           ...previous,
-          [currentTab]: value || ''
+          [currentTab]: { ...(previous[currentTab] || EMPTY_RAID_FILTERS), ...patch }
         }))}
-        clearButtonProps={{ ariaLabel: 'Clear ID filter' }}
-        styles={{ root: { width: 320, maxWidth: '100%', marginBottom: 16 } }}
+        onClear={() => setColumnFilters(previous => ({
+          ...previous,
+          [currentTab]: EMPTY_RAID_FILTERS
+        }))}
       />
 
-      {!loading && idFilter.trim() && filteredItems.length === 0 ? (
-        <p role="status">No matching IDs found. Change or clear the ID filter to see more items.</p>
+      {!loading && hasActiveColumnFilters && filteredItems.length === 0 ? (
+        <p role="status">No matching items found. Change or clear the filters to see more items.</p>
       ) : (
         <RaidTable
           items={filteredItems}
