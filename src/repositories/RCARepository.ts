@@ -567,7 +567,9 @@ export class RCARepository implements IRCARepository {
             
             if (item.PerformanceBeforeActionPlan !== undefined) payload.PerformanceBeforeActionPlan = item.PerformanceBeforeActionPlan;
             if (item.PerformanceAfterActionPlan !== undefined) payload.PerformanceAfterActionPlan = item.PerformanceAfterActionPlan;
-            if (item.QuantitativeOrStatisticalEffecti !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = item.QuantitativeOrStatisticalEffecti;
+            // the edit form sends the SharePoint internal name; accept it alongside the camelCase property
+            if ((item as any).Quantitative_x0020_Or_x0020_Stat !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = (item as any).Quantitative_x0020_Or_x0020_Stat;
+            else if (item.QuantitativeOrStatisticalEffecti !== undefined) payload.Quantitative_x0020_Or_x0020_Stat = item.QuantitativeOrStatisticalEffecti;
             if (item.Remarks !== undefined) payload.Remarks = item.Remarks;
 
             console.log('RCARepository.updateRCAItem - Final payload:', JSON.stringify(payload, null, 2));
