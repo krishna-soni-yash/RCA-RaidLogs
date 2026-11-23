@@ -26,6 +26,8 @@ import {
   getLessonsLearntAttachments,
   updateLessonsLearnt
 } from '../../../../../repositories/LlBpRcrepository';
+import LlBpRcFilterBar, { matchesTextFilter } from '../LlBpRcFilterBar';
+import AttachmentLinks from '../AttachmentLinks';
 import LessonsLearntForm from './LessonsLearntForm';
 
 interface ILessonsLearntProps {
@@ -35,12 +37,22 @@ interface ILessonsLearntProps {
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
 const LESSONS_EXPORT_HEADERS = ['Problem Faced / Learning', 'Category', 'Solution', 'Remarks'];
+const LESSONS_FILTER_FIELDS = [
+  { key: 'problem', label: 'Problem Faced' },
+  { key: 'category', label: 'Category' }
+];
 
 const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<ILessonsLearnt[]>([]);
+  const [filters, setFilters] = React.useState<Record<string, string>>({});
+  const filteredItems = React.useMemo(() => items.filter(item =>
+    matchesTextFilter(item.LlProblemFacedLearning, filters.problem) &&
+    matchesTextFilter(item.LlCategory, filters.category)
+  ), [items, filters]);
+
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showLessonsLearntForm, setShowLessonsLearntForm] = React.useState<boolean>(false);
@@ -61,7 +73,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
   }, []);
 
   const handleExportLessonsLearnt = React.useCallback(() => {
-    const rows = items.map((item) => ({
+    const rows = filteredItems.map((item) => ({
       'Problem Faced / Learning': item.LlProblemFacedLearning ?? '',
       'Category': item.LlCategory ?? '',
       'Solution': item.LlSolution ?? '',
@@ -73,7 +85,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
       sheetName: 'Lessons Learnt',
       fileName: 'LessonsLearnt'
     });
-  }, [items]);
+  }, [filteredItems]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -112,6 +124,14 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
       key: 'remarks',
       name: 'Remarks',
       fieldName: 'LlRemarks',
+      minWidth: 140,
+      maxWidth: 260,
+      isResizable: true
+    },
+    {
+      key: 'attachments',
+      name: 'Attachment',
+      fieldName: 'attachments',
       minWidth: 140,
       maxWidth: 260,
       isResizable: true
@@ -224,6 +244,10 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
           />
         </div>
       );
+    }
+
+    if (column.key === 'attachments') {
+      return <AttachmentLinks attachments={item.attachments} />;
     }
 
     const fieldName = column.fieldName as keyof ILessonsLearnt;
@@ -380,9 +404,15 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
           text="Export"
           iconProps={{ iconName: 'Download' }}
           onClick={handleExportLessonsLearnt}
-          disabled={isLoading || items.length === 0}
+          disabled={isLoading || filteredItems.length === 0}
         />
       </div>
+      <LlBpRcFilterBar
+        fields={LESSONS_FILTER_FIELDS}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onClear={() => setFilters({})}
+      />
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (
@@ -406,7 +436,7 @@ const LessonsLearnt: React.FC<ILessonsLearntProps> = ({ context, openItemId }) =
         {!isLoading && !error && (
           items.length > 0 ? (
             <DetailsList
-              items={items}
+              items={filteredItems}
               columns={columns}
               selectionMode={SelectionMode.none}
               layoutMode={DetailsListLayoutMode.justified}

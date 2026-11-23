@@ -27,6 +27,8 @@ import {
   getReusableComponentAttachments,
   updateReusableComponents
 } from '../../../../../repositories/LlBpRcrepository';
+import LlBpRcFilterBar, { matchesTextFilter } from '../LlBpRcFilterBar';
+import AttachmentLinks from '../AttachmentLinks';
 import ReusableComponentsForm from './ReusableComponentsForm';
 
 interface IReusableComponentsProps {
@@ -36,12 +38,21 @@ interface IReusableComponentsProps {
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
 const REUSABLE_COMPONENTS_EXPORT_HEADERS = ['Component Name', 'Location', 'Purpose / Functionality', 'Remarks'];
+const REUSABLE_COMPONENTS_FILTER_FIELDS = [
+  { key: 'componentName', label: 'Component Name' },
+  { key: 'location', label: 'Location' }
+];
 
 const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<IReusableComponents[]>([]);
+  const [filters, setFilters] = React.useState<Record<string, string>>({});
+  const filteredItems = React.useMemo(() => items.filter(item =>
+    matchesTextFilter(item.RcComponentName, filters.componentName) &&
+    matchesTextFilter(item.RcLocation, filters.location)
+  ), [items, filters]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showForm, setShowForm] = React.useState<boolean>(false);
@@ -62,7 +73,7 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
   }, []);
 
   const handleExportReusableComponents = React.useCallback(() => {
-    const rows = items.map((item) => ({
+    const rows = filteredItems.map((item) => ({
       'Component Name': item.RcComponentName ?? '',
       'Location': item.RcLocation ?? '',
       'Purpose / Functionality': item.RcPurposeMainFunctionality ?? '',
@@ -74,7 +85,7 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
       sheetName: 'Reusable Components',
       fileName: 'ReusableComponents'
     });
-  }, [items]);
+  }, [filteredItems]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -113,6 +124,14 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
       key: 'remarks',
       name: 'Remarks',
       fieldName: 'RcRemarks',
+      minWidth: 140,
+      maxWidth: 260,
+      isResizable: true
+    },
+    {
+      key: 'attachments',
+      name: 'Attachment',
+      fieldName: 'attachments',
       minWidth: 140,
       maxWidth: 260,
       isResizable: true
@@ -226,6 +245,10 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
           />
         </div>
       );
+    }
+
+    if (column.key === 'attachments') {
+      return <AttachmentLinks attachments={item.attachments} />;
     }
 
     const fieldName = column.fieldName as keyof IReusableComponents;
@@ -379,9 +402,15 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
           text="Export"
           iconProps={{ iconName: 'Download' }}
           onClick={handleExportReusableComponents}
-          disabled={isLoading || items.length === 0}
+          disabled={isLoading || filteredItems.length === 0}
         />
       </div>
+      <LlBpRcFilterBar
+        fields={REUSABLE_COMPONENTS_FILTER_FIELDS}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onClear={() => setFilters({})}
+      />
       <Stack tokens={stackTokens} className={styles.formWrapper}>
         {successMessage && (
           <MessageBar
@@ -404,7 +433,7 @@ const ReusableComponents: React.FC<IReusableComponentsProps> = ({ context, openI
         {!isLoading && !error && (
           items.length > 0 ? (
             <DetailsList
-              items={items}
+              items={filteredItems}
               columns={columns}
               selectionMode={SelectionMode.none}
               layoutMode={DetailsListLayoutMode.justified}

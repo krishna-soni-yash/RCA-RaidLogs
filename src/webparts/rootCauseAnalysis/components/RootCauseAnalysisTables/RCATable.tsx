@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import { DetailsList, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
+import { DetailsList, DetailsListLayoutMode, DetailsRow, IDetailsRowProps, IColumn, SelectionMode, CheckboxVisibility, PrimaryButton, DefaultButton, Dialog, DialogType, IconButton, mergeStyleSets } from '@fluentui/react';
 import RCAForm from '../RootCauseAnalysisForms/RCAForm';
 import historyStyles from './RCATableHistory.module.scss';
 import { RCACOLUMNS, SubSiteListNames } from '../../../../common/Constants';
@@ -12,6 +12,8 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { exportRowsToExcel } from '../../../../common/excelExport';
 import { formatResponsibilityValue, formatDateMMDDYYYY } from '../../../../common/exportHelpers';
 import IRCARepository from '../../../../repositories/repositoriesInterface/IRCARepository';
+import RcaFilterBar from './RcaFilterBar';
+import { EMPTY_RCA_FILTERS, IRcaColumnFilters, matchesRcaFilters } from './RcaFilters';
 export interface IColumnConfig {
 	key: string;
 	name: string;
@@ -44,6 +46,10 @@ const classNames = mergeStyleSets({
 		background: '#ffffff',
 		borderRadius: 6,
 		boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+	},
+	tableScroll: {
+		overflowX: 'auto',
+		width: '100%'
 	},
 	detailsList: {
 		// tweaks to header and row padding for compact, aligned look
@@ -623,7 +629,7 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	}, [RCAItems, context]);
 
 	// edit column prepended to columns
-	const allowedMainFieldNames = new Set(['LinkTitle', 'CauseCategory', 'RCAPriority', 'RootCause', 'RCATypeOfAction']);
+	const allowedMainFieldNames = new Set(['LinkTitle', 'CauseCategory', 'RCASource', 'RCAPriority', 'RootCause', 'RCATypeOfAction', 'PerformanceBeforeActionPlan', 'PerformanceAfterActionPlan', 'QuantitativeOrStatisticalEffecti', 'Remarks']);
 	const mainListColumns: IColumn[] = (cols as IColumn[]).filter((column: IColumn) => allowedMainFieldNames.has(String(column.fieldName || '')));
 
 	const displayedColumns: IColumn[] = [
@@ -663,6 +669,19 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	// expanded rows state (store string keys derived from each item)
 	const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 	const [currentPage, setCurrentPage] = useState<number>(1);
+	const [rcaFilters, setRcaFilters] = useState<IRcaColumnFilters>(EMPTY_RCA_FILTERS);
+	const filteredRCAItems = React.useMemo(
+		() => (RCAItems ?? []).filter((item) => matchesRcaFilters(item, rcaFilters)),
+		[RCAItems, rcaFilters]
+	);
+	const handleRcaFilterChange = useCallback((patch: Partial<IRcaColumnFilters>) => {
+		setRcaFilters((prev) => ({ ...prev, ...patch }));
+		setCurrentPage(1);
+	}, []);
+	const handleRcaFilterClear = useCallback(() => {
+		setRcaFilters(EMPTY_RCA_FILTERS);
+		setCurrentPage(1);
+	}, []);
 	const keyForItem = (item: any) =>
 		String(item?.ID ?? item?.id ?? item?.key ?? item?.__repoId ?? item?.LinkTitle ?? JSON.stringify(item).slice(0, 40));
 
@@ -692,27 +711,27 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 	}, [RCAItems, localItems, expandedKeys]);
 
 	useEffect(() => {
-		const totalPages = Math.max(1, Math.ceil((RCAItems?.length ?? 0) / PAGE_SIZE));
+		const totalPages = Math.max(1, Math.ceil(filteredRCAItems.length / PAGE_SIZE));
 		setCurrentPage((prev) => {
 			if (prev > totalPages) return totalPages;
 			if (prev < 1) return 1;
 			return prev;
 		});
-	}, [RCAItems]);
+	}, [filteredRCAItems]);
 
-	const totalPages = Math.max(1, Math.ceil((RCAItems?.length ?? 0) / PAGE_SIZE));
+	const totalPages = Math.max(1, Math.ceil(filteredRCAItems.length / PAGE_SIZE));
 	const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
 	const paginatedItems = React.useMemo(() => {
-		if (!RCAItems || RCAItems.length === 0) return [];
+		if (filteredRCAItems.length === 0) return [];
 		const start = (safeCurrentPage - 1) * PAGE_SIZE;
-		return RCAItems.slice(start, start + PAGE_SIZE);
-	}, [RCAItems, safeCurrentPage]);
+		return filteredRCAItems.slice(start, start + PAGE_SIZE);
+	}, [filteredRCAItems, safeCurrentPage]);
 
 	const canGoPrevious = safeCurrentPage > 1;
 	const canGoNext = safeCurrentPage < totalPages;
 
 	const handleExportCausalAnalysis = (): void => {
-		const rows = (RCAItems ?? []).map(buildCausalExportRow);
+		const rows = filteredRCAItems.map(buildCausalExportRow);
 		exportRowsToExcel({
 			rows,
 			headers: CAUSAL_EXPORT_HEADERS,
@@ -809,6 +828,12 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 
 	return (
 		<>
+			<RcaFilterBar
+				filters={rcaFilters}
+				onChange={handleRcaFilterChange}
+				onClear={handleRcaFilterClear}
+			/>
+
 			{/* Add / export controls styled alongside RAID logs actions */}
 			<div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: 8, gap: 8 }}>
 				<PrimaryButton
@@ -824,23 +849,26 @@ const RCATable: React.FC<RCATableProps> = ({ columns, compact, context, classNam
 					text="Export"
 					iconProps={{ iconName: 'Download' }}
 					onClick={handleExportCausalAnalysis}
-					disabled={!RCAItems || RCAItems.length === 0}
+					disabled={filteredRCAItems.length === 0}
 				/>
 			</div>
 
 			<div className={classNames.container}>
-				<DetailsList
-					items={paginatedItems}
-					columns={displayedColumns}
-					onRenderRow={onRenderRow}
-					// disable selection UI and behavior
-					selectionMode={SelectionMode.none}
-					checkboxVisibility={CheckboxVisibility.hidden}
-					compact={compact}
-					className={`${className ?? ''} ${classNames.detailsList}`}
-					// keep virtualization/automatic layout
-					setKey="rca-table"
-				/>
+				<div className={classNames.tableScroll}>
+					<DetailsList
+						items={paginatedItems}
+						columns={displayedColumns}
+						onRenderRow={onRenderRow}
+						// disable selection UI and behavior
+						selectionMode={SelectionMode.none}
+						checkboxVisibility={CheckboxVisibility.hidden}
+						layoutMode={DetailsListLayoutMode.fixedColumns}
+						compact={compact}
+						className={`${className ?? ''} ${classNames.detailsList}`}
+						// keep virtualization/automatic layout
+						setKey="rca-table"
+					/>
+				</div>
 			</div>
 
 			<div className={classNames.paginationBar}>

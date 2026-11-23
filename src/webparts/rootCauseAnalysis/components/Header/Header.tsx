@@ -1,6 +1,5 @@
 /* eslint-disable */
 import * as React from 'react';
-import PpoApproversContext from '../PpoApproversContext';
 import styles from './Header.module.scss';
 import { 
   Text,
@@ -14,11 +13,9 @@ export interface IHeaderProps {
   subtitle?: string;
 }
 
-const Header: React.FC<IHeaderProps> = ({ 
-  title = "SharePoint lists"
-}) => {
-  const { approver } = React.useContext(PpoApproversContext);
-  const contextTitle = approver?.InternalProjectName || approver?.Title || title;
+const Header: React.FC<IHeaderProps> = () => {
+  const contextTitle = "Hub";
+
   const stackTokens: IStackTokens = { childrenGap: 6 };
 
   return (
