@@ -480,7 +480,7 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
                 <h3>Dependency</h3>
               </div>
               <div className={styles.typeCard} onClick={() => selectType('Constraints')}>
-                <h3>Constraints</h3>
+                <h3>Constraint</h3>
               </div>
             </div>
           </div>
@@ -532,7 +532,7 @@ const RaidLogs: React.FC<IRaidLogsProps> = ({ context }) => {
           <PivotItem headerText="Issue" itemKey="Issue" />
           <PivotItem headerText="Assumption" itemKey="Assumption" />
           <PivotItem headerText="Dependency" itemKey="Dependency" />
-          <PivotItem headerText="Constraints" itemKey="Constraints" />
+          <PivotItem headerText="Constraint" itemKey="Constraints" />
         </Pivot>
       </div>
 

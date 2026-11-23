@@ -26,6 +26,8 @@ import {
   getBestPracticeAttachments,
   updateBestPractices
 } from '../../../../../repositories/LlBpRcrepository';
+import LlBpRcFilterBar, { matchesTextFilter } from '../LlBpRcFilterBar';
+import AttachmentLinks from '../AttachmentLinks';
 import BestPracticesForm from './BestPracticesForm';
 
 interface IBestPracticesProps {
@@ -35,12 +37,21 @@ interface IBestPracticesProps {
 
 const stackTokens: IStackTokens = { childrenGap: 12 };
 const BEST_PRACTICES_EXPORT_HEADERS = ['Best Practice Description', 'Category', 'Remarks'];
+const BEST_PRACTICES_FILTER_FIELDS = [
+  { key: 'description', label: 'Best Practice Description' },
+  { key: 'category', label: 'Category' }
+];
 
 const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) => {
   const { currentUserRole, currentUserRoles } = React.useContext(PpoApproversContext);
   const isProjectManager = currentUserRole === Current_User_Role.ProjectManager
     || (currentUserRoles && currentUserRoles.indexOf(Current_User_Role.ProjectManager) !== -1);
   const [items, setItems] = React.useState<IBestPractices[]>([]);
+  const [filters, setFilters] = React.useState<Record<string, string>>({});
+  const filteredItems = React.useMemo(() => items.filter(item =>
+    matchesTextFilter(item.BpBestPracticesDescription, filters.description) &&
+    matchesTextFilter(item.BpCategory, filters.category)
+  ), [items, filters]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showForm, setShowForm] = React.useState<boolean>(false);
@@ -61,7 +72,7 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
   }, []);
 
   const handleExportBestPractices = React.useCallback(() => {
-    const rows = items.map((item) => ({
+    const rows = filteredItems.map((item) => ({
       'Best Practice Description': item.BpBestPracticesDescription ?? '',
       'Category': item.BpCategory ?? '',
       'Remarks': item.BpRemarks ?? ''
@@ -72,7 +83,7 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
       sheetName: 'Best Practices',
       fileName: 'BestPractices'
     });
-  }, [items]);
+  }, [filteredItems]);
 
   const columns: IColumn[] = React.useMemo(() => [
     {
@@ -104,6 +115,14 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
       name: 'Remarks',
       fieldName: 'BpRemarks',
       minWidth: 150,
+      maxWidth: 260,
+      isResizable: true
+    },
+    {
+      key: 'attachments',
+      name: 'Attachment',
+      fieldName: 'attachments',
+      minWidth: 140,
       maxWidth: 260,
       isResizable: true
     }
@@ -215,6 +234,10 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
           />
         </div>
       );
+    }
+
+    if (column.key === 'attachments') {
+      return <AttachmentLinks attachments={item.attachments} />;
     }
 
     const fieldName = column.fieldName as keyof IBestPractices;
@@ -369,9 +392,15 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
           text="Export"
           iconProps={{ iconName: 'Download' }}
           onClick={handleExportBestPractices}
-          disabled={isLoading || items.length === 0}
+          disabled={isLoading || filteredItems.length === 0}
         />
       </div>
+      <LlBpRcFilterBar
+        fields={BEST_PRACTICES_FILTER_FIELDS}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onClear={() => setFilters({})}
+      />
       <Stack tokens={stackTokens} className={styles.formWrapper}>
 
         {successMessage && (
@@ -395,7 +424,7 @@ const BestPractices: React.FC<IBestPracticesProps> = ({ context, openItemId }) =
         {!isLoading && !error && (
           items.length > 0 ? (
             <DetailsList
-              items={items}
+              items={filteredItems}
               columns={columns}
               selectionMode={SelectionMode.none}
               layoutMode={DetailsListLayoutMode.justified}
